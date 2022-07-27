@@ -1,7 +1,14 @@
 import React, { Component } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+
 import { STLLoader } from "three/examples/jsm/loaders/STLLoader";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
+import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
+import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm/renderers/CSS2DRenderer";
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
 
 import lundunyan from '../assets/images/lunduneye.png'
 import grass from '../assets/images/grass.jpg'
@@ -15,6 +22,9 @@ import data from '../assets/数据.json'
 import tree from '../assets/images/tree.png'
 import rain from '../assets/images/rain.png'
 import { Button, InputNumber, Slider, Modal } from "antd";
+import { PMREMGenerator, sRGBEncoding } from "three";
+import { TextureLoader } from "three";
+import { EquirectangularReflectionMapping } from "three";
 
 
 // 漏掉的：
@@ -114,10 +124,11 @@ class MainPage extends Component {
 
     // this.data_import_export(scene)
 
-    // this.load_model(scene)
+    this.load_model(scene)
     // this.testRotate(scene)
 
-    this.sky_box(scene)
+    // this.sky_box(scene)
+    // this.load_gltf(scene, renderer, camera)
 
     let raycaster = new THREE.Raycaster();
     let mouse = new THREE.Vector2();
