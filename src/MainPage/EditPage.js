@@ -21,13 +21,17 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
+import { IFCLoader } from 'three/examples/jsm/loaders/IFCLoader'
+import { Water } from 'three/examples/jsm/objects/Water.js';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import gsap from 'gsap'
 
-export default class EditPage extends React.Component{
-  componentDidMount(){
+export default class EditPage extends React.Component {
+  componentDidMount() {
     this.draw();
     console.log(22);
   }
-  draw(){
+  draw() {
     const canvas = document.querySelector('#c2d');
     const renderer = new THREE.WebGLRenderer({
       canvas,
@@ -48,11 +52,404 @@ export default class EditPage extends React.Component{
     // this.load_gltf(renderer, canvas)
     // this.outline(renderer, canvas)
     // this.shape(renderer, canvas)
-    this.light(renderer, canvas)
+    // this.light(renderer, canvas)
+
+    // this.raycasting_poingts(renderer, canvas)
+    this.points(renderer, canvas)
 
   }
+  points(renderer, canvas){
+    
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 1000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(30, 30, 30)
+    camera.lookAt(30, 0, 0)
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
 
-  light(renderer, canvas){
+    // 场景
+    const scene = new THREE.Scene()
+
+    renderer.shadowMap.enabled = true;  // 1、开启阴影渲染
+
+    // 灯光
+    const color = 0xffffff
+    const intensity = 2
+    const light = new THREE.PointLight(color, intensity)
+    light.position.set(0, 10, 10)
+    scene.add(light)
+
+    const light1 = new THREE.DirectionalLight(color, intensity)
+    light1.position.set(-10, -10, -10)
+    scene.add(light1)
+
+
+    const axis = new THREE.AxesHelper(30, 30, 30)
+    scene.add(axis)
+
+    {
+      // 平面几何
+      const groundGeometry = new THREE.PlaneGeometry(50, 50)
+      const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xcccccc, side: THREE.DoubleSide })
+      const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial)
+      groundMesh.rotation.x = Math.PI * -0.5
+      groundMesh.receiveShadow = true // 3、接受阴影
+      // scene.add(groundMesh)
+    }
+
+    {
+      function createPointsPlane({ width, length, density=1, position=[0,0,0], pointColor=0xcc8866}){
+
+        let group = new THREE.Group()
+        const rot = Math.PI/2;
+
+        {
+          // 1、创建平面点
+          const w = width / density + 1;
+          const l = length / density + 1;
+
+          for(let i=0; i < w; i++){
+
+            for(let j=0; j < l; j++){
+
+              const geometry = new THREE.CircleGeometry(0.05, 50);
+
+              const material = new THREE.MeshPhongMaterial( { 
+                color: pointColor, 
+                side: THREE.DoubleSide,
+                polygonOffset: true 
+              } );
+              const mesh = new THREE.Mesh( geometry, material );
+
+              mesh.position.set(i * density, j * density)
+              
+              group.add(mesh);
+
+            }
+          }
+        }
+        {
+          // 2、创建网格
+          const axis = new THREE.GridHelper(width, length)
+          
+          console.log(axis.material);
+          axis.material.transparent = true;
+          axis.material.opacity = 0.4
+          axis.rotation.x = -Math.PI / 2
+    
+          axis.position.set(width / 2, length / 2, 0)
+          group.add(axis)
+        }
+        {
+          // 3、创建平面
+          let planeGeometry = new THREE.PlaneGeometry(width, length)
+          let planeMaterial = new THREE.MeshPhongMaterial({ 
+            color: 0xffffff, 
+            side: THREE.DoubleSide,
+            transparent: true,
+            opacity: 0.1,
+          })
+
+          let mesh = new THREE.Mesh(planeGeometry, planeMaterial)
+          group.add(mesh)
+
+          mesh.position.set(width / 2, length / 2, 0)
+        }
+
+        group.rotation.x = rot
+
+        group.position.set.apply(group.position, position)
+
+
+        return group
+      }
+      let group = createPointsPlane({ 
+        width: 30, 
+        length: 30, 
+        density: 1,
+        position:[-2,-2,-2],
+        pointColor: 0xffffff
+      })
+      scene.add(group)
+
+    }
+
+
+    // 渲染
+    function render() {
+      renderer.render(scene, camera)
+      requestAnimationFrame(render)
+    }
+
+    requestAnimationFrame(render)
+    
+
+
+  }
+  raycasting_poingts(renderer, canvas) {
+
+    let scene, camera, stats;
+    let pointclouds;
+    let raycaster;
+    let intersection = null;
+    let spheresIndex = 0;
+    let clock;
+    let toggle = 0;
+
+    const pointer = new THREE.Vector2();
+    const spheres = [];
+
+    const threshold = 0.1;
+    const pointSize = 0.05;
+    const width = 80;
+    const length = 160;
+    const rotateY = new THREE.Matrix4().makeRotationY(0.005);
+
+    init();
+    animate();
+
+    function generatePointCloudGeometry(color, width, length) {
+
+      const geometry = new THREE.BufferGeometry();
+      const numPoints = width * length;
+
+      const positions = new Float32Array(numPoints * 3);
+      const colors = new Float32Array(numPoints * 3);
+
+      let k = 0;
+
+      for (let i = 0; i < width; i++) {
+
+        for (let j = 0; j < length; j++) {
+
+          const u = i / width;
+          const v = j / length;
+          const x = u - 0.5;
+          const y = (Math.cos(u * Math.PI * 4) + Math.sin(v * Math.PI * 8)) / 20;
+          const z = v - 0.5;
+
+          positions[3 * k] = x;
+          positions[3 * k + 1] = y;
+          positions[3 * k + 2] = z;
+
+          const intensity = (y + 0.1) * 5;
+          colors[3 * k] = color.r * intensity;
+          colors[3 * k + 1] = color.g * intensity;
+          colors[3 * k + 2] = color.b * intensity;
+
+          k++;
+
+        }
+
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+      geometry.computeBoundingBox();
+
+      return geometry;
+
+    }
+
+    function generatePointcloud(color, width, length) {
+
+      const geometry = generatePointCloudGeometry(color, width, length);
+      const material = new THREE.PointsMaterial({ size: pointSize, vertexColors: true });
+
+      return new THREE.Points(geometry, material);
+
+    }
+
+    function generateIndexedPointcloud(color, width, length) {
+
+      const geometry = generatePointCloudGeometry(color, width, length);
+      const numPoints = width * length;
+      const indices = new Uint16Array(numPoints);
+
+      let k = 0;
+
+      for (let i = 0; i < width; i++) {
+
+        for (let j = 0; j < length; j++) {
+
+          indices[k] = k;
+          k++;
+
+        }
+
+      }
+
+      geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+
+      const material = new THREE.PointsMaterial({ size: pointSize, vertexColors: true });
+
+      return new THREE.Points(geometry, material);
+
+    }
+
+    function generateIndexedWithOffsetPointcloud(color, width, length) {
+
+      const geometry = generatePointCloudGeometry(color, width, length);
+      const numPoints = width * length;
+      const indices = new Uint16Array(numPoints);
+
+      let k = 0;
+
+      for (let i = 0; i < width; i++) {
+
+        for (let j = 0; j < length; j++) {
+
+          indices[k] = k;
+          k++;
+
+        }
+
+      }
+
+      geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+      geometry.addGroup(0, indices.length);
+
+      const material = new THREE.PointsMaterial({ size: pointSize, vertexColors: true });
+
+      return new THREE.Points(geometry, material);
+
+    }
+
+    function init() {
+
+      const container = document.getElementById('container');
+
+      scene = new THREE.Scene();
+
+      clock = new THREE.Clock();
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
+      camera.position.set(10, 10, 10);
+      camera.lookAt(scene.position);
+      camera.updateMatrix();
+
+      //
+
+      const pcBuffer = generatePointcloud(new THREE.Color(1, 0, 0), width, length);
+      pcBuffer.scale.set(5, 10, 10);
+      pcBuffer.position.set(- 5, 0, 0);
+      scene.add(pcBuffer);
+
+      const pcIndexed = generateIndexedPointcloud(new THREE.Color(0, 1, 0), width, length);
+      pcIndexed.scale.set(5, 10, 10);
+      pcIndexed.position.set(0, 0, 0);
+      scene.add(pcIndexed);
+
+      const pcIndexedOffset = generateIndexedWithOffsetPointcloud(new THREE.Color(0, 1, 1), width, length);
+      pcIndexedOffset.scale.set(5, 10, 10);
+      pcIndexedOffset.position.set(5, 0, 0);
+      scene.add(pcIndexedOffset);
+
+      pointclouds = [pcBuffer, pcIndexed, pcIndexedOffset];
+
+      //
+
+      const sphereGeometry = new THREE.SphereGeometry(0.1, 32, 32);
+      const sphereMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+
+      for (let i = 0; i < 40; i++) {
+
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+        scene.add(sphere);
+        spheres.push(sphere);
+
+      }
+
+      //
+
+      // renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      // container.appendChild(renderer.domElement);
+
+      //
+
+      raycaster = new THREE.Raycaster();
+      raycaster.params.Points.threshold = threshold;
+
+      //
+
+      stats = new Stats();
+      canvas.appendChild(stats.dom);
+
+      //
+
+      window.addEventListener('resize', onWindowResize);
+      document.addEventListener('pointermove', onPointerMove);
+
+    }
+
+    function onPointerMove(event) {
+
+      pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+    }
+
+    function onWindowResize() {
+
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+
+      renderer.setSize(window.innerWidth, window.innerHeight);
+
+    }
+
+    function animate() {
+
+      requestAnimationFrame(animate);
+
+      render();
+      stats.update();
+
+    }
+
+    function render() {
+
+      camera.applyMatrix4(rotateY);
+      camera.updateMatrixWorld();
+
+      raycaster.setFromCamera(pointer, camera);
+
+      const intersections = raycaster.intersectObjects(pointclouds, false);
+      intersection = (intersections.length) > 0 ? intersections[0] : null;
+
+      if (toggle > 0.02 && intersection !== null) {
+
+        spheres[spheresIndex].position.copy(intersection.point);
+        spheres[spheresIndex].scale.set(1, 1, 1);
+        spheresIndex = (spheresIndex + 1) % spheres.length;
+
+        toggle = 0;
+
+      }
+
+      for (let i = 0; i < spheres.length; i++) {
+
+        const sphere = spheres[i];
+        sphere.scale.multiplyScalar(0.98);
+        sphere.scale.clampScalar(0.01, 1);
+
+      }
+
+      toggle += clock.getDelta();
+
+      renderer.render(scene, camera);
+
+    }
+  }
+
+  light(renderer, canvas) {
 
     const fov = 40 // 视野范围
     const aspect = 2 // 相机默认值 画布的宽高比
@@ -72,22 +469,22 @@ export default class EditPage extends React.Component{
 
     let ambiColor = '#ff0000'
     let ambientLight = new THREE.AmbientLight(ambiColor)
-    
+
     scene.add(ambientLight)
 
     // 对于0x00ff00的物体，红色通道是0，而环境光是完全的红光，因此该长方体不能反射任何光线，最终的渲染颜色就是黑色；
     let greenCube = new THREE.Mesh(
-      new THREE.BoxGeometry(2,2,2),
-      new THREE.MeshLambertMaterial({color: 0xf00ff00})
+      new THREE.BoxGeometry(2, 2, 2),
+      new THREE.MeshLambertMaterial({ color: 0xf00ff00 })
     )
 
     greenCube.position.x = 3;
     scene.add(greenCube)
-    
+
     // 而对于0xffffff的白色长方体，红色通道是0xff，因而能反射所有红光，渲染的颜色就是红色
     let whiteCube = new THREE.Mesh(
-      new THREE.BoxGeometry(2,2,2),
-      new THREE.MeshLambertMaterial({color: 0xffffff})
+      new THREE.BoxGeometry(2, 2, 2),
+      new THREE.MeshLambertMaterial({ color: 0xffffff })
     )
     whiteCube.position.x = -3
     scene.add(whiteCube)
@@ -95,14 +492,14 @@ export default class EditPage extends React.Component{
     const axis = new THREE.AxesHelper(5)
     scene.add(axis)
 
-    function render(){
+    function render() {
 
       renderer.render(scene, camera)
     }
     requestAnimationFrame(render)
   }
 
-  shape(renderer, canvas){
+  shape(renderer, canvas) {
 
     const fov = 40 // 视野范围
     const aspect = 2 // 相机默认值 画布的宽高比
@@ -169,32 +566,32 @@ export default class EditPage extends React.Component{
     scene.add(mesh1)
 
     // 效果合成器
-    const composer = new EffectComposer( renderer );
+    const composer = new EffectComposer(renderer);
 
-    const renderPass = new RenderPass( scene, camera );
-    composer.addPass( renderPass ); // 将传入的过程添加到过程链
+    const renderPass = new RenderPass(scene, camera);
+    composer.addPass(renderPass); // 将传入的过程添加到过程链
 
-    const outlinePass = new OutlinePass( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
+    const outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
     outlinePass.visibleEdgeColor.set(0xffff00)
-    composer.addPass( outlinePass );
+    composer.addPass(outlinePass);
 
-    const effectFXAA = new ShaderPass( FXAAShader );
-    effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
-    composer.addPass( effectFXAA );
+    const effectFXAA = new ShaderPass(FXAAShader);
+    effectFXAA.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+    composer.addPass(effectFXAA);
 
-    window.addEventListener( 'resize', onWindowResize );
+    window.addEventListener('resize', onWindowResize);
 
     renderer.domElement.style.touchAction = 'none';
-    renderer.domElement.addEventListener( 'pointermove', onPointerMove );
+    renderer.domElement.addEventListener('pointermove', onPointerMove);
 
     const mouse = new THREE.Vector2();
 
-    function onPointerMove( event ) {
+    function onPointerMove(event) {
 
-      if ( event.isPrimary === false ) return;
+      if (event.isPrimary === false) return;
 
-      mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-      mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
       checkIntersection();
 
@@ -204,26 +601,26 @@ export default class EditPage extends React.Component{
 
     const raycaster = new THREE.Raycaster();
 
-    function addSelectedObject( object ) {
+    function addSelectedObject(object) {
 
       selectedObjects = [];
-      selectedObjects.push( object );
+      selectedObjects.push(object);
 
     }
 
     function checkIntersection() {
 
-      raycaster.setFromCamera( mouse, camera );
+      raycaster.setFromCamera(mouse, camera);
 
-      const intersects = raycaster.intersectObject( scene, true );
+      const intersects = raycaster.intersectObject(scene, true);
 
-      if ( intersects.length > 0 ) {
+      if (intersects.length > 0) {
 
-        const selectedObject = intersects[ 0 ].object;
-        addSelectedObject( selectedObject );
-        if(selectedObject.name === 'mesh1'){
+        const selectedObject = intersects[0].object;
+        addSelectedObject(selectedObject);
+        if (selectedObject.name === 'mesh1') {
           outlinePass.visibleEdgeColor.set(0xffff00)
-        }else{
+        } else {
           outlinePass.visibleEdgeColor.set(0xffffff)
         }
         outlinePass.selectedObjects = selectedObjects;
@@ -244,15 +641,15 @@ export default class EditPage extends React.Component{
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
 
-      renderer.setSize( width, height );
-      composer.setSize( width, height );
+      renderer.setSize(width, height);
+      composer.setSize(width, height);
 
-      effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
+      effectFXAA.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
 
     }
     function animate() {
 
-      requestAnimationFrame( animate );
+      requestAnimationFrame(animate);
 
       controls.update();
 
@@ -261,7 +658,7 @@ export default class EditPage extends React.Component{
 
     }
     animate()
-    
+
 
     // 渲染
     // function render() {
@@ -271,7 +668,7 @@ export default class EditPage extends React.Component{
     // requestAnimationFrame(render)
   }
 
-  outline(renderer){
+  outline(renderer) {
     let container, stats;
     let camera, scene, controls;
     let composer, effectFXAA, outlinePass;
@@ -295,39 +692,39 @@ export default class EditPage extends React.Component{
 
     // Init gui
 
-    const gui = new GUI( { width: 280 } );
+    const gui = new GUI({ width: 280 });
 
-    gui.add( params, 'edgeStrength', 0.01, 10 ).onChange( function ( value ) {
+    gui.add(params, 'edgeStrength', 0.01, 10).onChange(function (value) {
 
-      outlinePass.edgeStrength = Number( value );
+      outlinePass.edgeStrength = Number(value);
 
-    } );
+    });
 
-    gui.add( params, 'edgeGlow', 0.0, 1 ).onChange( function ( value ) {
+    gui.add(params, 'edgeGlow', 0.0, 1).onChange(function (value) {
 
-      outlinePass.edgeGlow = Number( value );
+      outlinePass.edgeGlow = Number(value);
 
-    } );
+    });
 
-    gui.add( params, 'edgeThickness', 1, 4 ).onChange( function ( value ) {
+    gui.add(params, 'edgeThickness', 1, 4).onChange(function (value) {
 
-      outlinePass.edgeThickness = Number( value );
+      outlinePass.edgeThickness = Number(value);
 
-    } );
+    });
 
-    gui.add( params, 'pulsePeriod', 0.0, 5 ).onChange( function ( value ) {
+    gui.add(params, 'pulsePeriod', 0.0, 5).onChange(function (value) {
 
-      outlinePass.pulsePeriod = Number( value );
+      outlinePass.pulsePeriod = Number(value);
 
-    } );
+    });
 
-    gui.add( params, 'rotate' );
+    gui.add(params, 'rotate');
 
-    gui.add( params, 'usePatternTexture' ).onChange( function ( value ) {
+    gui.add(params, 'usePatternTexture').onChange(function (value) {
 
       outlinePass.usePatternTexture = value;
 
-    } );
+    });
 
     function Configuration() {
 
@@ -338,40 +735,40 @@ export default class EditPage extends React.Component{
 
     const conf = new Configuration();
 
-    gui.addColor( conf, 'visibleEdgeColor' ).onChange( function ( value ) {
+    gui.addColor(conf, 'visibleEdgeColor').onChange(function (value) {
 
-      outlinePass.visibleEdgeColor.set( value );
+      outlinePass.visibleEdgeColor.set(value);
 
-    } );
+    });
 
-    gui.addColor( conf, 'hiddenEdgeColor' ).onChange( function ( value ) {
+    gui.addColor(conf, 'hiddenEdgeColor').onChange(function (value) {
 
-      outlinePass.hiddenEdgeColor.set( value );
+      outlinePass.hiddenEdgeColor.set(value);
 
-    } );
+    });
 
     init();
     animate();
 
     function init() {
 
-      container = document.createElement( 'div' );
-      document.body.appendChild( container );
+      container = document.createElement('div');
+      document.body.appendChild(container);
 
       const width = window.innerWidth;
       const height = window.innerHeight;
 
       renderer.shadowMap.enabled = true;
       // todo - support pixelRatio in this demo
-      renderer.setSize( width, height );
-      document.body.appendChild( renderer.domElement );
+      renderer.setSize(width, height);
+      document.body.appendChild(renderer.domElement);
 
       scene = new THREE.Scene();
 
-      camera = new THREE.PerspectiveCamera( 45, width / height, 0.1, 100 );
-      camera.position.set( 0, 0, 8 );
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 100);
+      camera.position.set(0, 0, 8);
 
-      controls = new OrbitControls( camera, renderer.domElement );
+      controls = new OrbitControls(camera, renderer.domElement);
       controls.minDistance = 5;
       controls.maxDistance = 20;
       controls.enablePan = false;
@@ -380,10 +777,10 @@ export default class EditPage extends React.Component{
 
       //
 
-      scene.add( new THREE.AmbientLight( 0xaaaaaa, 0.2 ) );
+      scene.add(new THREE.AmbientLight(0xaaaaaa, 0.2));
 
-      const light = new THREE.DirectionalLight( 0xddffdd, 0.6 );
-      light.position.set( 1, 1, 1 );
+      const light = new THREE.DirectionalLight(0xddffdd, 0.6);
+      light.position.set(1, 1, 1);
       light.castShadow = true;
       light.shadow.mapSize.width = 1024;
       light.shadow.mapSize.height = 1024;
@@ -396,140 +793,140 @@ export default class EditPage extends React.Component{
       light.shadow.camera.bottom = - d;
       light.shadow.camera.far = 1000;
 
-      scene.add( light );
+      scene.add(light);
 
       // model
 
       const loader = new OBJLoader();
-      loader.load( 'models/obj/tree.obj', function ( object ) {
+      loader.load('models/obj/tree.obj', function (object) {
 
         let scale = 1.0;
 
-        object.traverse( function ( child ) {
+        object.traverse(function (child) {
 
-          if ( child instanceof THREE.Mesh ) {
+          if (child instanceof THREE.Mesh) {
 
             child.geometry.center();
             child.geometry.computeBoundingSphere();
             scale = 0.2 * child.geometry.boundingSphere.radius;
 
-            const phongMaterial = new THREE.MeshPhongMaterial( { color: 0xffffff, specular: 0x111111, shininess: 5 } );
+            const phongMaterial = new THREE.MeshPhongMaterial({ color: 0xffffff, specular: 0x111111, shininess: 5 });
             child.material = phongMaterial;
             child.receiveShadow = true;
             child.castShadow = true;
 
           }
 
-        } );
+        });
 
         object.position.y = 1;
-        object.scale.divideScalar( scale );
-        obj3d.add( object );
+        object.scale.divideScalar(scale);
+        obj3d.add(object);
 
-      } );
+      });
 
-      scene.add( group );
+      scene.add(group);
 
-      group.add( obj3d );
+      group.add(obj3d);
 
       //
 
-      const geometry = new THREE.SphereGeometry( 3, 48, 24 );
+      const geometry = new THREE.SphereGeometry(3, 48, 24);
 
-      for ( let i = 0; i < 20; i ++ ) {
+      for (let i = 0; i < 20; i++) {
 
         const material = new THREE.MeshLambertMaterial();
-        material.color.setHSL( Math.random(), 1.0, 0.3 );
+        material.color.setHSL(Math.random(), 1.0, 0.3);
 
-        const mesh = new THREE.Mesh( geometry, material );
+        const mesh = new THREE.Mesh(geometry, material);
         mesh.position.x = Math.random() * 4 - 2;
         mesh.position.y = Math.random() * 4 - 2;
         mesh.position.z = Math.random() * 4 - 2;
         mesh.receiveShadow = true;
         mesh.castShadow = true;
-        mesh.scale.multiplyScalar( Math.random() * 0.3 + 0.1 );
-        group.add( mesh );
+        mesh.scale.multiplyScalar(Math.random() * 0.3 + 0.1);
+        group.add(mesh);
 
       }
 
-      const floorMaterial = new THREE.MeshLambertMaterial( { side: THREE.DoubleSide } );
+      const floorMaterial = new THREE.MeshLambertMaterial({ side: THREE.DoubleSide });
 
-      const floorGeometry = new THREE.PlaneGeometry( 12, 12 );
-      const floorMesh = new THREE.Mesh( floorGeometry, floorMaterial );
+      const floorGeometry = new THREE.PlaneGeometry(12, 12);
+      const floorMesh = new THREE.Mesh(floorGeometry, floorMaterial);
       floorMesh.rotation.x -= Math.PI * 0.5;
       floorMesh.position.y -= 1.5;
-      group.add( floorMesh );
+      group.add(floorMesh);
       floorMesh.receiveShadow = true;
 
-      const torusGeometry = new THREE.TorusGeometry( 1, 0.3, 16, 100 );
-      const torusMaterial = new THREE.MeshPhongMaterial( { color: 0xffaaff } );
-      const torus = new THREE.Mesh( torusGeometry, torusMaterial );
+      const torusGeometry = new THREE.TorusGeometry(1, 0.3, 16, 100);
+      const torusMaterial = new THREE.MeshPhongMaterial({ color: 0xffaaff });
+      const torus = new THREE.Mesh(torusGeometry, torusMaterial);
       torus.position.z = - 4;
-      group.add( torus );
+      group.add(torus);
       torus.receiveShadow = true;
       torus.castShadow = true;
 
       //
 
       stats = new Stats();
-      container.appendChild( stats.dom );
+      container.appendChild(stats.dom);
 
       // postprocessing
 
-      composer = new EffectComposer( renderer );
+      composer = new EffectComposer(renderer);
 
-      const renderPass = new RenderPass( scene, camera );
-      composer.addPass( renderPass );
+      const renderPass = new RenderPass(scene, camera);
+      composer.addPass(renderPass);
 
-      outlinePass = new OutlinePass( new THREE.Vector2( window.innerWidth, window.innerHeight ), scene, camera );
-      composer.addPass( outlinePass );
+      outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
+      composer.addPass(outlinePass);
 
       const textureLoader = new THREE.TextureLoader();
-      textureLoader.load( 'textures/tri_pattern.jpg', function ( texture ) {
+      textureLoader.load('textures/tri_pattern.jpg', function (texture) {
 
         outlinePass.patternTexture = texture;
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
 
-      } );
+      });
 
-      effectFXAA = new ShaderPass( FXAAShader );
-      effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
-      composer.addPass( effectFXAA );
+      effectFXAA = new ShaderPass(FXAAShader);
+      effectFXAA.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
+      composer.addPass(effectFXAA);
 
-      window.addEventListener( 'resize', onWindowResize );
+      window.addEventListener('resize', onWindowResize);
 
       renderer.domElement.style.touchAction = 'none';
-      renderer.domElement.addEventListener( 'pointermove', onPointerMove );
+      renderer.domElement.addEventListener('pointermove', onPointerMove);
 
-      function onPointerMove( event ) {
+      function onPointerMove(event) {
 
-        if ( event.isPrimary === false ) return;
+        if (event.isPrimary === false) return;
 
-        mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
-        mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
         checkIntersection();
 
       }
 
-      function addSelectedObject( object ) {
+      function addSelectedObject(object) {
 
         selectedObjects = [];
-        selectedObjects.push( object );
+        selectedObjects.push(object);
 
       }
 
       function checkIntersection() {
 
-        raycaster.setFromCamera( mouse, camera );
+        raycaster.setFromCamera(mouse, camera);
 
-        const intersects = raycaster.intersectObject( scene, true );
+        const intersects = raycaster.intersectObject(scene, true);
 
-        if ( intersects.length > 0 ) {
+        if (intersects.length > 0) {
 
-          const selectedObject = intersects[ 0 ].object;
-          addSelectedObject( selectedObject );
+          const selectedObject = intersects[0].object;
+          addSelectedObject(selectedObject);
           outlinePass.selectedObjects = selectedObjects;
 
         } else {
@@ -550,22 +947,22 @@ export default class EditPage extends React.Component{
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
 
-      renderer.setSize( width, height );
-      composer.setSize( width, height );
+      renderer.setSize(width, height);
+      composer.setSize(width, height);
 
-      effectFXAA.uniforms[ 'resolution' ].value.set( 1 / window.innerWidth, 1 / window.innerHeight );
+      effectFXAA.uniforms['resolution'].value.set(1 / window.innerWidth, 1 / window.innerHeight);
 
     }
 
     function animate() {
 
-      requestAnimationFrame( animate );
+      requestAnimationFrame(animate);
 
       stats.begin();
 
       const timer = performance.now();
 
-      if ( params.rotate ) {
+      if (params.rotate) {
 
         group.rotation.y = timer * 0.0001;
 
@@ -580,7 +977,7 @@ export default class EditPage extends React.Component{
     }
   }
 
-  
+
   load_gltf(renderer, canvas) {
 
     const fov = 40 // 视野范围
@@ -621,13 +1018,13 @@ export default class EditPage extends React.Component{
         console.log('An error happened');
       }
     )
-    
+
     // 2、通过hdr文件添加环境光
     const pmremGenerator = new PMREMGenerator(renderer)
     pmremGenerator.compileEquirectangularShader();
 
     const rgbeLoader = new RGBELoader()
-    rgbeLoader.load('/st_peters_square_night_4k.hdr', function(texture){
+    rgbeLoader.load('/st_peters_square_night_4k.hdr', function (texture) {
 
       const envMap = pmremGenerator.fromEquirectangular(texture).texture
       pmremGenerator.dispose();
@@ -662,7 +1059,7 @@ export default class EditPage extends React.Component{
     //     css2DRenderer.render(scene, camera)
     //   }
     // }
-/*  */
+    /*  */
     // function css2dresize(){
     //   if(css2DRenderer != null){
     //     css2DRenderer.setSize(window.innerWidth, window.innerHeight)
@@ -673,7 +1070,7 @@ export default class EditPage extends React.Component{
     const spriteMaterial = new THREE.SpriteMaterial({
       map: new TextureLoader().load('/billboard1.png'),
       // color: 0xffffff
-    }) 
+    })
     const sprite = new THREE.Sprite(spriteMaterial);
     scene.add(sprite)
 
@@ -703,7 +1100,7 @@ export default class EditPage extends React.Component{
 
   }
 
-  webglRenderTarget(renderer, canvas){
+  webglRenderTarget(renderer, canvas) {
 
     const fov = 40 // 视野范围
     const aspect = 2 // 相机默认值 画布的宽高比
@@ -756,7 +1153,7 @@ export default class EditPage extends React.Component{
     const boxDepth = 6
     const boxGeometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth)
     // 材质
-    const material = new THREE.MeshPhongMaterial({ 
+    const material = new THREE.MeshPhongMaterial({
       // color: 0x00ff00 
       map: renderTarget.texture
     })
@@ -782,10 +1179,10 @@ export default class EditPage extends React.Component{
     }
     requestAnimationFrame(render)
 
-  
+
   }
 
-  raycaster(renderer, canvas){
+  raycaster(renderer, canvas) {
 
     const fov = 40 // 视野范围
     const aspect = 2 // 相机默认值 画布的宽高比
@@ -839,15 +1236,15 @@ export default class EditPage extends React.Component{
       const axis2 = new THREE.AxesHelper(1.5, 1.5, 1.5)
       cube2.add(axis2)
 
-      cube.rotateY(Math.PI/3);
-      cube.rotateX(Math.PI/3)
+      cube.rotateY(Math.PI / 3);
+      cube.rotateX(Math.PI / 3)
 
-      cube2.rotation.y = Math.PI/3
-      cube2.rotation.x = Math.PI/3
+      cube2.rotation.y = Math.PI / 3
+      cube2.rotation.x = Math.PI / 3
     }
 
- 
-    function getCanvasRelativePosition(event){
+
+    function getCanvasRelativePosition(event) {
 
       const rect = canvas.getBoundingClientRect()
       return {
@@ -859,9 +1256,9 @@ export default class EditPage extends React.Component{
     // 归一化鼠标坐标   
     // 归一化就是要把需要处理的数据经过处理后（通过某种算法）限制在你需要的一定范围内
     // 例如，假设我们把训练数据的第一个属性从[-10,+10]缩放到[-1, +1]，那么如果测试数据的第一个属性属于区间[-11, +8]，我们必须将测试数据转变成[-1.1, +0.8]
-    function setPickPosition(event){
+    function setPickPosition(event) {
 
-      let pickPosition = {x: 0, y: 0}
+      let pickPosition = { x: 0, y: 0 }
 
       // 计算后 以画布 开始为 （0，0）点
       const pos = getCanvasRelativePosition(event)
@@ -876,7 +1273,7 @@ export default class EditPage extends React.Component{
     // window.addEventListener('mousemove', onRay)
     // 全局对象
     let lastPick = null
-    function onRay(event){
+    function onRay(event) {
 
       let pickPosition = setPickPosition(event)
 
@@ -887,13 +1284,13 @@ export default class EditPage extends React.Component{
       const intersects = raycaster.intersectObjects(scene.children, true)
 
       // 数组大于 0 表示有相交对象
-      if(intersects.length > 0){
-        if(lastPick){
+      if (intersects.length > 0) {
+        if (lastPick) {
           lastPick.object.material.color.set('yellow')
         }
         lastPick = intersects[0]
-      }else{
-        if(lastPick){
+      } else {
+        if (lastPick) {
           // 复原
           lastPick.object.material.color.set(0x6688aa)
           lastPick = null
@@ -909,68 +1306,68 @@ export default class EditPage extends React.Component{
     requestAnimationFrame(render)
   }
 
-  fog(renderer, canvas){
+  fog(renderer, canvas) {
 
     const fov = 75 // 视野范围
-      const aspect = 2 // 相机默认值 画布的宽高比
-      const near = 0.1 // 近平面
-      const far = 10 // 远平面
-      // 透视投影相机
-      const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
-      camera.position.set(0, 0, 10)
-      camera.lookAt(0, 0, 0)
-      // 控制相机
-      const controls = new OrbitControls(camera, canvas)
-      controls.update()
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(0, 0, 10)
+    camera.lookAt(0, 0, 0)
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
 
-      // 场景
-      const scene = new THREE.Scene()
+    // 场景
+    const scene = new THREE.Scene()
 
-      {
-        const near = 1
-        const far = 11
-        const color = 'lightblue'
-        scene.fog = new THREE.Fog(color, near, far)
-        scene.background = new THREE.Color(color)
-      }
+    {
+      const near = 1
+      const far = 11
+      const color = 'lightblue'
+      scene.fog = new THREE.Fog(color, near, far)
+      scene.background = new THREE.Color(color)
+    }
 
-      {
-        const color = 0xffffff
-        const intensity = 1
-        const light = new THREE.DirectionalLight(color, intensity)
-        light.position.set(-1, 2, 4)
-        scene.add(light)
-        
-        const helper = new THREE.DirectionalLightHelper(light)
-        scene.add(helper)
-      }
-      const box = 3
-      const geometry = new THREE.BoxGeometry(box, box, box)
-      const material = new THREE.MeshPhongMaterial({ color: 0x8844aa })
-      const cube = new THREE.Mesh(geometry, material)
-      scene.add(cube)
+    {
+      const color = 0xffffff
+      const intensity = 1
+      const light = new THREE.DirectionalLight(color, intensity)
+      light.position.set(-1, 2, 4)
+      scene.add(light)
+
+      const helper = new THREE.DirectionalLightHelper(light)
+      scene.add(helper)
+    }
+    const box = 3
+    const geometry = new THREE.BoxGeometry(box, box, box)
+    const material = new THREE.MeshPhongMaterial({ color: 0x8844aa })
+    const cube = new THREE.Mesh(geometry, material)
+    scene.add(cube)
 
 
-      // 设置材质是否会受到雾的影响。默认是true
-      // material.fog = false  
+    // 设置材质是否会受到雾的影响。默认是true
+    // material.fog = false  
 
-      
-      // 渲染
-      function render(time) {
-        time *= 0.001
 
-        const rot = time
-        cube.rotation.x = rot
-        cube.rotation.y = rot
+    // 渲染
+    function render(time) {
+      time *= 0.001
 
-        renderer.render(scene, camera)
-        requestAnimationFrame(render)
-      }
+      const rot = time
+      cube.rotation.x = rot
+      cube.rotation.y = rot
 
+      renderer.render(scene, camera)
       requestAnimationFrame(render)
+    }
+
+    requestAnimationFrame(render)
   }
 
-  shadow(renderer, canvas){
+  shadow(renderer, canvas) {
     const fov = 40 // 视野范围
     const aspect = 2 // 相机默认值 画布的宽高比
     const near = 0.1 // 近平面
@@ -1001,7 +1398,7 @@ export default class EditPage extends React.Component{
     const helper = new THREE.DirectionalLightHelper(light)
     scene.add(helper)
 
-    const axis = new THREE.AxesHelper(20,20,20)
+    const axis = new THREE.AxesHelper(20, 20, 20)
     scene.add(axis)
 
     {
@@ -1048,10 +1445,10 @@ export default class EditPage extends React.Component{
     requestAnimationFrame(render)
   }
 
-  tankMove(renderer, canvas){
+  tankMove(renderer, canvas) {
 
     // 相机公用方法
-    function makeCamera(fov=40){
+    function makeCamera(fov = 40) {
 
       const aspect = 2;
       const zNear = 0.1;
@@ -1061,8 +1458,8 @@ export default class EditPage extends React.Component{
 
     const camera = makeCamera();
 
-    camera.position.set(24,12,30);
-    camera.lookAt(0,0,0);
+    camera.position.set(24, 12, 30);
+    camera.lookAt(0, 0, 0);
 
     // 控制相机
     const controls = new OrbitControls(camera, canvas);
@@ -1081,7 +1478,7 @@ export default class EditPage extends React.Component{
 
     // 绘制地面
     const groundGeometry = new THREE.PlaneGeometry(50, 50)
-    const groundMaterial = new THREE.MeshPhongMaterial({color: 0xcc8866})
+    const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xcc8866 })
     const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial)
     groundMesh.rotation.x = Math.PI * -0.5
     // groundMesh.position.z = 2
@@ -1101,7 +1498,7 @@ export default class EditPage extends React.Component{
 
     // 几何体
     const bodyGeometry = new THREE.BoxGeometry(carWidth, carHeight, carLength)
-    const bodyMaterial = new THREE.MeshPhongMaterial({color: 0x6688aa})
+    const bodyMaterial = new THREE.MeshPhongMaterial({ color: 0x6688aa })
     const bodyMesh = new THREE.Mesh(bodyGeometry, bodyMaterial)
     bodyMesh.position.y = 1.4
     tank.add(bodyMesh)
@@ -1116,7 +1513,7 @@ export default class EditPage extends React.Component{
       wheelThickness, // 高度
       wheelSegments // x轴分成多少段
     )
-    const wheelMaterial = new THREE.MeshPhongMaterial({color: 0x888888})
+    const wheelMaterial = new THREE.MeshPhongMaterial({ color: 0x888888 })
     // 根据底盘 定位轮胎位置
     const wheelPositions = [
       [-carWidth / 2 - wheelThickness / 2, -carHeight / 2, carLength / 3],
@@ -1176,7 +1573,7 @@ export default class EditPage extends React.Component{
 
     // 绘制目标
     const targetGeometry = new THREE.SphereGeometry(0.5, 36, 36)
-    const targetMaterial = new THREE.MeshPhongMaterial({color: 0x00ff00, flatShading: true})
+    const targetMaterial = new THREE.MeshPhongMaterial({ color: 0x00ff00, flatShading: true })
     const targetMesh = new THREE.Mesh(targetGeometry, targetMaterial)
     const targetElevation = new THREE.Object3D()
     const targetBob = new THREE.Object3D()
@@ -1233,7 +1630,7 @@ export default class EditPage extends React.Component{
     ]
 
     // 渲染
-    function render(time){
+    function render(time) {
 
       time *= 0.001;
 
@@ -1266,7 +1663,7 @@ export default class EditPage extends React.Component{
     render(50)
   }
 
-  perspectiveCamera(renderer, canvas){
+  perspectiveCamera(renderer, canvas) {
 
 
     const scene = new THREE.Scene();
@@ -1279,8 +1676,8 @@ export default class EditPage extends React.Component{
 
     // 透视投影相机
     const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
-    camera.position.set(0,10,20)
-    camera.lookAt(0,0,0)
+    camera.position.set(0, 10, 20)
+    camera.lookAt(0, 0, 0)
 
     const cameraHelper = new THREE.CameraHelper(camera)
     scene.add(cameraHelper)
@@ -1309,7 +1706,7 @@ export default class EditPage extends React.Component{
     // 方块
     const cubeSize = 4;
     const cubeGeo = new THREE.BoxGeometry(cubeSize, cubeSize, cubeSize)
-    const cubeMat = new THREE.MeshPhongMaterial({color: '#8f4b2e'})
+    const cubeMat = new THREE.MeshPhongMaterial({ color: '#8f4b2e' })
     const cubeMesh = new THREE.Mesh(cubeGeo, cubeMat)
     scene.add(cubeMesh)
     cubeMesh.position.y = 2
@@ -1328,7 +1725,7 @@ export default class EditPage extends React.Component{
     scene.add(light.target)
 
     // 渲染
-    function render(){
+    function render() {
       renderer.render(scene, camera)
       requestAnimationFrame(render)
 
@@ -1341,10 +1738,10 @@ export default class EditPage extends React.Component{
 
 
   }
-  render(){
+  render() {
     return (
-      <canvas id="c2d" style={{width: '100%', height: '100%'}}>
-        
+      <canvas id="c2d" style={{ width: '100%', height: '100%' }}>
+
       </canvas>
     )
   }
