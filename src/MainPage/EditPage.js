@@ -25,6 +25,7 @@ import { IFCLoader } from 'three/examples/jsm/loaders/IFCLoader'
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import gsap from 'gsap'
+import TWEEN from "tween.js";
 
 export default class EditPage extends React.Component {
   componentDidMount() {
@@ -49,13 +50,13 @@ export default class EditPage extends React.Component {
     // this.fog(renderer, canvas)
     // this.raycaster(renderer, canvas)
     // this.webglRenderTarget(renderer, canvas)
-    // this.load_gltf(renderer, canvas)
+    this.load_gltf(renderer, canvas)
     // this.outline(renderer, canvas)
     // this.shape(renderer, canvas)
     // this.light(renderer, canvas)
 
     // this.raycasting_poingts(renderer, canvas)
-    this.points(renderer, canvas)
+    // this.points(renderer, canvas)
 
   }
   points(renderer, canvas){
@@ -995,6 +996,14 @@ export default class EditPage extends React.Component {
     // 场景
     const scene = new THREE.Scene()
 
+    const axis = new THREE.AxesHelper(100)
+    scene.add(axis)
+
+
+    let ambiColor = '#ffffff'
+    let ambientLight = new THREE.AmbientLight(ambiColor)
+
+    scene.add(ambientLight)
 
     // 1、加载gltf文件
     const loader = new GLTFLoader();
@@ -1007,6 +1016,12 @@ export default class EditPage extends React.Component {
       '/model.gltf',
       function (gltf) {
         scene.add(gltf.scene)
+
+        // gltf.scene.traverse(child => {
+        //   if(child.name.startsWith('NG-')){
+            addTexture()
+        //   }
+        // })
 
       },
       // called while loading is progressing
@@ -1023,70 +1038,63 @@ export default class EditPage extends React.Component {
     const pmremGenerator = new PMREMGenerator(renderer)
     pmremGenerator.compileEquirectangularShader();
 
-    const rgbeLoader = new RGBELoader()
-    rgbeLoader.load('/st_peters_square_night_4k.hdr', function (texture) {
 
-      const envMap = pmremGenerator.fromEquirectangular(texture).texture
-      pmremGenerator.dispose();
-
-      scene.environment = envMap;
-      scene.background = envMap;
+    const skyTexture = new TextureLoader().load('/4.jpg', texture => {
+      scene.background = skyTexture
+      skyTexture.mapping = EquirectangularReflectionMapping;
     })
 
-    const skyTexture = new TextureLoader().load('/4.jpg')
-    skyTexture.mapping = EquirectangularReflectionMapping;
-    // skyTexture.encoding = sRGBEncoding
-    // scene.background = skyTexture
+    // 添加光
+    let pointLight = new THREE.PointLight(0xffffff)
+    pointLight.position.set(camera.position.x, camera.position.y, camera.position.z )
+    scene.add(pointLight)
+    let pipeline;
+    function addTexture(){
 
-    // 3、添加CSS2D 
+      // 添加纹理动画
+      pipeline = scene.getObjectByName('NG-0104-750-10A1-H002');
 
-    const labelDiv = document.createElement('div');
-    labelDiv.setAttribute('style', 'width:100px;height:100px;background:red;position:absolute;')
-    const css2dObject = new CSS2DObject(labelDiv);
-    scene.add(css2dObject)
+      let axesHelper = new THREE.AxesHelper(20)
+      pipeline.add(axesHelper)
 
-    const css2DRenderer = new CSS2DRenderer();
-    document.body.appendChild(css2DRenderer.domElement);
-    css2DRenderer.render(scene, camera);
+      new TextureLoader().load('/t1.png', texture => {
 
-    // new OrbitControls(camera, css2DRenderer.domElement)
+        // console.log(pipeline);
+        // 设置阵列
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        // texture.mapping = EquirectangularReflectionMapping
+        // uv两个方向纹理重复数量
+        texture.repeat.set(10, 3);
+        texture.rotation = Math.PI / 2;
+        // texture.offset.y += 250
+        // G3D.ani_texture1 = texture
+        pipeline.material = new THREE.MeshBasicMaterial({
+          // color: 0x9ffcff,
+          map: texture,
+          // transparent: true,
+        })
+        console.log(pipeline);
+        pipeline.material.needsUpdate = true;
+        // anit();
+      })
 
-    css2DRenderer.domElement.setAttribute('style', 'position:absolute;left:200px;top:200px')
-    css2DRenderer.domElement.style.pointerEvents = 'none' //设置穿透点击
-
-    // function css2DRenderer(){
-    //   if(css2DRenderer != null){
-    //     css2DRenderer.render(scene, camera)
-    //   }
-    // }
-    /*  */
-    // function css2dresize(){
-    //   if(css2DRenderer != null){
-    //     css2DRenderer.setSize(window.innerWidth, window.innerHeight)
-    //   }
-    // }
-
-    // 4、添加精灵标签 
-    const spriteMaterial = new THREE.SpriteMaterial({
-      map: new TextureLoader().load('/billboard1.png'),
-      // color: 0xffffff
-    })
-    const sprite = new THREE.Sprite(spriteMaterial);
-    scene.add(sprite)
-
-    sprite.position.set(-0.245213, 2.393678, -7.028936)
-    sprite.scale.set(1, 0.40243, 1)
-    sprite.click = e => {
-      console.log('click');
+      function anit(){
+        gsap.to(pipeline.material.map.offset, {
+          x: pipeline.material.map.offset.x + 10,
+          duration: 10,
+          ease: "none",
+          onComplete(){
+            anit()
+          }
+        })
+      }
     }
-    sprite.hover = 0x00ffff
 
-    // 5、描边
-    let effectComposer = new EffectComposer(renderer)
-
-    let renderPass = new RenderPass(scene, camera)
-
-    effectComposer.addPass(renderPass)
+    
+    
+    let stats = new Stats()
+    document.body.appendChild(stats.domElement)
 
 
     // 渲染
@@ -1095,6 +1103,12 @@ export default class EditPage extends React.Component {
       renderer.render(scene, camera)
 
       requestAnimationFrame(render)
+      stats.update()
+      // if(pipeline){
+      //   pipeline.material.map.offset.x += 0.01
+      // }
+
+      // pointLight.position.set(camera.position.x, camera.position.y, camera.position.z )
     }
     requestAnimationFrame(render)
 
