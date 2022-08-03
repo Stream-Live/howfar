@@ -25,6 +25,7 @@ import { Button, InputNumber, Slider, Modal } from "antd";
 import { PMREMGenerator, sRGBEncoding } from "three";
 import { TextureLoader } from "three";
 import { EquirectangularReflectionMapping } from "three";
+import study from '../assets/study.svg'
 
 
 // 漏掉的：
@@ -54,7 +55,7 @@ class MainPage extends Component {
     scene.add(axesHelper);
 
     const renderer = new THREE.WebGLRenderer();
-    renderer.setSize(1500, 700);
+    renderer.setSize(1800, 800);
     renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
     document.getElementById("box").appendChild(renderer.domElement);
 
@@ -124,8 +125,8 @@ class MainPage extends Component {
 
     // this.data_import_export(scene)
 
-    this.load_model(scene)
-    // this.testRotate(scene)
+    // this.load_model(scene)
+    this.testRotate(scene)
 
     // this.sky_box(scene)
     // this.load_gltf(scene, renderer, camera)
@@ -210,7 +211,7 @@ class MainPage extends Component {
 
   testRotate(scene){
 
-    let geometry = new THREE.BoxGeometry(100,200,300);
+    let geometry = new THREE.BoxGeometry(10,20,30);
 
     let materials = []
 
@@ -224,11 +225,20 @@ class MainPage extends Component {
 
     let mesh = new THREE.Mesh(geometry, materials)
 
-    mesh.rotateZ(Math.PI/2)
+    let geometry1 = geometry.clone()
+    let mesh2 = new THREE.Mesh(geometry1, materials)
+    mesh2.position.x = 40
 
     mesh.rotateY(Math.PI/3)
+    mesh.rotateZ(Math.PI/2)
+    // mesh.rotateX(Math.PI/2)
+
+    mesh2.rotation.y = Math.PI/3
+    mesh2.rotation.z = Math.PI/2
+    mesh2.rotation.x = Math.PI/2
 
     scene.add(mesh)
+    scene.add(mesh2)
 
     let axis = new THREE.AxesHelper(300);
 
@@ -906,7 +916,7 @@ class MainPage extends Component {
     // 2、透视投影相机PerspectiveCamera
 
     let camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 1000);
-    camera.position.set(200,350,1500)
+    camera.position.set(200,200,200)
     camera.lookAt(new THREE.Vector3(0,0,0));
 
     // 3、正投影相机OrthographicCamera自适应渲染
@@ -1629,7 +1639,9 @@ class MainPage extends Component {
         onChange={setInputValue}
         value={this.state.inputValue}/>
       
-      <div id="box" style={{width: '1500px', height: '700px'}}/>
+      <img src={study}/>
+      
+      <div id="box" style={{width: '100%', height: '800px'}}/>
 
     </div>;
   }

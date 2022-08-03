@@ -26,6 +26,7 @@ import { Water } from 'three/examples/jsm/objects/Water.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import gsap from 'gsap'
 import TWEEN from "tween.js";
+import * as d3 from 'd3'
 
 export default class EditPage extends React.Component {
   componentDidMount() {
@@ -50,15 +51,322 @@ export default class EditPage extends React.Component {
     // this.fog(renderer, canvas)
     // this.raycaster(renderer, canvas)
     // this.webglRenderTarget(renderer, canvas)
-    this.load_gltf(renderer, canvas)
+    // this.load_gltf(renderer, canvas)
     // this.outline(renderer, canvas)
     // this.shape(renderer, canvas)
     // this.light(renderer, canvas)
 
     // this.raycasting_poingts(renderer, canvas)
+    // this.study_raycasting_poingts(renderer, canvas)
     // this.points(renderer, canvas)
 
+    this.draw_map(renderer, canvas)
+
   }
+
+  draw_map(renderer, canvas){
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(0, 0, 300)
+    camera.lookAt(0, 0, 0)
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    // 场景
+    const scene = new THREE.Scene()
+
+    {
+      const color = 0xffffff
+      const intensity = 1
+      // 环境光
+      const light = new THREE.AmbientLight(color, intensity)
+      // 加入场景
+      scene.add(light)
+    }
+
+    const group = new THREE.Group()
+    scene.add(group)
+    {
+      const loader = new THREE.FileLoader()
+      loader.load('./100000_full.json', data => {
+        const jsonData = JSON.parse(data)
+        console.log(jsonData);
+        operationData(jsonData)
+      })
+    }
+
+    const projection = d3.geoMercator().center([116.412318, 39.909843]).translate([0,0])
+    function drawExtrudeMesh(polygon, color){
+      const shape = new THREE.Shape()
+      polygon.forEach((row, i) => {
+        const [x, y] = projection(row)
+
+        if(i === 0){
+          shape.moveTo(x, -y)
+        }
+        shape.lineTo(x, -y)
+      })
+
+      // 拉伸
+      const geometry = new THREE.ExtrudeGeometry(shape, {
+        depth: 10,
+        bevelEnabled: false
+      })
+      const material = new THREE.MeshBasicMaterial({
+        color: color,
+        transparent: true,
+        opacity: 0.5
+      })
+      return new THREE.Mesh(geometry, material)
+    }
+
+    function lineDraw(polygon, color){
+
+      const lineGeometry = new THREE.BufferGeometry()
+      const pointsArray = new Array()
+      polygon.forEach(row => {
+        const [x, y] = projection(row)
+
+        pointsArray.push(new THREE.Vector3(x, -y, 9))
+      })
+      lineGeometry.setFromPoints(pointsArray)
+
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color
+      })
+      return new THREE.Line(lineGeometry, lineMaterial)
+    }
+
+    let axis = new THREE.AxesHelper(700)
+    scene.add(axis)
+
+    const map = new THREE.Object3D()
+    // 解析数据
+    function operationData(jsonData){
+
+      // 全国信息
+      const features = jsonData.features
+
+      features.forEach(feature => {
+        // 单个省份
+        const province = new THREE.Object3D()
+        // 地址
+        province.properties = feature.properties.name
+        const coordinates = feature.geometry.coordinates
+        const color = 'yellow'
+
+        if(feature.geometry.type === 'MultiPolygon'){
+
+          // 多个 多边形
+          coordinates.forEach(coordinate => {
+            coordinate.forEach(rows => {
+              const mesh = drawExtrudeMesh(rows, color)
+              const line = lineDraw(rows, color)
+              province.add(line)
+              province.add(mesh)
+            })
+          })
+        }
+        if(feature.geometry.type === 'Polygon'){
+          coordinates.forEach(coordinate => {
+            const mesh = drawExtrudeMesh(coordinate, color)
+            province.add(mesh)
+          })
+        }
+        group.add(province)
+      })
+    }
+
+
+    // 渲染
+    function render() {
+      renderer.render(scene, camera)
+      requestAnimationFrame(render)
+    }
+    requestAnimationFrame(render)
+  }
+
+
+  study_raycasting_poingts(renderer, canvas){
+    let scene, camera, stats;
+    let pointclouds;
+    let raycaster;
+    let intersection = null;
+    let spheresIndex = 0;
+    let clock;
+    let toggle = 0;
+
+    const pointer = new THREE.Vector2();
+    const spheres = [];
+
+    const threshold = 0.1;
+    const pointSize = 0.05;
+    const width = 80;
+    const length = 160;
+    const rotateY = new THREE.Matrix4().makeRotationY(0.005);
+
+    init();
+
+    animate();
+
+    function animate(){
+
+      requestAnimationFrame(animate)
+      renderer.render(scene, camera)
+    }
+
+
+    function init(){
+
+      scene = new THREE.Scene();
+
+      clock = new THREE.Clock();
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000)
+      camera.position.set(10,10,10)
+      camera.lookAt(scene.position)
+      camera.updateMatrix()
+
+      // 控制相机
+      const controls = new OrbitControls(camera, canvas)
+      controls.update()
+
+      const pcBuffer = generatePointcloud(new THREE.Color(1,0,0), width, length);
+      pcBuffer.scale.set(5, 10, 10)
+      pcBuffer.position.set(-5, 0, 0)
+      scene.add(pcBuffer)
+
+      const pcIndexed = generateIndexedPointcloud(new THREE.Color(0,1,0))
+      pcIndexed.scale.set(5, 10, 10)
+      pcIndexed.position.set(0, 0, 0)
+      scene.add(pcIndexed);
+
+      const pcIndexedOffset = generateIndexedWithOffsetPointcloud(new THREE.Color(0,1,1), width, length)
+      pcIndexedOffset.scale.set(5, 10, 10)
+      pcIndexedOffset.position.set(5,0,0)
+      scene.add(pcIndexedOffset)
+
+      const sphereGeometry = new THREE.SphereGeometry(0.1, 32, 32)
+      const sphereMaterial = new THREE.MeshBasicMaterial({color: 0xff0000})
+
+      for(let i=0;i<40;i++){
+        const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial)
+        scene.add(sphere)
+        spheres.push(sphere)
+      }
+
+      renderer = new THREE.WebGLRenderer({antialias: true})
+      renderer.setPixelRatio(window.devicePixelRatio)
+      renderer.setSize(window.innerWidth, window.innerHeight)
+
+      raycaster = new THREE.Raycaster();
+
+      window.addEventListener('pointmove', onPointerMove)
+
+    }
+
+
+    function onPointerMove(event){
+
+      pointer.x = (event.clientX / window.innerHeight)
+      pointer.y = -(event.clientX / window.innerHeight)
+
+    }
+
+    function generateIndexedWithOffsetPointcloud(color, width, length){
+
+      const geometry = generatePointCloudGeometry(color, width, length);
+
+      const numPoints = width * length;
+      const indices = new Uint16Array(numPoints)
+
+      let k=0;
+
+      for(let i=0;i<width;i++){
+        for(let j=0;j<length;j++){
+          indices[k] = k;
+          k++;
+        }
+      }
+
+      geometry.setIndex(new THREE.BufferAttribute(indices, 1))
+      geometry.addGroup(0, indices.length)
+      const material = new THREE.PointsMaterial({size: pointSize, vertexColors: true})
+
+      return new THREE.Points(geometry, material)
+    }
+
+    function generateIndexedPointcloud(color, width, length){
+
+      const geometry = generatePointCloudGeometry(color, width, length)
+      const numPoints = width * length;
+      const indices = new Uint16Array(numPoints)
+
+      let k=0;
+
+      for(let i=0;i<width;i++){
+        for(let j=0;j<length;j++){
+          indices[k] = k;
+          k++;
+        }
+      }
+      geometry.setIndex(new THREE.BufferAttribute(indices, 1))
+      const material = new THREE.PointsMaterial({size: pointSize, vertexColors: true})
+      return new THREE.Points(geometry, material)
+    }
+
+    function generatePointcloud(color, width, length){
+
+      const geometry = generatePointCloudGeometry(color, width, length)
+      const material = new THREE.PointsMaterial({ size: pointSize, vertexColors: true})
+      return new THREE.Points(geometry, material)
+    }
+    function generatePointCloudGeometry(color, width, length){
+
+      const geometry = new THREE.BufferGeometry();
+      const numPoints = width * length;
+
+      const positions = new Float32Array(numPoints * 3)
+      const colors = new Float32Array(numPoints * 3)
+
+      let k = 0;
+
+      for(let i=0; i< width; i++){
+
+        for(let j=0; j< length; j++){
+
+          const u = i / width;
+          const v = j / length;
+          const x = u - 0.5;
+          const y = ( Math.cos(u * Math.PI * 4) + Math.sin(v * Math.PI * 8)) / 20;
+          const z = v-0.5;
+
+          positions[3 * k] = x
+          positions[3 * k + 1] = y
+          positions[3 * k + 2] = z
+
+          const intensity = (y + 0.1) * 5;
+          colors[3 * k] = color.r * intensity;
+          colors[3 * k + 1] = color.g * intensity;
+          colors[3 * k + 2] = color.b * intensity;
+
+          k++;
+        }
+      }
+
+      geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+      geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+      geometry.computeBoundingBox();
+
+      return geometry;
+    }
+  } 
   points(renderer, canvas){
     
     const fov = 40 // 视野范围
@@ -1017,11 +1325,11 @@ export default class EditPage extends React.Component {
       function (gltf) {
         scene.add(gltf.scene)
 
-        // gltf.scene.traverse(child => {
-        //   if(child.name.startsWith('NG-')){
-            addTexture()
-        //   }
-        // })
+        gltf.scene.traverse(child => {
+          if(child.name.startsWith('NG-')){
+            addTexture(child)
+          }
+        })
 
       },
       // called while loading is progressing
@@ -1048,14 +1356,14 @@ export default class EditPage extends React.Component {
     let pointLight = new THREE.PointLight(0xffffff)
     pointLight.position.set(camera.position.x, camera.position.y, camera.position.z )
     scene.add(pointLight)
-    let pipeline;
-    function addTexture(){
+    // let pipeline;
+    function addTexture(pipeline){
 
       // 添加纹理动画
-      pipeline = scene.getObjectByName('NG-0104-750-10A1-H002');
+      // pipeline = scene.getObjectByName('NG-0104-750-10A1-H002');
 
-      let axesHelper = new THREE.AxesHelper(20)
-      pipeline.add(axesHelper)
+      // let axesHelper = new THREE.AxesHelper(10)
+      // pipeline.add(axesHelper)
 
       new TextureLoader().load('/t1.png', texture => {
 
@@ -1063,23 +1371,28 @@ export default class EditPage extends React.Component {
         // 设置阵列
         texture.wrapS = THREE.RepeatWrapping;
         texture.wrapT = THREE.RepeatWrapping;
+        
         // texture.mapping = EquirectangularReflectionMapping
         // uv两个方向纹理重复数量
-        texture.repeat.set(10, 3);
-        texture.rotation = Math.PI / 2;
+        // texture.rotateX(Math.PI/2)
         // texture.offset.y += 250
         // G3D.ani_texture1 = texture
         pipeline.material = new THREE.MeshBasicMaterial({
           // color: 0x9ffcff,
           map: texture,
-          // transparent: true,
+          transparent: true,
         })
-        console.log(pipeline);
+        // if(pipeline.name === 'NG-0101-750-10A1-H002'){
+          console.log(pipeline);
+          // texture.repeat.set(10, 3);
+          // texture.rotation = Math.PI / 2;
+        // }
+
         pipeline.material.needsUpdate = true;
         // anit();
       })
 
-      function anit(){
+      function anit(pipeline){
         gsap.to(pipeline.material.map.offset, {
           x: pipeline.material.map.offset.x + 10,
           duration: 10,
@@ -1089,6 +1402,8 @@ export default class EditPage extends React.Component {
           }
         })
       }
+
+      
     }
 
     
