@@ -60,8 +60,170 @@ export default class EditPage extends React.Component {
     // this.study_raycasting_poingts(renderer, canvas)
     // this.points(renderer, canvas)
 
-    this.draw_map(renderer, canvas)
+    // this.draw_map(renderer, canvas)
+    // this.shader_change_color(renderer, canvas)
+    this.shader_particle(renderer, canvas)
 
+  }
+  shader_particle(renderer, canvas){
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(0, 0, 300)
+    camera.lookAt(0, 0, 0)
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+    // 场景
+    const scene = new THREE.Scene()
+
+    const positions = [{
+      x: 0,
+      y: 0,
+      z: 0,
+    }]
+
+    const attrPositions = [];
+
+    positions.forEach(p => {
+      attrPositions.push(p.x, p.y, p.z);
+    })
+
+    const geometry = new THREE.BufferGeometry();
+
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(attrPositions, 3))
+
+    const shader = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: {
+          value: new THREE.Color('#FFFF00')
+        },
+        uSize: {
+          value: 20
+        }
+      },
+      vertexShader: `
+        uniform float uSize;
+        void main(){
+          // 顶点着色器计算后的Position
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          // 永远为20像素大小
+          gl_PointSize = 10.0 * 300.0 / (-mvPosition.z);
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        void main(){
+          gl_FragColor = vec4(uColor, 1.0);
+        }
+      `
+    });
+
+    const point = new THREE.Points(geometry, shader);
+    scene.add(point)
+
+    function render(){
+      renderer.render(scene, camera)
+      requestAnimationFrame(render)
+    }
+
+    render()
+  }
+
+  shader_change_color(renderer, canvas){
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(0, 0, 300)
+    camera.lookAt(0, 0, 0)
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    const textureLoader = new THREE.TextureLoader();
+    const texture = textureLoader.load('/bali_small.jpeg')
+
+    // 场景
+    const scene = new THREE.Scene()
+
+    const geometry = new THREE.PlaneGeometry(100, 100);
+
+    const shader = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: {
+          value: new THREE.Color('#FFFF00')
+        },
+        uColor1: {
+          value: new THREE.Color('#FFFFFF')
+        },
+        uRadius: {
+          value: 0
+        },
+        uTexture: {
+          value: texture
+        }
+      },
+      vertexShader: `
+        varying vec3 vPosition;
+        varying vec2 uUV;
+        void main(){
+          vPosition = position;
+          // 把uv数据传递给片元
+          uUV = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform float uRadius;
+        uniform vec3 uColor;
+        uniform vec3 uColor1;
+        varying vec3 vPosition;
+        varying vec2 uUV;
+        uniform sampler2D uTexture;
+        void main(){
+          // 材质和uv计算为当前位置颜色
+          vec4 mapColor = texture2D(uTexture, uUV);
+          // 中心点
+          vec3 vCenter = vec3(.0, .0, .0);
+          // 计算定点离中心点的距离
+          float len = distance(vCenter, vPosition);
+
+          if(len < uRadius){
+            gl_FragColor = mapColor;
+          }else{
+            gl_FragColor = vec4(uColor, 1.0);
+          }
+          
+        }
+      `
+    });
+    const plane = new THREE.Mesh(geometry, shader);
+
+    scene.add(plane);
+
+    let radius = 1;
+    setInterval(() => {
+      const color = `rgb(${(Math.random() * 255).toFixed(0)},${(Math.random() * 255).toFixed(0)},${(Math.random() * 255).toFixed(0)})`
+
+      // shader.uniforms.uColor.value.setStyle(color);
+
+      shader.uniforms.uRadius.value = radius % 50;
+      radius++;
+    }, 50)
+
+    function render(){
+      renderer.render(scene, camera)
+      requestAnimationFrame(render)
+    }
+    render()
   }
 
   draw_map(renderer, canvas){
