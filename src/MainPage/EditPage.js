@@ -25,8 +25,9 @@ import { IFCLoader } from 'three/examples/jsm/loaders/IFCLoader'
 import { Water } from 'three/examples/jsm/objects/Water.js';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import gsap from 'gsap'
-import TWEEN from "tween.js";
+// import TWEEN from "tween.js";
 import * as d3 from 'd3'
+import * as TWEEN from '@tweenjs/tween.js';
 
 export default class EditPage extends React.Component {
   componentDidMount() {
@@ -62,8 +63,106 @@ export default class EditPage extends React.Component {
 
     // this.draw_map(renderer, canvas)
     // this.shader_change_color(renderer, canvas)
-    this.shader_particle(renderer, canvas)
+    // this.shader_particle(renderer, canvas)
+    this.curve_camera(renderer, canvas)
 
+  }
+  curve_camera(renderer, canvas){
+    // 相机公用方法
+    function makeCamera(fov = 40) {
+
+      const aspect = 2;
+      const zNear = 0.1;
+      const zFar = 1000;
+      return new THREE.PerspectiveCamera(fov, aspect, zNear, zFar)
+    }
+
+    const camera = makeCamera();
+
+    camera.position.set(82,72,226);
+    camera.lookAt(0, 0, 0);
+
+    window.camera = camera
+
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas);
+    controls.update();
+
+    const scene = new THREE.Scene();
+
+    // 方向光
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 20, 30);
+    scene.add(light)
+
+    const light1 = new THREE.DirectionalLight(0xffffff, 1);
+    light1.position.set(-20, -20, -9);
+    scene.add(light1)
+
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const curve = new THREE.CatmullRomCurve3( [
+      new THREE.Vector3(-50, 20, 90),
+      new THREE.Vector3(-10, 40, 40),
+      new THREE.Vector3(0, 0, 0),
+      new THREE.Vector3(60, -60, 0),
+      new THREE.Vector3(70, 0, 80)
+    ] );
+    
+    const points = curve.getPoints( 50 );
+    const geometry = new THREE.BufferGeometry().setFromPoints( points );
+    
+    const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+    
+    // Create the final object to add to the scene
+    const curveObject = new THREE.Line( geometry, material );
+    scene.add(curveObject)
+
+    const axis = new THREE.AxesHelper(100)
+    scene.add(axis)
+
+    const box = new THREE.Mesh(new THREE.BoxGeometry(10,10,10), new THREE.MeshLambertMaterial({color: 0x00ff00}))
+    box.position.set(30,10,40)
+    scene.add(box)
+
+    // 获取目标全局坐标
+    const targetPosition = new THREE.Vector3()
+    // box.getWorldPosition(targetPosition)
+
+    const cameraPosition = new THREE.Vector3(); 
+    // curve.getPointAt(1, cameraPosition)
+    // // 位移
+    // camera.position.set(cameraPosition.x, 0, cameraPosition.y)
+
+    // // 炮台瞄准目标
+    // camera.lookAt(targetPosition);
+    
+    const num = 1000;
+    let iArray = [];
+    for(let i=0;i<num;i++){
+      let index = i / (num-1);
+      iArray.push(index)
+    }
+
+    let index = 0;
+    function render(){
+      renderer.render(scene, camera)
+      requestAnimationFrame(render)
+
+      if(index < iArray.length){
+        curve.getPointAt(iArray[index], cameraPosition)
+        // 位移
+        camera.position.set(cameraPosition.x, 0, cameraPosition.y)
+        // 获取目标全局坐标
+        box.getWorldPosition(targetPosition)
+        // 炮台瞄准目标
+        camera.lookAt(targetPosition);
+        index++;
+      }else{
+        index = 0;
+      }
+    }
+    render();
   }
   shader_particle(renderer, canvas){
     const fov = 40 // 视野范围
@@ -1487,11 +1586,11 @@ export default class EditPage extends React.Component {
       function (gltf) {
         scene.add(gltf.scene)
 
-        gltf.scene.traverse(child => {
-          if(child.name.startsWith('NG-')){
-            addTexture(child)
-          }
-        })
+        // gltf.scene.traverse(child => {
+        //   if(child.name.startsWith('NG-')){
+        //     addTexture(child)
+        //   }
+        // })
 
       },
       // called while loading is progressing
@@ -2116,7 +2215,7 @@ export default class EditPage extends React.Component {
 
     const cameras = [
       { cam: camera, desc: '全局相机' },
-      // { cam: targetCamera, desc: '目标上的相机' },
+      { cam: targetCamera, desc: '目标上的相机' },
       { cam: tankCamera, desc: '底盘 局部相机' }
     ]
 
@@ -2149,7 +2248,7 @@ export default class EditPage extends React.Component {
       const camera1 = cameras[time % cameras.length | 0]
       tank.getWorldPosition(targetPosition2)
 
-      renderer.render(scene, camera)
+      renderer.render(scene, tankCamera)
     }
     render(50)
   }
