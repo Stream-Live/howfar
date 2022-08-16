@@ -52,7 +52,7 @@ export default class EditPage extends React.Component {
     // this.fog(renderer, canvas)
     // this.raycaster(renderer, canvas)
     // this.webglRenderTarget(renderer, canvas)
-    // this.load_gltf(renderer, canvas)
+    this.load_gltf(renderer, canvas)
     // this.outline(renderer, canvas)
     // this.shape(renderer, canvas)
     // this.light(renderer, canvas)
@@ -64,9 +64,10 @@ export default class EditPage extends React.Component {
     // this.draw_map(renderer, canvas)
     // this.shader_change_color(renderer, canvas)
     // this.shader_particle(renderer, canvas)
-    this.curve_camera(renderer, canvas)
+    // this.curve_camera(renderer, canvas)
 
   }
+
   curve_camera(renderer, canvas){
     // 相机公用方法
     function makeCamera(fov = 40) {
@@ -101,6 +102,7 @@ export default class EditPage extends React.Component {
 
     renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
+
     const curve = new THREE.CatmullRomCurve3( [
       new THREE.Vector3(-50, 20, 90),
       new THREE.Vector3(-10, 40, 40),
@@ -127,19 +129,13 @@ export default class EditPage extends React.Component {
 
     // 获取目标全局坐标
     const targetPosition = new THREE.Vector3()
-    // box.getWorldPosition(targetPosition)
 
     const cameraPosition = new THREE.Vector3(); 
-    // curve.getPointAt(1, cameraPosition)
-    // // 位移
-    // camera.position.set(cameraPosition.x, 0, cameraPosition.y)
-
-    // // 炮台瞄准目标
-    // camera.lookAt(targetPosition);
     
     const num = 1000;
     let iArray = [];
     for(let i=0;i<num;i++){
+      // 在0-1之间取num个数
       let index = i / (num-1);
       iArray.push(index)
     }
@@ -152,7 +148,7 @@ export default class EditPage extends React.Component {
       if(index < iArray.length){
         curve.getPointAt(iArray[index], cameraPosition)
         // 位移
-        camera.position.set(cameraPosition.x, 0, cameraPosition.y)
+        camera.position.set(cameraPosition.x, cameraPosition.y, cameraPosition.z)
         // 获取目标全局坐标
         box.getWorldPosition(targetPosition)
         // 炮台瞄准目标
@@ -1585,13 +1581,34 @@ export default class EditPage extends React.Component {
       '/model.gltf',
       function (gltf) {
         scene.add(gltf.scene)
+        
+        setTimeout(function(){
 
-        // gltf.scene.traverse(child => {
-        //   if(child.name.startsWith('NG-')){
-        //     addTexture(child)
-        //   }
-        // })
+          
+          const obj = scene.getObjectByName('ROV402');
+          console.log('time!', obj);
 
+          let d = 10; // 距离
+          // let line1 = new THREE.Vector3(camera.position.x, obj.position.y, camera.position.z)
+          // let line2 = new THREE.Vector3(obj.position.x, obj.position.y, obj.position.z);
+          // let seta = line1.angleTo(line2);
+
+          gsap
+          .to(camera.position,{
+            x: obj.position.x+d,
+            y: obj.position.y+d,
+            z: obj.position.z+d,
+            duration: 3
+          })
+          gsap
+          .to(controls.target,{
+            x: obj.position.x,
+            y: obj.position.y,
+            z: obj.position.z,
+            duration: 3
+          })
+
+        }, 3000)
       },
       // called while loading is progressing
       function (xhr) {
@@ -1617,55 +1634,8 @@ export default class EditPage extends React.Component {
     let pointLight = new THREE.PointLight(0xffffff)
     pointLight.position.set(camera.position.x, camera.position.y, camera.position.z )
     scene.add(pointLight)
-    // let pipeline;
-    function addTexture(pipeline){
-
-      // 添加纹理动画
-      // pipeline = scene.getObjectByName('NG-0104-750-10A1-H002');
-
-      // let axesHelper = new THREE.AxesHelper(10)
-      // pipeline.add(axesHelper)
-
-      new TextureLoader().load('/t1.png', texture => {
-
-        // console.log(pipeline);
-        // 设置阵列
-        texture.wrapS = THREE.RepeatWrapping;
-        texture.wrapT = THREE.RepeatWrapping;
-        
-        // texture.mapping = EquirectangularReflectionMapping
-        // uv两个方向纹理重复数量
-        // texture.rotateX(Math.PI/2)
-        // texture.offset.y += 250
-        // G3D.ani_texture1 = texture
-        pipeline.material = new THREE.MeshBasicMaterial({
-          // color: 0x9ffcff,
-          map: texture,
-          transparent: true,
-        })
-        // if(pipeline.name === 'NG-0101-750-10A1-H002'){
-          console.log(pipeline);
-          // texture.repeat.set(10, 3);
-          // texture.rotation = Math.PI / 2;
-        // }
-
-        pipeline.material.needsUpdate = true;
-        // anit();
-      })
-
-      function anit(pipeline){
-        gsap.to(pipeline.material.map.offset, {
-          x: pipeline.material.map.offset.x + 10,
-          duration: 10,
-          ease: "none",
-          onComplete(){
-            anit()
-          }
-        })
-      }
-
-      
-    }
+    
+    
 
     
     
