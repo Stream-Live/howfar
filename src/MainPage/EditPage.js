@@ -52,7 +52,7 @@ export default class EditPage extends React.Component {
     // this.fog(renderer, canvas)
     // this.raycaster(renderer, canvas)
     // this.webglRenderTarget(renderer, canvas)
-    this.load_gltf(renderer, canvas)
+    // this.load_gltf(renderer, canvas)
     // this.outline(renderer, canvas)
     // this.shape(renderer, canvas)
     // this.light(renderer, canvas)
@@ -62,7 +62,7 @@ export default class EditPage extends React.Component {
     // this.points(renderer, canvas)
 
     // this.draw_map(renderer, canvas)
-    // this.shader_change_color(renderer, canvas)
+    this.shader_change_color(renderer, canvas)
     // this.shader_particle(renderer, canvas)
     // this.curve_camera(renderer, canvas)
     // this.shader_fly_line(renderer, canvas);
@@ -1789,9 +1789,6 @@ export default class EditPage extends React.Component {
     let pointLight = new THREE.PointLight(0xffffff)
     pointLight.position.set(camera.position.x, camera.position.y, camera.position.z )
     scene.add(pointLight)
-    
-    
-
     
     
     let stats = new Stats()
