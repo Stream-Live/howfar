@@ -54,7 +54,7 @@ export default class EditPage extends React.Component {
     // this.webglRenderTarget(renderer, canvas)
     // this.load_gltf(renderer, canvas)
     // this.outline(renderer, canvas)
-    // this.shape(renderer, canvas)
+    this.shape(renderer, canvas)
     // this.light(renderer, canvas)
 
     // this.raycasting_poingts(renderer, canvas)
@@ -62,7 +62,7 @@ export default class EditPage extends React.Component {
     // this.points(renderer, canvas)
 
     // this.draw_map(renderer, canvas)
-    this.shader_change_color(renderer, canvas)
+    // this.shader_change_color(renderer, canvas)
     // this.shader_particle(renderer, canvas)
     // this.curve_camera(renderer, canvas)
     // this.shader_fly_line(renderer, canvas);

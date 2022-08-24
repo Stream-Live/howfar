@@ -1,7 +1,10 @@
 import React from "react";
 import * as THREE from "three";
+import { MeshLambertMaterial } from "three";
 import { Mesh } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import gsap from 'gsap'
+import { Vector3 } from "three";
 
 // import {RayMarching} from './Helper'
 
@@ -26,6 +29,46 @@ export default class ShaderStudy extends React.Component {
     // this.ray_marching1(renderer, canvas)
     // this.particle_system(renderer, canvas)
     this.fence(renderer, canvas)
+
+  }
+
+  createFenceByPoints(points, height){
+
+    const attrCindex = [];
+
+    for(let i=0;i<height;i++){
+      attrCindex.push(i/(height-1));
+    }
+
+    const group = new THREE.Group();
+
+    let vec3Points = points.map(item => new THREE.Vector3(item[0], item[1], item[2]));
+
+    vec3Points.reduce((p1, p2) => {
+
+      const geometry = new THREE.BufferGeometry();
+      // 创建一个简单的矩形. 在这里我们右上和左下顶点被复制了两次。
+      // 因为在两个三角面片里，这两个顶点都需要被用到。
+      const vertices = new Float32Array( [
+        p1.x, p1.y+height, p1.z, // 左上角
+        p1.x, p1.y, p1.z,  // 左下角
+        p2.x, p2.y+height, p2.z,  // 右上角
+      
+        p2.x, p2.y+height, p2.z,  // 右上角
+        p1.x, p1.y, p1.z, // 左下角
+        p2.x, p2.y, p2.z  // 右下角
+      ] );
+      
+      // itemSize = 3 因为每个顶点都是一个三元组。
+      geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+      const material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
+      const mesh = new THREE.Mesh( geometry, material );
+      group.add(mesh)
+
+      return p2;
+    });
+
+    return group;
 
   }
 
@@ -61,9 +104,14 @@ export default class ShaderStudy extends React.Component {
     }
 
     const geometry = new THREE.PlaneGeometry( width, height );
-    geometry.setAttribute('index', new THREE.Float32BufferAttribute(attrCindex, 1))
+    geometry.setAttribute('index', new THREE.Float32BufferAttribute(attrCindex, 1));
+
+    const translateY = {
+      value: 0
+    }
 
     const shader = new THREE.ShaderMaterial({
+      side: THREE.DoubleSide,
       transparent: true,
       uniforms: {
         uColor: {
@@ -80,7 +128,8 @@ export default class ShaderStudy extends React.Component {
         },
         segment: {  
           value: +segment.toFixed(1)
-        }
+        },
+        translateY
       },
       vertexShader: `
         attribute float index;
@@ -89,20 +138,15 @@ export default class ShaderStudy extends React.Component {
         uniform float height; 
         uniform vec3 uColor;
         uniform vec3 uColor1;
-        varying vec3 vColor;
-        varying vec3 vColor1;
+        uniform float translateY;
         varying float vOpacity;
         varying float positionY;
-        varying float vSegment;
         void main(){
           float size = uSize;
 
           vOpacity = -position.y * (1.0/height)+(1.0/2.0);
           
           positionY = position.y;
-          vColor = uColor;
-          vColor1 = uColor1;
-          vSegment = segment;
 
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
@@ -112,14 +156,16 @@ export default class ShaderStudy extends React.Component {
         
       `,
       fragmentShader: `
-        varying vec3 vColor;
-        varying vec3 vColor1;
+        uniform float translateY;
+        uniform float segment;
+        uniform vec3 uColor;
+        uniform vec3 uColor1;
+        uniform float height; 
         varying float vOpacity;
         varying float positionY;
-        varying float vSegment;
         void main(){
 
-          float cur = mod(positionY / vSegment, 1.0);
+          float cur = mod((positionY+translateY) / segment, 1.0);
 
           if(cur > 0.0 && cur < 0.2){
             float opacity;
@@ -129,10 +175,10 @@ export default class ShaderStudy extends React.Component {
             }else{
               opacity = -10.0 * cur + 2.0;
             }
-            vec3 color = mix(vColor, vColor1, opacity);
+            vec3 color = mix(uColor, uColor1, opacity);
             gl_FragColor = vec4(color, vOpacity);
           }else{
-            gl_FragColor = vec4(vColor, vOpacity);
+            gl_FragColor = vec4(uColor, vOpacity);
           }
         }
       `
@@ -142,9 +188,72 @@ export default class ShaderStudy extends React.Component {
     const plane = new THREE.Mesh( geometry, shader );
     scene.add( plane );
 
+    window.plane = plane;
+
+    let group = this.createFenceByPoints([
+      [1,0,1],
+      [4,0,1],
+      [4,0,4],
+      [7,2,8],
+    ], 10);
+    // scene.add(group)
+
+    const box = new THREE.BoxGeometry(1,1,1)
+    const boxMesh = new Mesh(box, new MeshLambertMaterial({color: 0x0000ff}))
+    scene.add(boxMesh)
+
+    boxMesh.position.z = 4;
+
+    gsap.to(boxMesh.position, {
+      z: -4,
+      duration: 2,
+      repeat: -1,
+      yoyo: true, 
+    })
+
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    let array = geometry.attributes.position.array;
+    let vertices = [];
+    for(let i=0; i< array.length;i+=3){
+      vertices.push(new Vector3(array[i], array[i+1], array[i+2]))
+    }
+    let raycaster = new THREE.Raycaster();
+
+    
+    // for(let i=0;i<geometry.attributes.position.array; i+=geometry.attributes.position.itemSize){
+
+    //   let array = geometry.attributes.position.array;
+    //   let vertexWorldCoord = new Vector3(array[i], array[i+1], array[i+2]).applyMatrix4(plane.matrixWorld);
+    //   let centerCoord = plane.position.clone();
+    //   let dir = vertexWorldCoord.sub(centerCoord);
+
+    //   let raycaster = new THREE.Raycaster(centerCoord, dir.clone().normalize());
+    //   let intersects = raycaster.intersectObjects([boxMesh], true);
+    //   if(intersects.length>0){
+
+    //     console.log('碰撞了',intersects[0]);
+    //   }
+    // }
+
     function render(){
       renderer.render(scene, camera)
       requestAnimationFrame(render)
+      
+      translateY.value -= 0.02;
+
+      for(let i=0;i<vertices.length;i++){
+        let glovert = vertices[i].clone().applyMatrix4(plane.matrix);
+        let dirv = glovert.sub(plane.position)
+  
+        raycaster.set(vertices[i], dirv.clone().normalize())
+        let intersects = raycaster.intersectObject(boxMesh);
+        if(intersects.length>0){
+  
+          console.log('碰撞了',intersects[0]);
+        }
+      }
     }
 
     render()
