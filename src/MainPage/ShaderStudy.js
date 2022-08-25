@@ -5,7 +5,7 @@ import { Mesh } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import gsap from 'gsap'
 import { Vector3 } from "three";
-
+import * as _ from 'lodash'
 // import {RayMarching} from './Helper'
 
 export default class ShaderStudy extends React.Component {
@@ -32,30 +32,41 @@ export default class ShaderStudy extends React.Component {
 
   }
 
-  createFenceByPoints(points, paramsOption){
+  // points：存储x和z的二维数组
+  createFenceByPoints(points, paramsOption, callback){
 
     const defOption = {
+      startHeight: 0,  // 起始高度
       height: 10,
       bgColor: '#00FF00',
+      warnColor: '#FF0000',
       lineColor: '#FFFF00',
-      segment: 1.5
+      segment: 1.5,  // 线条密度
+      maxOpacity: 1,  // 最大透明度
+      meshList: [],  // 要闯入围栏的物体列表
+      duration: 2000
     }
+
 
     const option = Object.assign(defOption, paramsOption)
 
-    const attrCindex = [];
     const height = option.height;
     const translateY = {
       value: 0
     }
 
-    for(let i=0;i<height;i++){
-      attrCindex.push(i/(height-1));
+    const group = new THREE.Group();
+    const planeBoxMap = {};
+    const meshBoxMap = {};
+
+    // 给要闯入围栏的物体加包围盒
+    for(let item of option.meshList){
+      let box = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3())
+      box.setFromObject(item);
+      meshBoxMap[item.uuid] = {box: box, mesh: item};
     }
 
-    const group = new THREE.Group();
-
-    let vec3Points = points.map(item => new THREE.Vector3(item[0], item[1], item[2]));
+    let vec3Points = points.map(item => new THREE.Vector3(item[0], option.startHeight, item[1]));
 
     vec3Points.reduce((p1, p2) => {
 
@@ -89,6 +100,12 @@ export default class ShaderStudy extends React.Component {
           uSize: {
             value: 10, 
           },
+          startHeight: {
+            value: +option.startHeight.toFixed(1)
+          },
+          maxOpacity: {
+            value: +option.maxOpacity.toFixed(1)
+          },
           height: {
             value: +option.height.toFixed(1)
           },
@@ -98,23 +115,12 @@ export default class ShaderStudy extends React.Component {
           translateY
         },
         vertexShader: `
-          attribute float index;
           uniform float uSize;
-          uniform float segment;
-          uniform float height; 
-          uniform vec3 uColor;
-          uniform vec3 uColor1;
-          uniform float translateY;
-          varying float vOpacity;
           varying float positionY;
-          varying float positionX;
           void main(){
             float size = uSize;
   
-            vOpacity = -position.y * (1.0/height)+(1.0/2.0);
-            
             positionY = position.y;
-            positionX = position.x;
   
             vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
             gl_Position = projectionMatrix * mvPosition;
@@ -128,16 +134,17 @@ export default class ShaderStudy extends React.Component {
           uniform float segment;
           uniform vec3 uColor;
           uniform vec3 uColor1;
+          uniform float startHeight; 
           uniform float height; 
-          varying float vOpacity;
+          uniform float maxOpacity; 
           varying float positionY;
-          varying float positionX;
           void main(){
   
+            float vOpacity = -positionY * (maxOpacity / height) + maxOpacity * (1.0+(startHeight/height));
+
             float cur = mod((positionY+translateY) / segment, 1.0);
   
             if(cur > 0.0 && cur < 0.2){
-            // if(positionX>2.0){
               float opacity;
   
               if(cur < 0.1){
@@ -154,14 +161,54 @@ export default class ShaderStudy extends React.Component {
         `
       });
       const mesh = new THREE.Mesh( geometry, shader );
-      group.add(mesh)
+      group.add(mesh);
+
+      // 给平面加一个包围盒
+      let planeBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3())
+      planeBox.setFromObject(mesh);
+      planeBoxMap[mesh.uuid] = {box: planeBox, mesh};
 
       return p2;
     });
 
+    // 恢复
+    const reset = _.throttle((plane, mesh)=> {
+      plane.mesh.material.uniforms.uColor.value = new THREE.Color(option.bgColor);
+    }, option.duration, {leading: false, trailing: true})
+
+    // 告警
+    const warn = _.debounce((plane, mesh) => {
+      plane.mesh.material.uniforms.uColor.value = new THREE.Color(option.warnColor);
+      callback(mesh.mesh, plane.mesh)
+
+      plane.timer && clearTimeout(plane.timer)
+      plane.timer = setTimeout(function(){
+        plane.mesh.material.uniforms.uColor.value = new THREE.Color(option.bgColor);
+      }, option.duration)
+    }, 150, {leading: true})
+
+
+    let timer = null;
+    
     function animation(){
       translateY.value -= 0.02;
-      requestAnimationFrame(animation)
+      requestAnimationFrame(animation);
+
+      for(let meshKey in meshBoxMap){
+        meshBoxMap[meshKey].box.setFromObject(meshBoxMap[meshKey].mesh)
+      }
+
+      for(let planeKey in planeBoxMap){
+        for(let meshKey in meshBoxMap){
+          const plane = planeBoxMap[planeKey],
+                mesh = meshBoxMap[meshKey];
+          if(plane.box.intersectsBox(mesh.box)){
+            warn(plane, mesh);
+          }else{
+            // plane.mesh.material.uniforms.uColor.value = new THREE.Color(option.bgColor);
+          }
+        }
+      }
     }
     animation();
 
@@ -287,29 +334,21 @@ export default class ShaderStudy extends React.Component {
 
     window.plane = plane;
 
-    let group = this.createFenceByPoints([
-      [1,0,1],
-      [6,0,1],
-      [6,0,6],
-      [12,2,8],
-    ], { height: 10 });
-    scene.add(group)
 
     const box = new THREE.BoxGeometry(1,1,1)
     const boxMesh = new Mesh(box, new MeshLambertMaterial({color: 0x0000ff}))
-    // scene.add(boxMesh)
+    scene.add(boxMesh)
 
     boxMesh.position.z = 4;
 
     let meshBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3())
     meshBox.setFromObject(boxMesh)
-    let boxHelper = new THREE.Box3Helper(meshBox)
-    scene.add(boxHelper)
-    // scene.add(meshBox)
+    // let boxHelper = new THREE.Box3Helper(meshBox)
+    // scene.add(boxHelper)
 
     gsap.to(boxMesh.position, {
       z: -4,
-      duration: 2,
+      duration: 10,
       repeat: -1,
       yoyo: true, 
       onUpdate: () => {
@@ -324,18 +363,42 @@ export default class ShaderStudy extends React.Component {
     planeBox.setFromObject(plane)
     const planeHelper1 = new THREE.Box3Helper(planeBox)
     scene.add(planeHelper1)
+
+    window.planeBox = planeBox
    
+    let group = this.createFenceByPoints([
+      [-6,-1],
+      [5,-1],
+      [5,1],
+      [-6,1],
+    ], { 
+      height: 10, 
+      meshList: [boxMesh],
+      startHeight: -5, 
+      maxOpacity: 1, 
+      
+      bgColor: '#00FF00',
+      warnColor: '#FF0000',
+      lineColor: '#FFFF00',
+      segment: 1.5,  // 线条密度
+      duration: 5000,
+    },
+    function(mesh){
+      // console.log('碰撞了');
+    });
+    scene.add(group)
+
     function render(){
       renderer.render(scene, camera)
       requestAnimationFrame(render)
       
-      translateY.value -= 0.02;
+      // translateY.value -= 0.02;
       // meshBox.setFromObject(boxMesh)
-      if(meshBox.intersectsBox(planeBox)){
-        shader.uniforms.uColor.value = new THREE.Color('#FF0000')
-      }else{
-        shader.uniforms.uColor.value = new THREE.Color('#00FF00')
-      }
+      // if(meshBox.intersectsBox(planeBox)){
+      //   shader.uniforms.uColor.value = new THREE.Color('#FF0000')
+      // }else{
+      //   shader.uniforms.uColor.value = new THREE.Color('#00FF00')
+      // }
     }
 
     render()
