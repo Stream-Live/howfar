@@ -32,9 +32,22 @@ export default class ShaderStudy extends React.Component {
 
   }
 
-  createFenceByPoints(points, height){
+  createFenceByPoints(points, paramsOption){
+
+    const defOption = {
+      height: 10,
+      bgColor: '#00FF00',
+      lineColor: '#FFFF00',
+      segment: 1.5
+    }
+
+    const option = Object.assign(defOption, paramsOption)
 
     const attrCindex = [];
+    const height = option.height;
+    const translateY = {
+      value: 0
+    }
 
     for(let i=0;i<height;i++){
       attrCindex.push(i/(height-1));
@@ -62,11 +75,95 @@ export default class ShaderStudy extends React.Component {
       // itemSize = 3 因为每个顶点都是一个三元组。
       geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
       const material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
-      const mesh = new THREE.Mesh( geometry, material );
+
+      const shader = new THREE.ShaderMaterial({
+        side: THREE.DoubleSide,
+        transparent: true,
+        uniforms: {
+          uColor: {
+            value: new THREE.Color(option.bgColor)
+          },
+          uColor1: {
+            value: new THREE.Color(option.lineColor)
+          },
+          uSize: {
+            value: 10, 
+          },
+          height: {
+            value: +option.height.toFixed(1)
+          },
+          segment: {  
+            value: +option.segment.toFixed(1)
+          },
+          translateY
+        },
+        vertexShader: `
+          attribute float index;
+          uniform float uSize;
+          uniform float segment;
+          uniform float height; 
+          uniform vec3 uColor;
+          uniform vec3 uColor1;
+          uniform float translateY;
+          varying float vOpacity;
+          varying float positionY;
+          varying float positionX;
+          void main(){
+            float size = uSize;
+  
+            vOpacity = -position.y * (1.0/height)+(1.0/2.0);
+            
+            positionY = position.y;
+            positionX = position.x;
+  
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            //大小
+            gl_PointSize = size * 300.0 / (-mvPosition.z);
+          }
+          
+        `,
+        fragmentShader: `
+          uniform float translateY;
+          uniform float segment;
+          uniform vec3 uColor;
+          uniform vec3 uColor1;
+          uniform float height; 
+          varying float vOpacity;
+          varying float positionY;
+          varying float positionX;
+          void main(){
+  
+            float cur = mod((positionY+translateY) / segment, 1.0);
+  
+            if(cur > 0.0 && cur < 0.2){
+            // if(positionX>2.0){
+              float opacity;
+  
+              if(cur < 0.1){
+                opacity = 10.0 * cur;
+              }else{
+                opacity = -10.0 * cur + 2.0;
+              }
+              vec3 color = mix(uColor, uColor1, opacity);
+              gl_FragColor = vec4(color, vOpacity);
+            }else{
+              gl_FragColor = vec4(uColor, vOpacity);
+            }
+          }
+        `
+      });
+      const mesh = new THREE.Mesh( geometry, shader );
       group.add(mesh)
 
       return p2;
     });
+
+    function animation(){
+      translateY.value -= 0.02;
+      requestAnimationFrame(animation)
+    }
+    animation();
 
     return group;
 
@@ -186,73 +283,58 @@ export default class ShaderStudy extends React.Component {
 
     const material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
     const plane = new THREE.Mesh( geometry, shader );
-    scene.add( plane );
+    // scene.add( plane );
 
     window.plane = plane;
 
     let group = this.createFenceByPoints([
       [1,0,1],
-      [4,0,1],
-      [4,0,4],
-      [7,2,8],
-    ], 10);
-    // scene.add(group)
+      [6,0,1],
+      [6,0,6],
+      [12,2,8],
+    ], { height: 10 });
+    scene.add(group)
 
     const box = new THREE.BoxGeometry(1,1,1)
     const boxMesh = new Mesh(box, new MeshLambertMaterial({color: 0x0000ff}))
-    scene.add(boxMesh)
+    // scene.add(boxMesh)
 
     boxMesh.position.z = 4;
+
+    let meshBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3())
+    meshBox.setFromObject(boxMesh)
+    let boxHelper = new THREE.Box3Helper(meshBox)
+    scene.add(boxHelper)
+    // scene.add(meshBox)
 
     gsap.to(boxMesh.position, {
       z: -4,
       duration: 2,
       repeat: -1,
       yoyo: true, 
+      onUpdate: () => {
+        meshBox.setFromObject(boxMesh)
+      }
     })
 
     let ambientLight = new THREE.AmbientLight(0xffffff)
     scene.add(ambientLight);
 
-    let array = geometry.attributes.position.array;
-    let vertices = [];
-    for(let i=0; i< array.length;i+=3){
-      vertices.push(new Vector3(array[i], array[i+1], array[i+2]))
-    }
-    let raycaster = new THREE.Raycaster();
-
-    
-    // for(let i=0;i<geometry.attributes.position.array; i+=geometry.attributes.position.itemSize){
-
-    //   let array = geometry.attributes.position.array;
-    //   let vertexWorldCoord = new Vector3(array[i], array[i+1], array[i+2]).applyMatrix4(plane.matrixWorld);
-    //   let centerCoord = plane.position.clone();
-    //   let dir = vertexWorldCoord.sub(centerCoord);
-
-    //   let raycaster = new THREE.Raycaster(centerCoord, dir.clone().normalize());
-    //   let intersects = raycaster.intersectObjects([boxMesh], true);
-    //   if(intersects.length>0){
-
-    //     console.log('碰撞了',intersects[0]);
-    //   }
-    // }
-
+    let planeBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3())
+    planeBox.setFromObject(plane)
+    const planeHelper1 = new THREE.Box3Helper(planeBox)
+    scene.add(planeHelper1)
+   
     function render(){
       renderer.render(scene, camera)
       requestAnimationFrame(render)
       
       translateY.value -= 0.02;
-
-      for(let i=0;i<vertices.length;i++){
-        let glovert = vertices[i].clone().applyMatrix4(plane.matrix);
-        let dirv = glovert.sub(plane.position)
-  
-        raycaster.set(vertices[i], dirv.clone().normalize())
-        let intersects = raycaster.intersectObject(boxMesh);
-        if(intersects.length>0){
-  
-          console.log('碰撞了',intersects[0]);
-        }
+      // meshBox.setFromObject(boxMesh)
+      if(meshBox.intersectsBox(planeBox)){
+        shader.uniforms.uColor.value = new THREE.Color('#FF0000')
+      }else{
+        shader.uniforms.uColor.value = new THREE.Color('#00FF00')
       }
     }
 
