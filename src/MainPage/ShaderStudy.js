@@ -66,7 +66,7 @@ export default class ShaderStudy extends React.Component {
       meshBoxMap[item.uuid] = {box: box, mesh: item};
     }
 
-    let vec3Points = points.map(item => new THREE.Vector3(item[0], option.startHeight, item[1]));
+    let vec3Points = points.map(item => new THREE.Vector3(item[0], item[1], item[2]));
 
     vec3Points.reduce((p1, p2) => {
 
@@ -82,8 +82,18 @@ export default class ShaderStudy extends React.Component {
         p1.x, p1.y, p1.z, // 左下角
         p2.x, p2.y, p2.z  // 右下角
       ] );
+
+      const points = new Float32Array([
+        p1.x, p1.y,p1.z,
+        p1.x, p1.y,p1.z,
+        p2.x, p2.y,p2.z,
+        p2.x, p2.y,p2.z,
+        p1.x, p1.y,p1.z,
+        p2.x, p2.y,p2.z,
+      ])
       
       // itemSize = 3 因为每个顶点都是一个三元组。
+      geometry.setAttribute( 'myposition', new THREE.BufferAttribute( points, 3 ) );
       geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
       const material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
 
@@ -115,10 +125,14 @@ export default class ShaderStudy extends React.Component {
           translateY
         },
         vertexShader: `
+          attribute vec3 myposition;
           uniform float uSize;
           varying float positionY;
+          varying float startPositionY;
           void main(){
             float size = uSize;
+
+            startPositionY = myposition.y;
   
             positionY = position.y;
   
@@ -134,15 +148,15 @@ export default class ShaderStudy extends React.Component {
           uniform float segment;
           uniform vec3 uColor;
           uniform vec3 uColor1;
-          uniform float startHeight; 
           uniform float height; 
           uniform float maxOpacity; 
           varying float positionY;
+          varying float startPositionY;
           void main(){
   
-            float vOpacity = -positionY * (maxOpacity / height) + maxOpacity * (1.0+(startHeight/height));
+            float vOpacity = -positionY * (maxOpacity / height) + maxOpacity * (1.0+(startPositionY/height));
 
-            float cur = mod((positionY+translateY) / segment, 1.0);
+            float cur = mod((positionY-startPositionY+translateY) / segment, 1.0);
   
             if(cur > 0.0 && cur < 0.2){
               float opacity;
@@ -377,9 +391,9 @@ export default class ShaderStudy extends React.Component {
    
     let group = this.createFenceByPoints([
       // [-6,-1],
-      [5,-1],
-      [5,1],
-      [-6,6],
+      [5,-1, -1],
+      [5,4, 1],
+      [-6,-1,6],
     ], { 
       height: 10, 
       meshList: [boxMesh],
