@@ -28,12 +28,155 @@ export default class ShaderStudy extends React.Component {
 
     // this.ray_marching1(renderer, canvas)
     // this.particle_system(renderer, canvas)
-    this.fence(renderer, canvas)
+    // this.fence(renderer, canvas) // 创建围栏
+    this.animationPath(renderer, canvas)  // 创建动画路径
 
   }
 
-  // points：存储x和z的二维数组
-  createFenceByPoints(points, paramsOption, callback){
+  animationPath(renderer, canvas){
+    
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    const box = new THREE.BoxGeometry(1,1,1)
+    const boxMesh = new Mesh(box, 
+      [new MeshLambertMaterial({color: 0x0000ff}), 
+      new MeshLambertMaterial({color: 0xff00ff}),
+      new MeshLambertMaterial({color: 0xddffff}),
+      new MeshLambertMaterial({color: 0xddeeff}),
+      new MeshLambertMaterial({color: 0x00fdff}),
+      new MeshLambertMaterial({color: 0xcc00ff}),]
+      )
+    scene.add(boxMesh)
+
+    let animation = this.createAnimationPath([
+      [-5, -5, -5],
+      [5, -3, -5],
+      [6, -3, 5],
+      [5, 5, 10],
+      [-5, 5, 10],
+    ], {
+      mesh: boxMesh
+    }, 
+    {
+      onFinish: function(){
+        console.log('跑完一圈');
+      },
+      onUpdate: _.throttle((position) => {
+        console.log('update',position);
+  
+      }, 800, {leading: true})
+    }
+    )
+    animation.start();
+
+    scene.add(animation.line)
+
+    setInterval(function(){
+      animation.isStart ?  animation.stop() : animation.start();
+    }, 5000)
+    
+    function render(){
+      renderer.render(scene, camera)
+      requestAnimationFrame(render)
+      
+    }
+
+    render()
+  }
+
+  // 创建动画路径 API
+  createAnimationPath(points, paramsOption, listener){
+    const defOption = {
+      segment: 1000,  // 分段数
+      mesh: null
+    }
+
+    const option = Object.assign(defOption, paramsOption || {})
+
+    // 1、绘制三维样条曲线
+    let vec3Points = points.map(item => new THREE.Vector3(item[0], item[1], item[2]));
+    const curve = new THREE.CatmullRomCurve3(vec3Points);
+    const points1 = curve.getPoints( 500 );
+    const geometry = new THREE.BufferGeometry().setFromPoints( points1 );
+    const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+    const line = new THREE.Line( geometry, material );
+
+    // 2、获取每个分段数对应的时间点
+    const timeArray = []
+    for(let i=0;i<option.segment;i++){
+      timeArray.push(i/(option.segment-1));
+    }
+    
+    const targetPosition = new THREE.Vector3(); 
+    const meshPosition = new THREE.Vector3(); 
+
+    // 3、控制动画是否开始
+    const obj = {
+      line,
+      isStart: false,
+      start(){
+        this.isStart = true;
+        render();
+      },
+      stop(){
+        this.isStart = false
+      },
+    }
+
+    // 更新回调
+    const onUpdate = _.debounce(() => {
+      listener?.onUpdate && listener?.onUpdate(option.mesh.position)
+
+    }, 100, {leading: true})
+
+    let index = 0;
+    function render(){
+      obj.isStart && requestAnimationFrame(render)
+
+      let i = index % (option.segment-1);
+
+      // 一圈运动结束
+      if(i === 0 && index != 0){
+        listener?.onFinish && listener.onFinish();
+      }
+
+      // 获取当前时间段的 路径 坐标
+      curve.getPointAt(timeArray[i], meshPosition)
+      option.mesh.position.set(meshPosition.x, meshPosition.y, meshPosition.z)
+
+      // 获取 路径 前一点坐标
+      curve.getPointAt(timeArray[i+1], targetPosition)
+      option.mesh.lookAt(targetPosition.x, targetPosition.y, targetPosition.z)
+
+      // onUpdate();
+      listener?.onUpdate && listener?.onUpdate(option.mesh.position)
+
+      index++;
+    }
+    return obj
+  }
+
+  // 创建围栏 API
+  createFence(points, paramsOption, callback){
 
     const defOption = {
       startHeight: 0,  // 起始高度
@@ -208,9 +351,6 @@ export default class ShaderStudy extends React.Component {
       //   plane.mesh.material.uniforms.uColor.value = new THREE.Color(option.bgColor);
       // }, option.duration)
     }, 150, {leading: true})
-
-
-    let timer = null;
     
     function animation(){
       translateY.value -= 0.02;
@@ -258,10 +398,7 @@ export default class ShaderStudy extends React.Component {
     scene.add(axis)
 
     const width = 20,
-          height = 10,
-          bgColor = '#00FF00',
-          lineColor = '#FFFF00',
-          segment = 1.5;    // 圈圈之间的间隔高度
+          height = 10;    // 圈圈之间的间隔高度
 
     const attrCindex = [];
 
@@ -272,102 +409,11 @@ export default class ShaderStudy extends React.Component {
     const geometry = new THREE.PlaneGeometry( width, height );
     geometry.setAttribute('index', new THREE.Float32BufferAttribute(attrCindex, 1));
 
-    const translateY = {
-      value: 0
-    }
-
-    const shader = new THREE.ShaderMaterial({
-      side: THREE.DoubleSide,
-      transparent: true,
-      uniforms: {
-        uColor: {
-          value: new THREE.Color(bgColor)
-        },
-        uColor1: {
-          value: new THREE.Color(lineColor)
-        },
-        uSize: {
-          value: 10, 
-        },
-        height: {
-          value: +height.toFixed(1)
-        },
-        segment: {  
-          value: +segment.toFixed(1)
-        },
-        translateY
-      },
-      vertexShader: `
-        attribute float index;
-        uniform float uSize;
-        uniform float segment;
-        uniform float height; 
-        uniform vec3 uColor;
-        uniform vec3 uColor1;
-        uniform float translateY;
-        varying float vOpacity;
-        varying float positionY;
-        void main(){
-          float size = uSize;
-
-          vOpacity = -position.y * (1.0/height)+(1.0/2.0);
-          
-          positionY = position.y;
-
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * mvPosition;
-          //大小
-          gl_PointSize = size * 300.0 / (-mvPosition.z);
-        }
-        
-      `,
-      fragmentShader: `
-        uniform float translateY;
-        uniform float segment;
-        uniform vec3 uColor;
-        uniform vec3 uColor1;
-        uniform float height; 
-        varying float vOpacity;
-        varying float positionY;
-        void main(){
-
-          float cur = mod((positionY+translateY) / segment, 1.0);
-
-          if(cur > 0.0 && cur < 0.2){
-            float opacity;
-
-            if(cur < 0.1){
-              opacity = 10.0 * cur;
-            }else{
-              opacity = -10.0 * cur + 2.0;
-            }
-            vec3 color = mix(uColor, uColor1, opacity);
-            gl_FragColor = vec4(color, vOpacity);
-          }else{
-            gl_FragColor = vec4(uColor, vOpacity);
-          }
-        }
-      `
-    })
-
-    const material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
-    const plane = new THREE.Mesh( geometry, shader );
-    // scene.add( plane );
-
-    window.plane = plane;
-
-
     const box = new THREE.BoxGeometry(1,1,1)
     const boxMesh = new Mesh(box, new MeshLambertMaterial({color: 0x0000ff}))
     scene.add(boxMesh)
 
-    // boxMesh.position.x = 8;
     boxMesh.position.z = 8;
-
-    let meshBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3())
-    meshBox.setFromObject(boxMesh)
-    // let boxHelper = new THREE.Box3Helper(meshBox)
-    // scene.add(boxHelper)
 
     gsap.to(boxMesh.position, {
       z: -1,
@@ -375,21 +421,13 @@ export default class ShaderStudy extends React.Component {
       repeat: -1,
       yoyo: true, 
       onUpdate: () => {
-        meshBox.setFromObject(boxMesh)
       }
     })
 
     let ambientLight = new THREE.AmbientLight(0xffffff)
     scene.add(ambientLight);
 
-    let planeBox = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3())
-    planeBox.setFromObject(plane)
-    const planeHelper1 = new THREE.Box3Helper(planeBox)
-    // scene.add(planeHelper1)
-
-    window.planeBox = planeBox
-   
-    let group = this.createFenceByPoints([
+    let group = this.createFence([
       // [-6,-1],
       [5,-1, -1],
       [5,4, 1],
@@ -415,13 +453,6 @@ export default class ShaderStudy extends React.Component {
       renderer.render(scene, camera)
       requestAnimationFrame(render)
       
-      // translateY.value -= 0.02;
-      // meshBox.setFromObject(boxMesh)
-      // if(meshBox.intersectsBox(planeBox)){
-      //   shader.uniforms.uColor.value = new THREE.Color('#FF0000')
-      // }else{
-      //   shader.uniforms.uColor.value = new THREE.Color('#00FF00')
-      // }
     }
 
     render()
