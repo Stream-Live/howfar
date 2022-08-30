@@ -73,13 +73,16 @@ export default class ShaderStudy extends React.Component {
       [6, -3, 5],
       [5, 5, 10],
       [-5, 5, 10],
+      [-5, -5, -5],
     ], {
       mesh: boxMesh,
-      speed: 3.5,
+      speed: 2.5,
+      isStraight: false,
     }, 
     {
       onFinish: function(){
         console.log('跑完一圈');
+        // animation.stop();
       },
       onUpdate: _.throttle((mesh) => {
         // console.log('update',position);
@@ -90,10 +93,6 @@ export default class ShaderStudy extends React.Component {
     animation.start();
 
     scene.add(animation.line)
-
-    // setInterval(function(){
-    //   animation.isStarted ?  animation.stop() : animation.start();
-    // }, 5000)
     
     function render(){
       renderer.render(scene, camera)
@@ -107,26 +106,36 @@ export default class ShaderStudy extends React.Component {
   // 创建动画路径 API
   createAnimationPath(points, paramsOption, listener){
     const defOption = {
-      segment: 1000,  // 分段数，范围是大于0
+      speedSegment: 1000,  // 速度对应的分段数，范围是大于0
       speed:  1,  // 范围在0-segment之间，实际意义是每一帧跑多远
       mesh: null,
-      // isStraight: false,  // 是否是直线 
+      isStraight: false,  // 是否是直线 
+      divisions: 100,   // 路径对应的分段数
     }
 
     const option = Object.assign(defOption, paramsOption || {})
 
-    // 1、绘制三维样条曲线
     let vec3Points = points.map(item => new THREE.Vector3(item[0], item[1], item[2]));
-    const curve = new THREE.CatmullRomCurve3(vec3Points);
-    const points1 = curve.getPoints( 500 );
-    const geometry = new THREE.BufferGeometry().setFromPoints( points1 );
+
+    // 1、绘制三维线条
+    let curvePath = new THREE.CurvePath();
+    if(option.isStraight){
+      vec3Points.reduce((p1, p2) => {
+        const lineCurve = new THREE.LineCurve3(p1, p2);
+        curvePath.add(lineCurve)
+        return p2
+      });
+    }else{
+      curvePath.add(new THREE.CatmullRomCurve3(vec3Points))
+    }
+    const geometry = new THREE.BufferGeometry().setFromPoints( curvePath.getPoints(option.divisions) );
     const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
     const line = new THREE.Line( geometry, material );
 
     // 2、获取每个分段数对应的时间点，每个时间点之间的间距是 option.speed
     const timeArray = []
-    for(let i=0;i<option.segment;i+=option.speed){
-      timeArray.push(i/(option.segment-1));
+    for(let i=0;i<option.speedSegment;i+=option.speed){
+      timeArray.push(i/(option.speedSegment-1));
     }
     
     const targetPosition = new THREE.Vector3(); 
@@ -158,11 +167,11 @@ export default class ShaderStudy extends React.Component {
       index = index % (timeArray.length-1);
 
       // 获取当前时间段的 路径 坐标
-      curve.getPointAt(timeArray[index], meshPosition)
+      curvePath.getPointAt(timeArray[index], meshPosition)
       option.mesh.position.set(meshPosition.x, meshPosition.y, meshPosition.z)
 
       // 获取 路径 前一点坐标
-      curve.getPointAt(timeArray[index+1], targetPosition)
+      curvePath.getPointAt(timeArray[index+1], targetPosition)
       option.mesh.lookAt(targetPosition.x, targetPosition.y, targetPosition.z)
 
       listener?.onUpdate && listener?.onUpdate(option.mesh)
@@ -170,7 +179,8 @@ export default class ShaderStudy extends React.Component {
       index++;
     }
 
-    return obj
+    return obj;
+    
   }
 
   // 创建围栏 API
