@@ -74,14 +74,15 @@ export default class ShaderStudy extends React.Component {
       [5, 5, 10],
       [-5, 5, 10],
     ], {
-      mesh: boxMesh
+      mesh: boxMesh,
+      speed: 3.5,
     }, 
     {
       onFinish: function(){
         console.log('跑完一圈');
       },
-      onUpdate: _.throttle((position) => {
-        console.log('update',position);
+      onUpdate: _.throttle((mesh) => {
+        // console.log('update',position);
   
       }, 800, {leading: true})
     }
@@ -90,9 +91,9 @@ export default class ShaderStudy extends React.Component {
 
     scene.add(animation.line)
 
-    setInterval(function(){
-      animation.isStart ?  animation.stop() : animation.start();
-    }, 5000)
+    // setInterval(function(){
+    //   animation.isStarted ?  animation.stop() : animation.start();
+    // }, 5000)
     
     function render(){
       renderer.render(scene, camera)
@@ -106,8 +107,10 @@ export default class ShaderStudy extends React.Component {
   // 创建动画路径 API
   createAnimationPath(points, paramsOption, listener){
     const defOption = {
-      segment: 1000,  // 分段数
-      mesh: null
+      segment: 1000,  // 分段数，范围是大于0
+      speed:  1,  // 范围在0-segment之间，实际意义是每一帧跑多远
+      mesh: null,
+      // isStraight: false,  // 是否是直线 
     }
 
     const option = Object.assign(defOption, paramsOption || {})
@@ -120,9 +123,9 @@ export default class ShaderStudy extends React.Component {
     const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
     const line = new THREE.Line( geometry, material );
 
-    // 2、获取每个分段数对应的时间点
+    // 2、获取每个分段数对应的时间点，每个时间点之间的间距是 option.speed
     const timeArray = []
-    for(let i=0;i<option.segment;i++){
+    for(let i=0;i<option.segment;i+=option.speed){
       timeArray.push(i/(option.segment-1));
     }
     
@@ -132,46 +135,41 @@ export default class ShaderStudy extends React.Component {
     // 3、控制动画是否开始
     const obj = {
       line,
-      isStart: false,
+      isStarted: false,
       start(){
-        this.isStart = true;
+        this.isStarted = true;
         render();
       },
       stop(){
-        this.isStart = false
+        this.isStarted = false;
       },
     }
-
-    // 更新回调
-    const onUpdate = _.debounce(() => {
-      listener?.onUpdate && listener?.onUpdate(option.mesh.position)
-
-    }, 100, {leading: true})
-
+    
     let index = 0;
     function render(){
-      obj.isStart && requestAnimationFrame(render)
-
-      let i = index % (option.segment-1);
+      obj.isStarted && requestAnimationFrame(render)
 
       // 一圈运动结束
-      if(i === 0 && index != 0){
+      if(index === timeArray.length-1){
         listener?.onFinish && listener.onFinish();
       }
 
+      // 限制 index 范围
+      index = index % (timeArray.length-1);
+
       // 获取当前时间段的 路径 坐标
-      curve.getPointAt(timeArray[i], meshPosition)
+      curve.getPointAt(timeArray[index], meshPosition)
       option.mesh.position.set(meshPosition.x, meshPosition.y, meshPosition.z)
 
       // 获取 路径 前一点坐标
-      curve.getPointAt(timeArray[i+1], targetPosition)
+      curve.getPointAt(timeArray[index+1], targetPosition)
       option.mesh.lookAt(targetPosition.x, targetPosition.y, targetPosition.z)
 
-      // onUpdate();
-      listener?.onUpdate && listener?.onUpdate(option.mesh.position)
+      listener?.onUpdate && listener?.onUpdate(option.mesh)
 
       index++;
     }
+
     return obj
   }
 
@@ -179,7 +177,6 @@ export default class ShaderStudy extends React.Component {
   createFence(points, paramsOption, callback){
 
     const defOption = {
-      startHeight: 0,  // 起始高度
       height: 10,
       bgColor: '#00FF00',
       warnColor: '#FF0000',
@@ -189,7 +186,6 @@ export default class ShaderStudy extends React.Component {
       meshList: [],  // 要闯入围栏的物体列表
       duration: 2000
     }
-
 
     const option = Object.assign(defOption, paramsOption)
 
@@ -252,9 +248,6 @@ export default class ShaderStudy extends React.Component {
           },
           uSize: {
             value: 10, 
-          },
-          startHeight: {
-            value: +option.startHeight.toFixed(1)
           },
           maxOpacity: {
             value: +option.maxOpacity.toFixed(1)
