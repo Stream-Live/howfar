@@ -6,3 +6,8 @@
   @include fullscreen();
   margin: 0;
 }
+
+#label:hover{
+  color: aqua;
+  background: rgb(242, 170, 170);
+}

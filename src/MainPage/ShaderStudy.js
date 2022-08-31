@@ -7,6 +7,10 @@ import gsap from 'gsap'
 import { Vector3 } from "three";
 import * as _ from 'lodash'
 // import {RayMarching} from './Helper'
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm//renderers/CSS2DRenderer.js";
+import { CSS3DRenderer, CSS3DObject } from "three/examples/jsm//renderers/CSS3DRenderer";
+import TWEEN from "tween.js";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -26,12 +30,152 @@ export default class ShaderStudy extends React.Component {
     // this.shader_fly_line(renderer, canvas)
     // this.shader_particle(renderer, canvas)
 
-    // this.ray_marching1(renderer, canvas)
     // this.particle_system(renderer, canvas)
+
+    // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
-    this.animationPath(renderer, canvas)  // 创建动画路径
+    // this.animationPath(renderer, canvas)  // 创建动画路径
+    this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签
+    // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
 
   }
+
+
+
+  axisChange(renderer, canvas){
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    let infos = [
+      { 
+        position: [5, 5, 5],
+        dom: document.getElementById('label')
+      }
+    ]
+
+    let loader = new GLTFLoader();
+
+    loader.load('/bdzzcjgd3.gltf', function(gltf){
+
+      scene.add(gltf.scene)
+
+    })
+  
+
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+
+    function render(){
+      requestAnimationFrame(render)
+
+      renderer.render(scene, camera)
+      for(let item of infos){
+
+        const standardVec = new THREE.Vector3(item.position[0], item.position[1], item.position[2]).project(camera)
+
+        const screenX = Math.round(centerX * standardVec.x + centerX);
+        const screenY = Math.round(-centerY * standardVec.y + centerY);
+
+        item.dom.style.left = screenX + 'px';
+        item.dom.style.top = screenY + 'px';
+      }
+      
+    }
+
+    render()
+  }
+  CSS2DAnd3D(renderer, canvas){
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    let infos = [
+      { 
+        position: [5, 5, 5],
+        dom: document.getElementById('label')
+      }
+    ]
+    for(let item of infos){
+
+      const label = new CSS3DObject(item.dom);
+      label.position.set(item.position[0], item.position[1], item.position[2]);
+
+      scene.add(label)
+
+      // 缩小dom元素
+      label.scale.x = 0.05;
+      label.scale.y = 0.05;
+      label.scale.z = 0.05;
+
+      // 设置标签不可见
+      // label.visible = false; 
+    }
+
+    let loader = new GLTFLoader();
+
+    loader.load('/bdzzcjgd3.gltf', function(gltf){
+
+      scene.add(gltf.scene)
+
+    })
+  
+
+    let labelRenderer = new CSS3DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight)
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0px';
+    canvas.parentNode.appendChild( labelRenderer.domElement );
+
+    // 控制相机
+    const controls = new OrbitControls(camera, labelRenderer.domElement)
+    controls.update()
+
+    function render(){
+      requestAnimationFrame(render)
+
+      renderer.render(scene, camera)
+      labelRenderer.render( scene, camera );
+      
+    }
+
+    render()
+  }
+
 
   animationPath(renderer, canvas){
     
@@ -191,7 +335,7 @@ export default class ShaderStudy extends React.Component {
       bgColor: '#00FF00',
       warnColor: '#FF0000',
       lineColor: '#FFFF00',
-      segment: 1.5,  // 线条密度
+      segment: 1.5,  // 线条密度，实际意义是线条之间的间距
       maxOpacity: 1,  // 最大透明度
       meshList: [],  // 要闯入围栏的物体列表
       duration: 2000
@@ -444,7 +588,7 @@ export default class ShaderStudy extends React.Component {
       bgColor: '#00FF00',
       warnColor: '#FF0000',
       lineColor: '#FFFF00',
-      segment: 1.5,  // 线条密度
+      segment: 4,  // 线条密度
       duration: 1000,
     },
     function(mesh){
@@ -506,14 +650,6 @@ export default class ShaderStudy extends React.Component {
     }
 
     render()
-  }
-  // 光线步进
-  ray_marching1(renderer, canvas){
-
-    // const rayMarching = new RayMarching("#c2d", false);
-    // rayMarching.init();
-
-
   }
   ray_marching(renderer, canvas){
     const left = -1,
@@ -687,11 +823,28 @@ export default class ShaderStudy extends React.Component {
 
     render()
   }
+
+  handleClick(){
+    console.log('click');
+  }
   render() {
     return (
-      <canvas id="c2d" style={{ width: '100%', height: '100%' }}>
+      <div  style={{ width: '100%', height: '100%' }}>
+        <canvas id="c2d" style={{ width: '100%', height: '100%' }}>
 
-      </canvas>
+        </canvas>
+
+        <div id="label" style={{    
+          width: '180px',
+          height: '90px',
+          position: 'absolute',
+          background: 'antiquewhite'}}
+          onPointerDown={this.handleClick}>
+            
+          这是标签
+        </div>
+
+      </div>
     )
   }
 }
