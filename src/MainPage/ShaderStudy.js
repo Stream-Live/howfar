@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { MeshLambertMaterial } from "three";
 import { Mesh } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
 import gsap from 'gsap'
 import { Vector3 } from "three";
 import * as _ from 'lodash'
@@ -11,6 +12,8 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { CSS2DRenderer, CSS2DObject } from "three/examples/jsm//renderers/CSS2DRenderer.js";
 import { CSS3DRenderer, CSS3DObject } from "three/examples/jsm//renderers/CSS3DRenderer";
 import TWEEN from "tween.js";
+import shuData from '../assets/shu'
+import Stats from 'three/examples/jsm/libs/stats.module.js';
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -35,12 +38,161 @@ export default class ShaderStudy extends React.Component {
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
     // this.animationPath(renderer, canvas)  // 创建动画路径
-    this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签
+    this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
+    // this.optimizeTree(renderer, canvas) 
 
   }
 
+  optimizeTree(renderer, canvas){
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    let loader = new GLTFLoader();
+
+    loader.load('/shu.gltf', function(gltf){
+
+      // 方法1
+      // scene.add(gltf.scene)
+
+      // 方法2
+      // let group = gltf.scene.children[0];
+      console.log(gltf.scene);
+
+      
+      // scene.add(getInsMesh(gltf.scene.children[0].children[0]));
+ 
+      // scene.add(getInsMesh(gltf.scene.children[0].children[1]));
+
+      // 方法3
+      
+      // scene.add(getMergedMesh(gltf.scene.children[0].children[0]));
+      // scene.add(getMergedMesh(gltf.scene.children[0].children[1]));
+
+      // 方法4
+      let i = 0;
+      const lod = new THREE.LOD();
+      for(let item of gltf.scene.children[0].children){
+
+        scene.add(item)
+      }
+      scene.add(gltf.scene.children[1])
+      // scene.add(gltf.scene)
+    })
+
+    function getLod(meshList){
+      const lod = new THREE.LOD();
+
+      for(let item of meshList){
+        lod.addLevel(item)
+      }
+      return lod;
+    }
+
+    function getMergedMesh(mesh){
+      console.log(mesh)
+      let geometries = [];
+      let material = mesh.material;
+      let total = shuData.length;
+      let transform = new THREE.Object3D();
+      for (let index = 0; index < total; index+=5) {
+          let geometry = mesh.geometry.clone();
+          let translation = shuData[index].translation;
+          let scale = shuData[index].scale;
+          transform.position.set(translation[0], translation[1], translation[2]);
+          transform.scale.set(scale[0], scale[1], scale[2]);
+          // transform.position.set(Math.random() * 2000, Math.random() * 2000, Math.random() * 2000);
+
+          transform.updateMatrix();
+          geometry.applyMatrix4(transform.matrix);
+          geometries.push(geometry);
+      }
+      let mergedGeometry = mergeBufferGeometries(geometries);
+      let mergedMesh = new THREE.Mesh(mergedGeometry, material);
+      return mergedMesh
+    }
+
+    function getInsMesh(mesh){
+      let insGeometry = mesh.geometry;
+      let material = mesh.material;
+      let total = shuData.length;
+      //创建具有多个实例的实例化几何体
+      let insMesh = new THREE.InstancedMesh(insGeometry, material, total);
+      //修改位置
+      let transform = new THREE.Object3D();
+      for (let index = 0; index < total; index+=5) {
+        let translation = shuData[index].translation;
+        let scale = shuData[index].scale;
+        transform.position.set(translation[0], translation[1], translation[2]);
+        transform.scale.set(scale[0], scale[1], scale[2]);
+
+        transform.updateMatrix();
+        //修改实例化几何体中的单个实例的矩阵以改变大小、方向、位置等
+        insMesh.setMatrixAt(index, transform.matrix);
+      }
+      return insMesh
+    }
+    
+    
+  
+
+    let stats = new Stats()
+    document.body.appendChild(stats.domElement)
+    function render(){
+      requestAnimationFrame(render)
+
+      renderer.render(scene, camera)
+      
+      stats.update()
+    }
+
+    render()
+  }
+
+  focusTo(controls, camera, cameraPosition, targetPosition, duration){
+
+    let d = duration || 1;
+
+    gsap.to(controls.target, {
+      x: targetPosition.x,
+      y: targetPosition.y,
+      z: targetPosition.z,
+      duration: d,
+      onUpdate(){
+        controls.update()
+      },
+    })
+    gsap.to(camera.position, {
+      x: cameraPosition.x,
+      y: cameraPosition.y,
+      z: cameraPosition.z,
+
+      duration: d,
+      onUpdate(){
+        controls.update()
+      },
+    })
+  }
 
   axisChange(renderer, canvas){
     renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
@@ -123,12 +275,21 @@ export default class ShaderStudy extends React.Component {
     scene.add(axis)
     let ambientLight = new THREE.AmbientLight(0xffffff)
     scene.add(ambientLight);
+    let _this = this;
 
     let infos = [
       { 
-        position: [5, 5, 5],
-        dom: document.getElementById('label')
-      }
+        position: [-15, 5, -15],
+        dom: document.getElementsByClassName('label')[0]
+      },
+      { 
+        position: [15, 7, 15],
+        dom: document.getElementsByClassName('label')[1]
+      },
+      { 
+        position: [-15, 15, 15],
+        dom: document.getElementsByClassName('label')[2]
+      },
     ]
     for(let item of infos){
 
@@ -141,6 +302,11 @@ export default class ShaderStudy extends React.Component {
       label.scale.x = 0.05;
       label.scale.y = 0.05;
       label.scale.z = 0.05;
+
+      item.dom.addEventListener('pointerdown', function(){
+        console.log(11,label.position);
+        _this.focusTo(controls, camera, new THREE.Vector3(label.position.x,label.position.y+10,label.position.z+10), label.position)
+      })
 
       // 设置标签不可见
       // label.visible = false; 
@@ -170,6 +336,7 @@ export default class ShaderStudy extends React.Component {
 
       renderer.render(scene, camera)
       labelRenderer.render( scene, camera );
+
       
     }
 
@@ -214,10 +381,10 @@ export default class ShaderStudy extends React.Component {
     let animation = this.createAnimationPath([
       [-5, -5, -5],
       [5, -3, -5],
-      [6, -3, 5],
-      [5, 5, 10],
-      [-5, 5, 10],
-      [-5, -5, -5],
+      // [6, -3, 5],
+      // [5, 5, 10],
+      // [-5, 5, 10],
+      // [-5, -5, -5],
     ], {
       mesh: boxMesh,
       speed: 2.5,
@@ -834,9 +1001,27 @@ export default class ShaderStudy extends React.Component {
 
         </canvas>
 
-        <div id="label" style={{    
-          width: '180px',
-          height: '90px',
+        <div className="label" style={{    
+          width: '100px',
+          height: '50px',
+          position: 'absolute',
+          background: 'antiquewhite'}}
+          onPointerDown={this.handleClick}>
+            
+          这是标签
+        </div>
+        <div className="label" style={{    
+          width: '100px',
+          height: '50px',
+          position: 'absolute',
+          background: 'antiquewhite'}}
+          onPointerDown={this.handleClick}>
+            
+          这是标签
+        </div>
+        <div className="label" style={{    
+          width: '100px',
+          height: '50px',
           position: 'absolute',
           background: 'antiquewhite'}}
           onPointerDown={this.handleClick}>
