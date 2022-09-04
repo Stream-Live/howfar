@@ -3,6 +3,7 @@ import * as THREE from "three";
 import { MeshLambertMaterial } from "three";
 import { Mesh } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
+import { DragControls } from "three/examples/jsm/controls/DragControls";
 import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
 import gsap from 'gsap'
 import { Vector3 } from "three";
@@ -15,6 +16,7 @@ import TWEEN from "tween.js";
 import shuData from '../assets/shu'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
+import { BoxGeometry } from "three";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -178,7 +180,7 @@ export default class ShaderStudy extends React.Component {
 
     let loader = new GLTFLoader();
 
-    loader.load('/shu.gltf', function(gltf){
+    loader.load('/shu1.gltf', function(gltf){
 
       // 方法1
       // scene.add(gltf.scene)
@@ -195,16 +197,17 @@ export default class ShaderStudy extends React.Component {
       // 方法3
       
       // scene.add(getMergedMesh(gltf.scene.children[0].children[0]));
-      // scene.add(getMergedMesh(gltf.scene.children[0].children[1]));
+      scene.add(getMergedMesh(gltf.scene.children[0].children[1]));
+      // scene.add(getMergedMesh1(gltf.scene.children[0].children, 0));
+      // scene.add(getMergedMesh1(gltf.scene.children[0].children, 1));
 
       // 方法4
-      let i = 0;
-      const lod = new THREE.LOD();
-      for(let item of gltf.scene.children[0].children){
+      // for(let i=0;i< gltf.scene.children[0].children.length;i+=2){
 
-        scene.add(item)
-      }
-      scene.add(gltf.scene.children[1])
+
+      //   scene.add(gltf.scene.children[0].children[i])
+      // }
+      // scene.add(gltf.scene.children[1])
       // scene.add(gltf.scene)
     })
 
@@ -217,13 +220,53 @@ export default class ShaderStudy extends React.Component {
       return lod;
     }
 
+    function getMergedMesh1(children, index){
+      console.log(children)
+      let transform = new THREE.Object3D();
+      let geometries = [];
+      let material;
+      for(let i=0;i<children.length;i+=6){
+        let group = children[i];
+
+        let innerMesh = group.children[index];
+
+        let geometry = innerMesh.geometry.clone();
+
+        transform.position.copy(innerMesh.position);
+        transform.scale.copy(innerMesh.scale);
+
+        transform.updateMatrix();
+        geometry.applyMatrix4(transform.matrix);
+        material = innerMesh.material;
+        geometries.push(geometry);
+        
+      }
+      // let material = mesh.material;
+      // let total = shuData.length;
+      // let transform = new THREE.Object3D();
+      // for (let index = 0; index < total; index++) {
+      //     let geometry = mesh.geometry.clone();
+      //     let translation = shuData[index].translation;
+      //     let scale = shuData[index].scale;
+      //     transform.position.set(translation[0], translation[1], translation[2]);
+      //     transform.scale.set(scale[0], scale[1], scale[2]);
+      //     // transform.position.set(Math.random() * 2000, Math.random() * 2000, Math.random() * 2000);
+
+      //     transform.updateMatrix();
+      //     geometry.applyMatrix4(transform.matrix);
+      //     geometries.push(geometry);
+      // }
+      let mergedGeometry = mergeBufferGeometries(geometries);
+      let mergedMesh = new THREE.Mesh(mergedGeometry, material);
+      return mergedMesh
+    }
     function getMergedMesh(mesh){
-      console.log(mesh)
+      console.log(mesh,1, window.performance.memory)
       let geometries = [];
       let material = mesh.material;
       let total = shuData.length;
       let transform = new THREE.Object3D();
-      for (let index = 0; index < total; index+=5) {
+      for (let index = 0; index < total; index+=10) {
           let geometry = mesh.geometry.clone();
           let translation = shuData[index].translation;
           let scale = shuData[index].scale;
@@ -234,10 +277,14 @@ export default class ShaderStudy extends React.Component {
           transform.updateMatrix();
           geometry.applyMatrix4(transform.matrix);
           geometries.push(geometry);
+
       }
+
       let mergedGeometry = mergeBufferGeometries(geometries);
       let mergedMesh = new THREE.Mesh(mergedGeometry, material);
+      console.log(2, window.performance.memory, total)
       return mergedMesh
+
     }
 
     function getInsMesh(mesh){
@@ -261,8 +308,6 @@ export default class ShaderStudy extends React.Component {
       return insMesh
     }
     
-    
-  
 
     let stats = new Stats()
     document.body.appendChild(stats.domElement)
@@ -388,7 +433,15 @@ export default class ShaderStudy extends React.Component {
     let infos = [
       { 
         position: [-15, 5, -15],
-        dom: document.getElementsByClassName('label')[0]
+        dom: document.getElementsByClassName('label')[0],
+        onAddObject(item){
+          let label = item.object;
+          item.dom.addEventListener('pointerdown', function(){
+            // _this.focusTo(controls, camera, new THREE.Vector3(label.position.x,label.position.y+10,label.position.z+10), label.position)
+          })
+          // 设置标签不可见
+          // label.visible = false; 
+        }
       },
       { 
         position: [15, 7, 15],
@@ -399,34 +452,15 @@ export default class ShaderStudy extends React.Component {
         dom: document.getElementsByClassName('label')[2]
       },
     ]
-    for(let item of infos){
 
-      const label = new CSS3DObject(item.dom);
-      label.position.set(item.position[0], item.position[1], item.position[2]);
 
-      scene.add(label)
+    // let loader = new GLTFLoader();
 
-      // 缩小dom元素
-      label.scale.x = 0.05;
-      label.scale.y = 0.05;
-      label.scale.z = 0.05;
+    // loader.load('/bdzzcjgd3.gltf', function(gltf){
 
-      item.dom.addEventListener('pointerdown', function(){
-        console.log(11,label.position);
-        _this.focusTo(controls, camera, new THREE.Vector3(label.position.x,label.position.y+10,label.position.z+10), label.position)
-      })
+    //   scene.add(gltf.scene)
 
-      // 设置标签不可见
-      // label.visible = false; 
-    }
-
-    let loader = new GLTFLoader();
-
-    loader.load('/bdzzcjgd3.gltf', function(gltf){
-
-      scene.add(gltf.scene)
-
-    })
+    // })
   
 
     let labelRenderer = new CSS3DRenderer();
@@ -435,9 +469,86 @@ export default class ShaderStudy extends React.Component {
     labelRenderer.domElement.style.top = '0px';
     canvas.parentNode.appendChild( labelRenderer.domElement );
 
-    // 控制相机
-    const controls = new OrbitControls(camera, labelRenderer.domElement)
-    controls.update()
+    this.createCSS3D(scene, infos)
+
+    let controls1;
+
+    let controls = new OrbitControls(camera, labelRenderer.domElement)
+    controls.update();
+
+    window.Controller = {
+      startDrag(){
+        // 1、关闭CSS3DRenderer
+        labelRenderer.domElement.style.display = 'none'
+
+        // 2、把所有标签替换成小方块，加进DragControls
+        let objects = [];
+        infos.forEach(item => {
+
+          let mesh = new THREE.Mesh(new BoxGeometry(2,2,2), new THREE.MeshLambertMaterial({color: 0x0000ff}));
+          mesh.position.copy(item.object.position)
+          scene.add(mesh)
+
+          objects.push(mesh);
+          
+          item.mesh = mesh;
+
+          console.log(item.object);
+        })
+        controls1 = new DragControls( objects, camera, renderer.domElement );
+        controls1.addEventListener('drag', render1)
+
+        // 3、把OrbitControls的dom元素替换掉
+        controls.dispose();
+        controls = new OrbitControls(camera, renderer.domElement)
+        controls.update();
+
+        // 4、避免两个控制器冲突
+        controls1.addEventListener( 'dragstart', function ( event ) {
+
+          controls.enabled=false;
+          console.log('dragstart');
+        
+        } );
+        
+        controls1.addEventListener( 'dragend', function ( event ) {
+        
+          controls.enabled=true;
+          console.log('dragend');
+        
+        } );
+
+
+      },
+      endDrag(){
+        // 1、开启CSS3DRenderer
+        labelRenderer.domElement.style.display = 'block'
+        controls = new OrbitControls(camera, labelRenderer.domElement)
+        controls.update();
+
+        // 2、把所有小方块替换成标签
+        infos.forEach(item => {
+
+          item.object.position.copy(item.mesh.position)
+
+          item.mesh.removeFromParent();
+          
+        })
+
+        // 3、关闭拖拽控制器
+        controls1.dispose();
+
+        // 3、还原控制器
+        controls.dispose();
+        controls = new OrbitControls(camera, labelRenderer.domElement)
+        controls.update();
+      }
+    }
+
+    function render1(){
+      
+      renderer.render(scene, camera)
+    }
 
     function render(){
       requestAnimationFrame(render)
@@ -449,6 +560,32 @@ export default class ShaderStudy extends React.Component {
     }
 
     render()
+  }
+  // 创建3D标签
+  // infos：Array<{dom:Object, position: Array<Integer>(3), callback: Function}>
+  // return：Array<{dom:Object, position: Array<Integer>(3), callback: Function, object: CSS3DObject}>
+  createCSS3D(scene, infos){
+    let objects = []
+    for(let item of infos){
+
+      const label = new CSS3DObject(item.dom);
+      label.position.set(item.position[0], item.position[1], item.position[2]);
+
+      scene.add(label);
+
+      // 缩小dom元素
+      label.scale.x = 0.1;
+      label.scale.y = 0.1;
+      label.scale.z = 0.1;
+
+      item.object = label;
+
+      item.onAddObject && item.onAddObject(item);
+
+      objects.push(label)
+
+    }
+    return infos;
   }
 
 
@@ -1100,7 +1237,7 @@ export default class ShaderStudy extends React.Component {
   }
 
   handleClick(){
-    console.log('click');
+    console.log('click 1');
   }
   render() {
     return (
@@ -1109,30 +1246,30 @@ export default class ShaderStudy extends React.Component {
 
         </canvas>
 
-        <div className="label" style={{    
+        <div className="label" draggable={true} style={{    
           width: '100px',
           height: '50px',
           position: 'absolute',
           background: 'antiquewhite'}}
-          onPointerDown={this.handleClick}>
+          onMouseDown={this.handleClick}>
             
           这是标签
         </div>
-        <div className="label" style={{    
+        <div className="label" draggable={true} style={{    
           width: '100px',
           height: '50px',
           position: 'absolute',
           background: 'antiquewhite'}}
-          onPointerDown={this.handleClick}>
+          onMouseDown={this.handleClick}>
             
           这是标签
         </div>
-        <div className="label" style={{    
+        <div className="label" draggable={true} style={{    
           width: '100px',
           height: '50px',
           position: 'absolute',
           background: 'antiquewhite'}}
-          onPointerDown={this.handleClick}>
+          onMouseDown={this.handleClick}>
             
           这是标签
         </div>
