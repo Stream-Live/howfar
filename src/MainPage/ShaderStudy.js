@@ -14,6 +14,7 @@ import { CSS3DRenderer, CSS3DObject } from "three/examples/jsm//renderers/CSS3DR
 import TWEEN from "tween.js";
 import shuData from '../assets/shu'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -38,10 +39,117 @@ export default class ShaderStudy extends React.Component {
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
     // this.animationPath(renderer, canvas)  // 创建动画路径
-    this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦
+    // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.optimizeTree(renderer, canvas) 
 
+    this.pipeAnimation(renderer, canvas)
+
+  }
+
+  
+  pipeAnimation(renderer, canvas){
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('/draco/');
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load(
+      '/model.gltf',
+      function (gltf) {
+        scene.add(gltf.scene)
+
+        
+        let pipe = scene.getObjectByName('NG-0209-500-10A1-H001');
+        window.pipe = pipe
+
+        let shader = new THREE.ShaderMaterial({
+          side: THREE.DoubleSide,
+          transparent: true,
+          uniforms: {
+            uColor: {
+              value: new THREE.Color('#00ff00')
+            },
+            uColor: {
+              value: new THREE.Color('#ffffff')
+            },
+          },
+          vertexShader: `
+            varying vec3 vPosition;
+            void main(){
+
+              
+              vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+              gl_Position = projectionMatrix * mvPosition;
+              
+              vPosition = position;
+
+              //大小
+              gl_PointSize = 10.0 * 300.0 / (-mvPosition.z);
+            }
+            
+          `,
+          fragmentShader: `
+            uniform vec3 uColor;
+            varying vec3 vPosition;
+            void main(){
+    
+              gl_FragColor = vec4(vPosition.x, vPosition.y, vPosition.z, 1.0);
+            }
+          `
+        })
+        
+        pipe.material = shader
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+      },
+      // called when loading has errors
+      function (error) {
+        console.log('An error happened');
+      }
+    )
+
+    
+    // 添加光
+    let pointLight = new THREE.PointLight(0xffffff)
+    pointLight.position.set(camera.position.x, camera.position.y, camera.position.z )
+    scene.add(pointLight)
+
+
+    let stats = new Stats()
+    document.body.appendChild(stats.domElement)
+    function render(){
+      requestAnimationFrame(render)
+
+      renderer.render(scene, camera)
+      
+      stats.update()
+    }
+
+    render()
   }
 
   optimizeTree(renderer, canvas){
