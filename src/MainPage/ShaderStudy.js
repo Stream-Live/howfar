@@ -41,11 +41,11 @@ export default class ShaderStudy extends React.Component {
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
     // this.animationPath(renderer, canvas)  // 创建动画路径
-    // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦
+    this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.optimizeTree(renderer, canvas) 
 
-    this.pipeAnimation(renderer, canvas)
+    // this.pipeAnimation(renderer, canvas)
 
   }
 
@@ -476,6 +476,18 @@ export default class ShaderStudy extends React.Component {
     let controls = new OrbitControls(camera, labelRenderer.domElement)
     controls.update();
 
+    let dragstart = function ( event ) {
+
+      controls.enabled=false;
+    
+    };
+
+    let dragend = function ( event ) {
+        
+      controls.enabled=true;
+    
+    } 
+
     window.Controller = {
       startDrag(){
         // 1、关闭CSS3DRenderer
@@ -504,27 +516,15 @@ export default class ShaderStudy extends React.Component {
         controls.update();
 
         // 4、避免两个控制器冲突
-        controls1.addEventListener( 'dragstart', function ( event ) {
-
-          controls.enabled=false;
-          console.log('dragstart');
+        controls1.addEventListener( 'dragstart', dragstart);
         
-        } );
-        
-        controls1.addEventListener( 'dragend', function ( event ) {
-        
-          controls.enabled=true;
-          console.log('dragend');
-        
-        } );
+        controls1.addEventListener( 'dragend', dragend);
 
 
       },
       endDrag(){
         // 1、开启CSS3DRenderer
         labelRenderer.domElement.style.display = 'block'
-        controls = new OrbitControls(camera, labelRenderer.domElement)
-        controls.update();
 
         // 2、把所有小方块替换成标签
         infos.forEach(item => {
@@ -536,9 +536,11 @@ export default class ShaderStudy extends React.Component {
         })
 
         // 3、关闭拖拽控制器
+        controls1.removeEventListener('dragstart', dragstart)
+        controls1.removeEventListener('dragend', dragend)
         controls1.dispose();
 
-        // 3、还原控制器
+        // 4、还原控制器
         controls.dispose();
         controls = new OrbitControls(camera, labelRenderer.domElement)
         controls.update();
