@@ -43,10 +43,12 @@ export default class ShaderStudy extends React.Component {
     // this.animationPath(renderer, canvas)  // 创建动画路径
     // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
-    // this.optimizeTree(renderer, canvas) 
+    // this.lightLine(renderer, canvas)   // 创建流光溢彩线
 
-    // this.pipeAnimation(renderer, canvas)
-    this.lightLine(renderer, canvas)
+
+    // this.optimizeTree(renderer, canvas)  // 优化树
+
+    this.pipeAnimation(renderer, canvas)
 
   }
   lightLine(renderer, canvas){
@@ -259,6 +261,13 @@ export default class ShaderStudy extends React.Component {
         let pipe = scene.getObjectByName('NG-0209-500-10A1-H001');
         window.pipe = pipe
 
+        let attrCnumber = [];
+        for(let i=0; i< pipe.geometry.attributes.position.count; i++){
+          attrCnumber.push(i);
+        }
+
+        pipe.geometry.setAttribute('current', new THREE.Float32BufferAttribute(attrCnumber, 1));
+
         let shader = new THREE.ShaderMaterial({
           side: THREE.DoubleSide,
           transparent: true,
@@ -266,30 +275,43 @@ export default class ShaderStudy extends React.Component {
             uColor: {
               value: new THREE.Color('#00ff00')
             },
-            uColor: {
+            uColor1: {
               value: new THREE.Color('#ffffff')
             },
+            transition: {
+              value: 0,
+            }
           },
           vertexShader: `
-            varying vec3 vPosition;
+            attribute float current;
+            uniform vec3 uColor;
+            uniform vec3 uColor1;
+            uniform float transition;
+            varying vec3 vColor;
             void main(){
 
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
               gl_Position = projectionMatrix * mvPosition;
-              
-              vPosition = position;
+
+              float index = mod(current/50.0, 1.0);
+
+              if(index > 0.0 && index < 0.3){
+                vColor = uColor;
+              }else{
+                vColor = uColor1;
+              }
+              // vColor = uColor1;
 
               //大小
-              gl_PointSize = 10.0 * 300.0 / (-mvPosition.z);
+              // gl_PointSize = 10.0 * 300.0 / (-mvPosition.z);
             }
             
           `,
           fragmentShader: `
-            uniform vec3 uColor;
-            varying vec3 vPosition;
+            varying vec3 vColor;
             void main(){
     
-              gl_FragColor = vec4(vPosition.x, vPosition.y, vPosition.z, 1.0);
+              gl_FragColor = vec4(vColor, 1.0);
             }
           `
         })
