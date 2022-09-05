@@ -45,11 +45,10 @@ export default class ShaderStudy extends React.Component {
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.optimizeTree(renderer, canvas) 
 
-    this.pipeAnimation(renderer, canvas)
-    // this.lightLine(renderer, canvas)
+    // this.pipeAnimation(renderer, canvas)
+    this.lightLine(renderer, canvas)
 
   }
-
   lightLine(renderer, canvas){
     renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
@@ -65,7 +64,16 @@ export default class ShaderStudy extends React.Component {
     // 场景
     const scene = new THREE.Scene();
 
-    let line = this.createLightLine();
+    let line = this.createLightLine([
+      [-5, -5, -5],
+      [5, -3, -5],
+      [6, -3, 5],
+      [5, 5, 10],
+      [-5, 5, 10],
+      [-5, -3, -3],
+    ], {
+      isStraight: false,
+    });
 
     scene.add(line)
 
@@ -89,103 +97,113 @@ export default class ShaderStudy extends React.Component {
   }
 
   // 创建流光溢彩线
-  createLightLine(){
+  createLightLine(points, paramsOption){
 
-    const positions = [];
+    const defOption = {
+      isStraight: true,  // 是否是直线 
+      divisions: 2000,   // 路径对应的分段数
+      color1: '#e9b860',
+      color2: '#ffffff',
+      pointSize: 10,
+      segment: 200,
+      showArea: 0.5,
+    }
+
+    const option = Object.assign(defOption, paramsOption || {})
+
+    let vec3Points = points.map(item => new THREE.Vector3(item[0], item[1], item[2]));
+
+    // 1、绘制三维线条
+    let curvePath = new THREE.CurvePath();
+    if(option.isStraight){
+      vec3Points.reduce((p1, p2) => {
+        const lineCurve = new THREE.LineCurve3(p1, p2);
+        curvePath.add(lineCurve)
+        return p2
+      });
+    }else{
+      curvePath.add(new THREE.CatmullRomCurve3(vec3Points))
+    }
+    let pointsArr = curvePath.getPoints(option.divisions);
+
+    const geometry1 = new THREE.BufferGeometry().setFromPoints( pointsArr );
+    const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+    const line = new THREE.Line( geometry1, material );
+
     const attrPositions = [];
     const attrCindex = [];
     const attrCnumber = [];
 
-    // 粒子位置计算
-    const source = -500;
-    const target = 500;
-    const number = 1000;
-    const height = 300;
-    const total = target-source;
+    for(let i=0; i<pointsArr.length;i++){
 
-    for(let i=0;i<number;i++){
-      // 在0-1之间取1000个值
-      const index = i / (number-1);
-      // 在-500-500之间取1000个x坐标
-      const x = total*index - total/2;
-      const y = 0;
-      positions.push({
-        x,
-        y,
-        z: 0
-      });
-      attrCindex.push(index);
-      attrCnumber.push(i)
-    }
+      attrCnumber.push(i);
 
-    positions.forEach(p => {
+      let p = pointsArr[i];
       attrPositions.push(p.x, p.y, p.z)
-    });
+    }
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(attrPositions, 3))
-    geometry.setAttribute('index', new THREE.Float32BufferAttribute(attrCindex, 1))
     geometry.setAttribute('current', new THREE.Float32BufferAttribute(attrCnumber, 1))
 
     const shader = new THREE.ShaderMaterial({
       transparent: true,
       uniforms: {
         uColor: {
-          value: new THREE.Color('#FF0000')
+          value: new THREE.Color(option.color2)
         },
         uColor1: {
-          value: new THREE.Color('#FFFFFF')
-        },
-        uRange: {
-          value: 100,
+          value: new THREE.Color(option.color1)
         },
         uSize: {
-          value: 20, 
+          value: option.pointSize, 
         },
-        uTotal: {
-          value: number
+        segment: {
+          value: option.segment, 
         },
-        time: {
+        showArea: {
+          value: option.showArea, 
+        },
+        transition: {
           value: 0
-        }
+        },
       },
       vertexShader: `
-        attribute float index;
         attribute float current;
-        uniform float time;
+        uniform float transition;
         uniform float uSize;
-        uniform float uRange; // 展示区间
-        uniform float uTotal; // 粒子总数
         uniform vec3 uColor;
         uniform vec3 uColor1;
+        uniform float segment;
+        uniform float showArea;
         varying vec3 vColor;
         varying float vOpacity;
         void main(){
           float size = uSize;
-          // 需要当前显示的索引
-          float showNumber = uTotal * mod(time, 1.0);
-          if(showNumber > current && showNumber < current + uRange){
-            float uIndex = ((current + uRange) - showNumber) / uRange;
-            size *= uIndex;
-            vOpacity = 1.0;
+          
+          float location = mod((current+transition)/segment, 1.0);
+
+          if(location < showArea){
+            vOpacity = 1.0-location;
           }else{
             vOpacity = 0.0;
           }
 
+
           // 顶点着色器计算后的Position
-          vColor = mix(uColor, uColor1, index);
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
           //大小
-          gl_PointSize = size * 300.0 / (-mvPosition.z);
+          gl_PointSize = vOpacity * size * 20.0 / (-mvPosition.z);
         }
         
       `,
       fragmentShader: `
-        varying vec3 vColor;
+        uniform vec3 uColor;
+        uniform vec3 uColor1;
         varying float vOpacity;
         void main(){
-          gl_FragColor = vec4(vColor, vOpacity);
+          gl_FragColor = vec4(mix(uColor1, uColor, vOpacity), vOpacity);
         }
       `
     })
@@ -193,7 +211,7 @@ export default class ShaderStudy extends React.Component {
     const point = new THREE.Points(geometry, shader)
 
     setInterval(() => {
-      shader.uniforms.time.value += 0.001
+      shader.uniforms.transition.value += 1
     })
 
     return point
@@ -253,7 +271,6 @@ export default class ShaderStudy extends React.Component {
             varying vec3 vPosition;
             void main(){
 
-              
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
               gl_Position = projectionMatrix * mvPosition;
               
@@ -780,10 +797,10 @@ export default class ShaderStudy extends React.Component {
     let animation = this.createAnimationPath([
       [-5, -5, -5],
       [5, -3, -5],
-      // [6, -3, 5],
-      // [5, 5, 10],
-      // [-5, 5, 10],
-      // [-5, -5, -5],
+      [6, -3, 5],
+      [5, 5, 10],
+      [-5, 5, 10],
+      [-5, -5, -5],
     ], {
       mesh: boxMesh,
       speed: 2.5,
