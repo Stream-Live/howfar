@@ -72,7 +72,8 @@ export default class ShaderStudy extends React.Component {
       [-5, 5, 10],
       [-5, -3, -3],
     ], {
-      isStraight: false,
+      isStraight: true,
+      speed: 2
     });
 
     scene.add(line)
@@ -105,8 +106,9 @@ export default class ShaderStudy extends React.Component {
       color1: '#e9b860',
       color2: '#ffffff',
       pointSize: 10,
-      segment: 200,
-      showArea: 0.5,
+      speed: 1, // 速度，实际意义是每一帧运动的长度
+      segment: 200,    // 实际意义是每块部分的长度
+      showArea: 0.5,  // 每条线在对应部分的显示区域，0-1之间
     }
 
     const option = Object.assign(defOption, paramsOption || {})
@@ -133,18 +135,20 @@ export default class ShaderStudy extends React.Component {
     const attrPositions = [];
     const attrCindex = [];
     const attrCnumber = [];
-
-    for(let i=0; i<pointsArr.length;i++){
+    
+    for(let i=0; i<option.divisions;i++){
 
       attrCnumber.push(i);
 
-      let p = pointsArr[i];
+      let index = i/(option.divisions-1);
+
+      let p = curvePath.getPointAt(index);
       attrPositions.push(p.x, p.y, p.z)
     }
 
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.Float32BufferAttribute(attrPositions, 3))
-    geometry.setAttribute('current', new THREE.Float32BufferAttribute(attrCnumber, 1))
+    geometry.setAttribute('current', new THREE.Float32BufferAttribute(attrCnumber, 1));
 
     const shader = new THREE.ShaderMaterial({
       transparent: true,
@@ -189,7 +193,6 @@ export default class ShaderStudy extends React.Component {
             vOpacity = 0.0;
           }
 
-
           // 顶点着色器计算后的Position
           vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
           gl_Position = projectionMatrix * mvPosition;
@@ -211,7 +214,7 @@ export default class ShaderStudy extends React.Component {
     const point = new THREE.Points(geometry, shader)
 
     setInterval(() => {
-      shader.uniforms.transition.value += 1
+      shader.uniforms.transition.value += option.speed;
     })
 
     return point
