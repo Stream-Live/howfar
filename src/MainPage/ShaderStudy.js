@@ -41,16 +41,62 @@ export default class ShaderStudy extends React.Component {
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
     // this.animationPath(renderer, canvas)  // 创建动画路径
-    // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
+    this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
 
 
     // this.optimizeTree(renderer, canvas)  // 优化树
 
-    this.pipeAnimation(renderer, canvas)
+    // this.pipeAnimation(renderer, canvas)
 
   }
+
+  virtualize(renderer, canvas){
+
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 场景
+    const scene = new THREE.Scene();
+
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    let raycaster = new THREE.Raycaster();
+    let mouse = new THREE.Vector2();
+
+    function onMouseDown(event){
+      mouse.x = event.clientX;
+      mouse.y = event.clientY;
+      raycaster.setFromCamera(mouse, camera)
+      let raycasters = raycaster.intersectObjects(scene.children);
+      if(raycasters.length > 0){
+
+        raycasters[0].object.material.color.set(0x00ff00);
+      }
+      renderer.render(scene, camera);
+    }
+    window.addEventListener('mousedown', onMouseDown, false)
+
+    function render(){
+      requestAnimationFrame(render)
+
+      renderer.render(scene, camera)
+    }
+
+    render()
+  }
+
   lightLine(renderer, canvas){
     renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
@@ -293,9 +339,9 @@ export default class ShaderStudy extends React.Component {
               vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
               gl_Position = projectionMatrix * mvPosition;
 
-              float index = mod(current/50.0, 1.0);
+              // float index = mod(current/50.0, 1.0);
 
-              if(index > 0.0 && index < 0.3){
+              if(current < 250.0){
                 vColor = uColor;
               }else{
                 vColor = uColor1;
@@ -682,6 +728,7 @@ export default class ShaderStudy extends React.Component {
     
     } 
 
+
     window.Controller = {
       startDrag(){
         // 1、关闭CSS3DRenderer
@@ -689,6 +736,7 @@ export default class ShaderStudy extends React.Component {
 
         // 2、把所有标签替换成小方块，加进DragControls
         let objects = [];
+        let i = 0;
         infos.forEach(item => {
 
           let mesh = new THREE.Mesh(new BoxGeometry(2,2,2), new THREE.MeshLambertMaterial({color: 0x0000ff}));
@@ -698,6 +746,10 @@ export default class ShaderStudy extends React.Component {
           objects.push(mesh);
           
           item.mesh = mesh;
+
+          item.index = i;
+          item.dom.innerHTML = i;
+          i++;
 
           console.log(item.object);
         })
@@ -720,21 +772,27 @@ export default class ShaderStudy extends React.Component {
         // 1、开启CSS3DRenderer
         labelRenderer.domElement.style.display = 'block'
 
+        let obj = {};
+
         // 2、把所有小方块替换成标签
         infos.forEach(item => {
 
           item.object.position.copy(item.mesh.position)
 
           item.mesh.removeFromParent();
+
+          obj[item.index] = Object.values(item.mesh.position) ;
           
         })
+
+        console.log(obj);
 
         // 3、关闭拖拽控制器
         controls1.removeEventListener('dragstart', dragstart)
         controls1.removeEventListener('dragend', dragend)
         controls1.dispose();
 
-        // 4、还原控制器
+        // 4、还原OrbitControls
         controls.dispose();
         controls = new OrbitControls(camera, labelRenderer.domElement)
         controls.update();
