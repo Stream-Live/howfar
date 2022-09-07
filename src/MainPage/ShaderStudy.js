@@ -17,6 +17,10 @@ import shuData from '../assets/shu'
 import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 import { BoxGeometry } from "three";
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -41,9 +45,10 @@ export default class ShaderStudy extends React.Component {
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
     // this.animationPath(renderer, canvas)  // 创建动画路径
-    this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
+    // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
-    // this.lightLine(renderer, canvas)   // 创建流光溢彩线
+    this.lightLine(renderer, canvas)   // 创建流光溢彩线
+    // this.virtualize(renderer, canvas)   // 目标模型虚化
 
 
     // this.optimizeTree(renderer, canvas)  // 优化树
@@ -72,21 +77,43 @@ export default class ShaderStudy extends React.Component {
     const controls = new OrbitControls(camera, canvas)
     controls.update()
 
-    let raycaster = new THREE.Raycaster();
-    let mouse = new THREE.Vector2();
+    let loader = new GLTFLoader();
 
-    function onMouseDown(event){
-      mouse.x = event.clientX;
-      mouse.y = event.clientY;
-      raycaster.setFromCamera(mouse, camera)
-      let raycasters = raycaster.intersectObjects(scene.children);
-      if(raycasters.length > 0){
+    loader.load('/bdzzcjgd3.gltf', function(gltf){
 
-        raycasters[0].object.material.color.set(0x00ff00);
+      scene.add(gltf.scene)
+
+    })
+
+    window.Controller = {
+      wireframe: () => {
+        scene.traverse(mesh => {
+          mesh.material.wireframe = !mesh.material.wireframe;
+        })
+      },
+      virtualize: () => {
+        scene.traverse(mesh => {
+          mesh.userData.material = mesh.material;
+          mesh.material = new THREE.MeshLambertMaterial({
+            color: 0x333333,
+            transparent: true,
+            opacity: 0.4
+          })
+        })
+      },
+      reset: () => {
+        scene.traverse(mesh => {
+          mesh.material = mesh.userData.material
+        })
       }
-      renderer.render(scene, camera);
     }
-    window.addEventListener('mousedown', onMouseDown, false)
+
+
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    scene.add(new THREE.DirectionalLight(0xffffff))
+    
 
     function render(){
       requestAnimationFrame(render)
@@ -113,15 +140,15 @@ export default class ShaderStudy extends React.Component {
     const scene = new THREE.Scene();
 
     let line = this.createLightLine([
-      [-5, -5, -5],
-      [5, -3, -5],
-      [6, -3, 5],
-      [5, 5, 10],
-      [-5, 5, 10],
-      [-5, -3, -3],
+      [-5, 0, -5],
+      [5, 0, -5],
+      [6, 0, 5],
+      [5, 0, 10],
+      [-5, 0, 10],
+      [-5, 0, -3],
     ], {
       isStraight: true,
-      speed: 2
+      speed: 1
     });
 
     scene.add(line)
@@ -876,6 +903,19 @@ export default class ShaderStudy extends React.Component {
       new MeshLambertMaterial({color: 0xcc00ff}),]
       )
     scene.add(boxMesh)
+    
+    const box1 = new Mesh(new BoxGeometry(1,1,1), new THREE.MeshLambertMaterial({color: 0xffff00}));
+    scene.add(box1);
+    box1.position.set(-5,-2, -3)
+
+    
+    const camera1 = new THREE.PerspectiveCamera(fov, aspect, near, 20);
+    const helper = new THREE.CameraHelper(camera1);
+    scene.add(helper)
+    boxMesh.add(camera1)
+    camera1.lookAt(0,-3,3)
+    camera1.position.y = 2;
+    // camera1.rotateY(Math.PI)
 
     let animation = this.createAnimationPath([
       [-5, -5, -5],
@@ -886,7 +926,7 @@ export default class ShaderStudy extends React.Component {
       [-5, -5, -5],
     ], {
       mesh: boxMesh,
-      speed: 2.5,
+      speed: 1,
       isStraight: false,
     }, 
     {
@@ -903,9 +943,16 @@ export default class ShaderStudy extends React.Component {
     animation.start();
 
     scene.add(animation.line)
+
+    let isCamera1 = false;
+    window.Controller = {
+      toggleCamera(){
+        isCamera1 = !isCamera1;
+      }
+    }
     
     function render(){
-      renderer.render(scene, camera)
+      isCamera1 ? renderer.render(scene, camera1) : renderer.render(scene, camera)
       requestAnimationFrame(render)
       
     }
