@@ -21,6 +21,8 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
+import { PathPointList } from '../libs/PathPointList'
+import { PathGeometry } from '../libs/PathGeometry'
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -172,6 +174,117 @@ export default class ShaderStudy extends React.Component {
     render()
   }
 
+  createLine2(renderer, canvas){
+
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    // random vector3 points
+    var points = [
+      new THREE.Vector3(-5, 0, 5),
+      new THREE.Vector3(5, 0, -5),
+      new THREE.Vector3(6, 0, 5),
+      new THREE.Vector3(5, 0, 10),
+      new THREE.Vector3(-5, 0, 10),
+    ];
+
+    var up = new THREE.Vector3(0, 1, 0);
+
+    // create PathPointList
+    var pathPointList = new PathPointList();
+    pathPointList.set(points, 0.3, 10, up, true);
+
+    // create geometry
+    var width = 0.2;
+    var geometry = new PathGeometry();
+    geometry.update(pathPointList, {
+        width: width
+    });
+
+    var texture = new THREE.TextureLoader().load( '/diffuse.jpg', function( texture ) {
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    });
+
+    var material = new THREE.MeshPhongMaterial({
+        color : 0x58DEDE, 
+        depthWrite: true,
+        transparent: true,
+        opacity: 0.9,
+        side: THREE.DoubleSide
+    });
+    material.map = texture;
+    
+    var mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+
+    var params = {useTexture: true, color: [88, 222, 222], scrollUV: true, scrollSpeed: 0.03, width: 0.2, cornerRadius: 1, cornerSplit: 10, progress: 1, playSpeed: 0.14};
+    
+
+    var scroll = 0;
+    var playing = true;
+
+    function render(time) {
+
+        requestAnimationFrame( render );
+        controls.update();
+
+        // progress
+        if(playing) {
+            var distance = pathPointList.distance();
+
+            if(distance > 0) {
+                params.progress += params.playSpeed / distance;
+                if(params.progress > 1) {
+                    playing = false;
+                    params.progress = 1;
+                }
+            } else {
+                playing = false;
+                params.progress = 1;
+            }
+            
+            geometry.update(pathPointList, {
+                width: params.width,
+                progress: params.progress
+            });
+        }
+
+        if(params.scrollUV) {
+            texture.offset.x -= params.scrollSpeed;
+            texture.repeat.x = 1;
+        }
+      
+        renderer.render(scene, camera)
+    
+    }
+
+    render();
+
+    
+  }
+
   // 创建流光溢彩线
   createLightLine(points, paramsOption){
 
@@ -184,6 +297,7 @@ export default class ShaderStudy extends React.Component {
       speed: 1, // 速度，实际意义是每一帧运动的长度
       segment: 200,    // 实际意义是每块部分的长度
       showArea: 0.5,  // 每条线在对应部分的显示区域，0-1之间
+      isClosed: false,
     }
 
     const option = Object.assign(defOption, paramsOption || {})
@@ -198,8 +312,16 @@ export default class ShaderStudy extends React.Component {
         curvePath.add(lineCurve)
         return p2
       });
+      // 闭合直线
+      option.isClosed && curvePath.add(new THREE.LineCurve3(vec3Points[vec3Points.length-1], vec3Points[0]))
     }else{
-      curvePath.add(new THREE.CatmullRomCurve3(vec3Points))
+      let curve = new THREE.CatmullRomCurve3(vec3Points);
+      // 闭合曲线
+      if(option.isClosed){
+        curve.curveType = 'centripetal';
+        curve.closed = true;
+      }
+      curvePath.add(curve)
     }
     let pointsArr = curvePath.getPoints(option.divisions);
 
@@ -968,6 +1090,7 @@ export default class ShaderStudy extends React.Component {
       mesh: null,
       isStraight: false,  // 是否是直线 
       divisions: 100,   // 路径对应的分段数
+      isClosed: false,
     }
 
     const option = Object.assign(defOption, paramsOption || {})
@@ -982,8 +1105,16 @@ export default class ShaderStudy extends React.Component {
         curvePath.add(lineCurve)
         return p2
       });
+      // 闭合直线
+      option.isClosed && curvePath.add(new THREE.LineCurve3(vec3Points[vec3Points.length-1], vec3Points[0]))
     }else{
-      curvePath.add(new THREE.CatmullRomCurve3(vec3Points))
+      let curve = new THREE.CatmullRomCurve3(vec3Points);
+      // 闭合曲线
+      if(option.isClosed){
+        curve.curveType = 'centripetal';
+        curve.closed = true;
+      }
+      curvePath.add(curve)
     }
     const geometry = new THREE.BufferGeometry().setFromPoints( curvePath.getPoints(option.divisions) );
     const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
