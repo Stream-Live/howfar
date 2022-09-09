@@ -49,8 +49,9 @@ export default class ShaderStudy extends React.Component {
     // this.animationPath(renderer, canvas)  // 创建动画路径
     // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
-    this.lightLine(renderer, canvas)   // 创建流光溢彩线
+    // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
+    this.createLine2(renderer, canvas)
 
 
     // this.optimizeTree(renderer, canvas)  // 优化树
@@ -205,8 +206,8 @@ export default class ShaderStudy extends React.Component {
       new THREE.Vector3(-5, 0, 5),
       new THREE.Vector3(5, 0, -5),
       new THREE.Vector3(6, 0, 5),
-      new THREE.Vector3(5, 0, 10),
-      new THREE.Vector3(-5, 0, 10),
+      // new THREE.Vector3(5, 0, 10),
+      // new THREE.Vector3(-5, 0, 10),
     ];
 
     var up = new THREE.Vector3(0, 1, 0);
@@ -239,11 +240,11 @@ export default class ShaderStudy extends React.Component {
     var mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
-    var params = {useTexture: true, color: [88, 222, 222], scrollUV: true, scrollSpeed: 0.03, width: 0.2, cornerRadius: 1, cornerSplit: 10, progress: 1, playSpeed: 0.14};
+    var params = {useTexture: true, color: [88, 222, 222], scrollUV: true, scrollSpeed: 0.03, width: 0.2, cornerRadius: 1, cornerSplit: 10, progress: 0.7, playSpeed: 0.14};
     
 
     var scroll = 0;
-    var playing = true;
+    var playing = false;
 
     function render(time) {
 

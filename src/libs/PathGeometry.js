@@ -434,8 +434,8 @@ function generatePathVertexData(pathPointList, options, generateUv2 = false) {
 
 	// build arrow geometry
 	if (arrow) {
-		lastPoint = lastPoint || pathPointList.array[pathPointList.count - 1];
-		addStart(lastPoint);
+		// lastPoint = lastPoint || pathPointList.array[pathPointList.count - 1];
+		// addStart(lastPoint);
 	}
 
 	return {
