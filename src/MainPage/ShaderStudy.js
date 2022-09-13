@@ -51,13 +51,119 @@ export default class ShaderStudy extends React.Component {
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
-    this.createLine2(renderer, canvas)
+    this.createLine2(renderer, canvas)     // 路径
+    // this.createLine3(renderer, canvas)
 
 
     // this.optimizeTree(renderer, canvas)  // 优化树
 
     // this.pipeAnimation(renderer, canvas)
 
+  }
+
+  createLine3(renderer, canvas){
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    const heartShape = new THREE.Shape();
+
+    heartShape.moveTo( -5, -1 );
+    heartShape.lineTo( 15, -1 );
+    heartShape.lineTo( 15, 0 );
+    heartShape.lineTo( -5, 0 );
+    // heartShape.lineTo( -5, -5 );
+
+    const geometry = new THREE.ShapeGeometry( heartShape );
+    
+    let texture;
+    new THREE.TextureLoader().load('/lightLine.png', function(texture1){
+
+      texture = texture1;
+      texture.wrapS = THREE.RepeatWrapping;
+    // texture.wrapT = THREE.RepeatWrapping;
+
+    // texture.repeat.x = 20;
+
+      const material = new THREE.MeshBasicMaterial( { transparent: true, side: THREE.DoubleSide, map: texture } );
+      const mesh = new THREE.Mesh( geometry, material ) ;
+      scene.add( mesh );
+    })
+
+    function render() {
+
+      requestAnimationFrame( render );
+      controls.update();
+      texture?.offset?.y && (texture.offset.y += 1)
+    
+      renderer.render(scene, camera)
+  
+    }
+
+    render();
+  }
+
+  getLine(points, paramsOption){
+    const defOption = {
+      isStraight: true,  // 是否是直线 
+      divisions: 2000,   // 路径对应的分段数
+      color1: '#e9b860',
+      color2: '#ffffff',
+      pointSize: 10,
+      speed: 1, // 速度，实际意义是每一帧运动的长度
+      segment: 200,    // 实际意义是每块部分的长度
+      showArea: 0.5,  // 每条线在对应部分的显示区域，0-1之间
+      isClosed: false,
+    }
+
+    const option = Object.assign(defOption, paramsOption || {})
+
+    let vec3Points = points.map(item => new THREE.Vector3(item[0], item[1], item[2]));
+
+    // 1、绘制三维线条
+    let curvePath = new THREE.CurvePath();
+    if(option.isStraight){
+      vec3Points.reduce((p1, p2) => {
+        const lineCurve = new THREE.LineCurve3(p1, p2);
+        curvePath.add(lineCurve)
+        return p2
+      });
+      // 闭合直线
+      option.isClosed && curvePath.add(new THREE.LineCurve3(vec3Points[vec3Points.length-1], vec3Points[0]))
+    }else{
+      let curve = new THREE.CatmullRomCurve3(vec3Points);
+      // 闭合曲线
+      if(option.isClosed){
+        curve.curveType = 'centripetal';
+        curve.closed = true;
+      }
+      curvePath.add(curve)
+    }
+    let pointsArr = curvePath.getPoints(option.divisions);
+
+    const geometry1 = new THREE.BufferGeometry().setFromPoints( pointsArr );
+    const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
+    const line = new THREE.Line( geometry1, material );
+    return line;
   }
 
   virtualize(renderer, canvas){
@@ -206,76 +312,48 @@ export default class ShaderStudy extends React.Component {
       new THREE.Vector3(-5, 0, 5),
       new THREE.Vector3(5, 0, -5),
       new THREE.Vector3(6, 0, 5),
-      // new THREE.Vector3(5, 0, 10),
-      // new THREE.Vector3(-5, 0, 10),
+      new THREE.Vector3(5, 0, 10),
     ];
-
-    var up = new THREE.Vector3(0, 1, 0);
 
     // create PathPointList
     var pathPointList = new PathPointList();
-    pathPointList.set(points, 0.3, 10, up, true);
+    pathPointList.set(points, 2, 10, new THREE.Vector3(0, 1, 0), false);
 
     // create geometry
-    var width = 0.2;
+    var width = 0.4;
     var geometry = new PathGeometry();
     geometry.update(pathPointList, {
-        width: width
+        width: width,
+        arrow: false,
+        progress: 1
     });
 
-    var texture = new THREE.TextureLoader().load( '/diffuse.jpg', function( texture ) {
-        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+    var texture = new THREE.TextureLoader().load( '/line1.png', function( texture ) {
+        texture.wrapS  = THREE.RepeatWrapping;
         texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        // texture.anisotropy = 16;
     });
 
     var material = new THREE.MeshPhongMaterial({
-        color : 0x58DEDE, 
+        // color : 0x58DEDE, 
         depthWrite: true,
         transparent: true,
-        opacity: 0.9,
+        // opacity: 0.9,
         side: THREE.DoubleSide
     });
     material.map = texture;
     
     var mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
-
-    var params = {useTexture: true, color: [88, 222, 222], scrollUV: true, scrollSpeed: 0.03, width: 0.2, cornerRadius: 1, cornerSplit: 10, progress: 0.7, playSpeed: 0.14};
     
-
-    var scroll = 0;
-    var playing = false;
-
     function render(time) {
 
         requestAnimationFrame( render );
         controls.update();
 
-        // progress
-        if(playing) {
-            var distance = pathPointList.distance();
-
-            if(distance > 0) {
-                params.progress += params.playSpeed / distance;
-                if(params.progress > 1) {
-                    playing = false;
-                    params.progress = 1;
-                }
-            } else {
-                playing = false;
-                params.progress = 1;
-            }
-            
-            geometry.update(pathPointList, {
-                width: params.width,
-                progress: params.progress
-            });
-        }
-
-        if(params.scrollUV) {
-            texture.offset.x -= params.scrollSpeed;
-            texture.repeat.x = 1;
-        }
+        texture.offset.x -= 0.03;
+        texture.repeat.x = 1;
+        
       
         renderer.render(scene, camera)
     
@@ -1031,13 +1109,13 @@ export default class ShaderStudy extends React.Component {
     scene.add(box1);
     box1.position.set(-5,-2, -3)
 
-    
-    const camera1 = new THREE.PerspectiveCamera(fov, aspect, near, 20);
-    const helper = new THREE.CameraHelper(camera1);
-    scene.add(helper)
-    boxMesh.add(camera1)
-    camera1.lookAt(0,-3,3)
-    camera1.position.y = 2;
+    // 给物体头上添加摄像头
+    // const camera1 = new THREE.PerspectiveCamera(fov, aspect, near, 20);
+    // const helper = new THREE.CameraHelper(camera1);
+    // scene.add(helper)
+    // boxMesh.add(camera1)
+    // camera1.lookAt(0,-3,3)
+    // camera1.position.y = 2;
     // camera1.rotateY(Math.PI)
 
     let animation = this.createAnimationPath([
@@ -1050,7 +1128,7 @@ export default class ShaderStudy extends React.Component {
     ], {
       mesh: boxMesh,
       speed: 1,
-      isStraight: false,
+      isStraight: true,
     }, 
     {
       onFinish: function(){
@@ -1075,7 +1153,8 @@ export default class ShaderStudy extends React.Component {
     }
     
     function render(){
-      isCamera1 ? renderer.render(scene, camera1) : renderer.render(scene, camera)
+      // isCamera1 ? renderer.render(scene, camera1) : renderer.render(scene, camera)
+      renderer.render(scene, camera)
       requestAnimationFrame(render)
       
     }
