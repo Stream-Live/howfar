@@ -46,80 +46,18 @@ export default class ShaderStudy extends React.Component {
 
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
-    // this.animationPath(renderer, canvas)  // 创建动画路径
+    this.animationPath(renderer, canvas)  // 创建动画路径
     // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
-    this.createLine2(renderer, canvas)     // 路径
-    // this.createLine3(renderer, canvas)
+    // this.createLine2(renderer, canvas)     // 路径
 
 
     // this.optimizeTree(renderer, canvas)  // 优化树
 
     // this.pipeAnimation(renderer, canvas)
 
-  }
-
-  createLine3(renderer, canvas){
-    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
-
-    const fov = 40 // 视野范围
-    const aspect = 2 // 相机默认值 画布的宽高比
-    const near = 0.1 // 近平面
-    const far = 10000 // 远平面
-    // 透视投影相机
-    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
-    camera.position.set(10, 30, 30)
-    camera.lookAt(0, 0, 0)
-    
-    // 场景
-    const scene = new THREE.Scene();
-
-    const axis = new THREE.AxesHelper(100);
-    scene.add(axis)
-    let ambientLight = new THREE.AmbientLight(0xffffff)
-    scene.add(ambientLight);
-
-    // 控制相机
-    const controls = new OrbitControls(camera, canvas)
-    controls.update()
-
-    const heartShape = new THREE.Shape();
-
-    heartShape.moveTo( -5, -1 );
-    heartShape.lineTo( 15, -1 );
-    heartShape.lineTo( 15, 0 );
-    heartShape.lineTo( -5, 0 );
-    // heartShape.lineTo( -5, -5 );
-
-    const geometry = new THREE.ShapeGeometry( heartShape );
-    
-    let texture;
-    new THREE.TextureLoader().load('/lightLine.png', function(texture1){
-
-      texture = texture1;
-      texture.wrapS = THREE.RepeatWrapping;
-    // texture.wrapT = THREE.RepeatWrapping;
-
-    // texture.repeat.x = 20;
-
-      const material = new THREE.MeshBasicMaterial( { transparent: true, side: THREE.DoubleSide, map: texture } );
-      const mesh = new THREE.Mesh( geometry, material ) ;
-      scene.add( mesh );
-    })
-
-    function render() {
-
-      requestAnimationFrame( render );
-      controls.update();
-      texture?.offset?.y && (texture.offset.y += 1)
-    
-      renderer.render(scene, camera)
-  
-    }
-
-    render();
   }
 
   getLine(points, paramsOption){
@@ -1124,11 +1062,11 @@ export default class ShaderStudy extends React.Component {
       [6, -3, 5],
       [5, 5, 10],
       [-5, 5, 10],
-      [-5, -5, -5],
     ], {
       mesh: boxMesh,
       speed: 1,
       isStraight: true,
+      isClosed: false
     }, 
     {
       onFinish: function(){
@@ -1168,9 +1106,10 @@ export default class ShaderStudy extends React.Component {
       speedSegment: 1000,  // 速度对应的分段数，范围是大于0
       speed:  1,  // 范围在0-segment之间，实际意义是每一帧跑多远
       mesh: null,
-      isStraight: false,  // 是否是直线 
+      isStraight: true,  // 是否是直线 
       divisions: 100,   // 路径对应的分段数
       isClosed: false,
+      radius: 0.1,      // 圆角，范围是0-1，实际意义是利用占比radius的线条来画圆角
     }
 
     const option = Object.assign(defOption, paramsOption || {})
@@ -1180,13 +1119,51 @@ export default class ShaderStudy extends React.Component {
     // 1、绘制三维线条
     let curvePath = new THREE.CurvePath();
     if(option.isStraight){
+      let linePoints = [];
+      let lineCount = vec3Points.length - 1;
+      // 闭合直线
+      if(option.isClosed){
+        vec3Points.push(vec3Points[0].clone())
+      }
       vec3Points.reduce((p1, p2) => {
         const lineCurve = new THREE.LineCurve3(p1, p2);
-        curvePath.add(lineCurve)
+
+        let front1 = lineCurve.getPointAt(option.radius/2);  // 起点
+        let front = lineCurve.getPointAt(option.radius);    // 第一个控制点
+        let last = lineCurve.getPointAt(1-option.radius);     // 第二个控制点
+        let last1 = lineCurve.getPointAt(1-(option.radius/2));   // 终点
+
+        linePoints.push(front1)
+        linePoints.push(front)
+        linePoints.push(last)
+        linePoints.push(last1)
+
         return p2
       });
-      // 闭合直线
-      option.isClosed && curvePath.add(new THREE.LineCurve3(vec3Points[vec3Points.length-1], vec3Points[0]))
+
+      for(let i=0; i<linePoints.length; i++){
+
+        // 直线
+        if(i % 4 === 1){
+          let p1 = linePoints[i],
+              p2 = linePoints[(i+1) % linePoints.length];
+          const lineCurve = new THREE.LineCurve3(p1, p2);
+          curvePath.add(lineCurve)
+        }else if(i % 4 === 2){
+
+          // 线条不闭合，并且到最后一个点时
+          if(!option.isClosed && (i+2) / 4 === lineCount){
+            break
+          }
+          // 贝塞尔曲线
+          let p1 = linePoints[i],
+              p2 = linePoints[(i+1) % linePoints.length],
+              p3 = linePoints[(i+2) % linePoints.length],
+              p4 = linePoints[(i+3) % linePoints.length];
+          const lineCurve = new THREE.CubicBezierCurve3(p1, p2, p3, p4);
+          curvePath.add(lineCurve)
+        }
+      }
     }else{
       let curve = new THREE.CatmullRomCurve3(vec3Points);
       // 闭合曲线
