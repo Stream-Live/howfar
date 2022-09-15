@@ -23,6 +23,8 @@ import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
 import { PathPointList } from '../libs/PathPointList'
 import { PathGeometry } from '../libs/PathGeometry'
+import {SimplexNoise} from 'three/examples/jsm/math/SimplexNoise'
+
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -46,18 +48,106 @@ export default class ShaderStudy extends React.Component {
 
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
-    this.animationPath(renderer, canvas)  // 创建动画路径
+    // this.animationPath(renderer, canvas)  // 创建动画路径
     // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
     // this.createLine2(renderer, canvas)     // 路径
 
+    this.simplex(renderer, canvas)
 
     // this.optimizeTree(renderer, canvas)  // 优化树
 
     // this.pipeAnimation(renderer, canvas)
 
+  }
+
+  simplex(renderer, canvas){
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    let light = new THREE.PointLight(0xaaccff)
+    light.position.set(400,0,0)
+    scene.add(light)
+    
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    let simplex = new SimplexNoise();
+    
+
+    let mat = new THREE.MeshPhongMaterial({
+      color: 0xdfdfdf,
+      flatShading: true,
+    })
+
+    let width = 600,
+        height = 600,
+        centerWidth = 200,
+        centerHeight = 200;
+    
+    let cw = centerWidth / 2,
+        ch = centerHeight / 2;
+
+    let geometry = new THREE.PlaneGeometry(width, height, 600, 600);
+    
+    let array = geometry.attributes.position.array;
+    let arr = [];
+    for(let i=0; i<array.length; i+=3){
+      let v = new THREE.Vector3(array[i], array[i+1], array[i+2]);
+      
+      if(v.x > -cw && v.x < cw && v.y > -ch && v.y < ch){
+        
+      }else{
+        v.z = getNoise(v.x * 0.01, v.y * 0.01, v.z * 0.01, 0) * 30;
+        v.z += getNoise(v.x * 0.03, v.y * 0.03, v.z * 0.03, 0) * 5;
+        v.z += getNoise(v.x * 0.1, v.y * 0.125, v.z * 0.125, 0);
+      }
+
+
+      arr.push(v.x, v.y, v.z);
+    }
+    console.log(geometry);
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+
+    let mesh = new THREE.Mesh(geometry, mat)
+    mesh.rotation.x = Math.PI * -0.5;
+    mesh.position.set(0, -100, -150)
+    scene.add(mesh)
+
+    function getNoise(x, y, z, t){
+      return simplex.noise4d(x, y, z, t)
+    }
+
+    console.log(geometry);
+
+    function render(time) {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera)
+  
+  }
+
+  render();
   }
 
   getLine(points, paramsOption){
