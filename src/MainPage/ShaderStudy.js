@@ -48,21 +48,135 @@ export default class ShaderStudy extends React.Component {
 
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
-    // this.animationPath(renderer, canvas)  // 创建动画路径
+    this.animationPath(renderer, canvas)  // 创建动画路径
     // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
     // this.createLine2(renderer, canvas)     // 路径
 
-    this.simplex(renderer, canvas)
+    // this.simplex(renderer, canvas)
+
+    // this.simple_effects(renderer, canvas)
 
     // this.optimizeTree(renderer, canvas)  // 优化树
 
     // this.pipeAnimation(renderer, canvas)
 
   }
+  simple_effects(renderer, canvas){
+    // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    let light = new THREE.PointLight(0xaaccff)
+    light.position.set(50,50,0)
+    // scene.add(light)
+    
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    // 地球外层的点
+    let sphere = new THREE.SphereGeometry(15, 70,70);
+
+    let geometry = new THREE.BufferGeometry();
+
+    geometry.setAttribute('position', sphere.getAttribute('position'))
+
+    let material = new THREE.ShaderMaterial({
+      uniforms: {
+        size: {
+          value: 0.5
+        },
+        uColor: {
+          value: new THREE.Color('rgb(21,57,88)')
+        },
+        pointTexture: {
+          value: new THREE.TextureLoader().load('gradient.png')
+        },
+        alphaTest:{
+          value: 0.9
+        }
+      },
+      vertexShader: `
+        uniform float size;
+        void main(){
+
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+
+          gl_PointSize = size * (300.0 / -mvPosition.z);
+
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform float alphaTest;
+        uniform sampler2D pointTexture;
+        void main(){
+
+          gl_FragColor = vec4(uColor, 1.0);
+
+          gl_FragColor = gl_FragColor * texture2D(pointTexture, gl_PointCoord);
+
+          if(gl_FragColor.a < alphaTest) discard;
+        }
+
+      `
+    })
+
+    let mesh = new THREE.Points(geometry, material)
+    scene.add(mesh)
+
+    // 地球
+    let R = 13;
+    let sphereMesh = new THREE.Mesh(new THREE.SphereGeometry(R, 32,32), new THREE.MeshLambertMaterial({
+      color: 0xcccccc,
+      map: new THREE.TextureLoader().load('earth.jpg')
+    })) ;
+    scene.add(sphereMesh)
+
+    new THREE.TextureLoader().load('glow.png', function(texture){
+
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        color: 0x4390d1,
+        transparent: true,
+        opacity: 0.7,
+        depthWrite: false,
+      });
+
+      const sprite = new THREE.Sprite(spriteMaterial);
+      sprite.scale.set(R * 3.0, R * 3.0, 1);
+      scene.add(sprite)
+    })
+
+    function render(time) {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera)
+  
+    }
+
+    render();
+  }
   simplex(renderer, canvas){
     renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
@@ -145,9 +259,9 @@ export default class ShaderStudy extends React.Component {
     
       renderer.render(scene, camera)
   
-  }
+    }
 
-  render();
+    render();
   }
 
   getLine(points, paramsOption){
