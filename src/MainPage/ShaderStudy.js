@@ -48,12 +48,12 @@ export default class ShaderStudy extends React.Component {
 
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
-    this.animationPath(renderer, canvas)  // 创建动画路径
+    // this.animationPath(renderer, canvas)  // 创建动画路径
     // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
-    // this.createLine2(renderer, canvas)     // 路径
+    this.createLine2(renderer, canvas)     // 路径
 
     // this.simplex(renderer, canvas)
 
