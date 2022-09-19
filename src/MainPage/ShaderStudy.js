@@ -53,7 +53,10 @@ export default class ShaderStudy extends React.Component {
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
-    this.createLine2(renderer, canvas)     // 路径
+    // this.createLine2(renderer, canvas)     // 路径
+
+
+    this.light_test(renderer, canvas)     // 灯光测试
 
     // this.simplex(renderer, canvas)
 
@@ -64,6 +67,76 @@ export default class ShaderStudy extends React.Component {
     // this.pipeAnimation(renderer, canvas)
 
   }
+
+  light_test(renderer, canvas){
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+    
+    // 场景
+    const scene = new THREE.Scene();
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis)
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    // 点光源
+    // let light = new THREE.PointLight(0xffffff)
+    // light.position.set(0,10,0)
+
+    // let pointHelper = new THREE.PointLightHelper(light)
+    // scene.add(pointHelper)
+
+    // 方向光
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    // light.position.set(0, 120, 0);
+    scene.add(light)
+
+    let lightHelper = new THREE.DirectionalLightHelper(light)
+    scene.add(lightHelper)
+
+    // 绘制地面
+    const groundGeometry = new THREE.PlaneGeometry(120, 120)
+    const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xcc8866 })
+    const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial)
+    groundMesh.rotation.x = Math.PI * -0.5
+    groundMesh.position.y = -5
+    scene.add(groundMesh)
+
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    let loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('/draco/');
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load('/model.gltf', function(gltf){
+      scene.add(gltf.scene)
+    })
+
+    function render(time) {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera)
+
+  
+    }
+
+    render();
+  }
+
   simple_effects(renderer, canvas){
     // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
