@@ -24,6 +24,7 @@ import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass";
 import { PathPointList } from '../libs/PathPointList'
 import { PathGeometry } from '../libs/PathGeometry'
 import {SimplexNoise} from 'three/examples/jsm/math/SimplexNoise'
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 
 
 export default class ShaderStudy extends React.Component {
@@ -85,31 +86,33 @@ export default class ShaderStudy extends React.Component {
 
     const axis = new THREE.AxesHelper(100);
     scene.add(axis)
-    let ambientLight = new THREE.AmbientLight(0xffffff)
-    scene.add(ambientLight);
 
-    // 点光源
-    // let light = new THREE.PointLight(0xffffff)
-    // light.position.set(0,10,0)
+    new THREE.ObjectLoader().load(
+      // 资源的URL
+      "model1.json",
 
-    // let pointHelper = new THREE.PointLightHelper(light)
-    // scene.add(pointHelper)
+      // onLoad回调
+      // Here the loaded data is assumed to be an object
+      function ( obj ) {
+        // Add the loaded object to the scene
+        scene.add( obj );
+      },
 
-    // 方向光
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    // light.position.set(0, 120, 0);
-    scene.add(light)
+      // onProgress回调
+      function ( xhr ) {
+        console.log( (xhr.loaded / xhr.total * 100) + '% loaded' );
+      },
 
-    let lightHelper = new THREE.DirectionalLightHelper(light)
-    scene.add(lightHelper)
+      // onError回调
+      function ( err ) {
+        console.error( 'An error happened' );
+      }
+    );
 
-    // 绘制地面
-    const groundGeometry = new THREE.PlaneGeometry(120, 120)
-    const groundMaterial = new THREE.MeshPhongMaterial({ color: 0xcc8866 })
-    const groundMesh = new THREE.Mesh(groundGeometry, groundMaterial)
-    groundMesh.rotation.x = Math.PI * -0.5
-    groundMesh.position.y = -5
-    scene.add(groundMesh)
+    // let pmremGenerator = new THREE.PMREMGenerator( renderer );
+		// pmremGenerator.compileEquirectangularShader();
+
+    // scene.environment = pmremGenerator.fromScene( new RoomEnvironment(), 0.04 ).texture;
 
     // 控制相机
     const controls = new OrbitControls(camera, canvas)
@@ -117,11 +120,11 @@ export default class ShaderStudy extends React.Component {
 
     let loader = new GLTFLoader();
 
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('/draco/');
-    loader.setDRACOLoader(dracoLoader);
+    // const dracoLoader = new DRACOLoader();
+    // dracoLoader.setDecoderPath('/draco/');
+    // loader.setDRACOLoader(dracoLoader);
 
-    loader.load('/model.gltf', function(gltf){
+    loader.load('/scene1.gltf', function(gltf){
       scene.add(gltf.scene)
     })
 
