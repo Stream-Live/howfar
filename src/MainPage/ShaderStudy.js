@@ -25,6 +25,7 @@ import { PathPointList } from '../libs/PathPointList'
 import { PathGeometry } from '../libs/PathGeometry'
 import {SimplexNoise} from 'three/examples/jsm/math/SimplexNoise'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { Scene } from "three";
 
 
 export default class ShaderStudy extends React.Component {
@@ -57,7 +58,8 @@ export default class ShaderStudy extends React.Component {
     // this.createLine2(renderer, canvas)     // 路径
 
 
-    this.light_test(renderer, canvas)     // 灯光测试
+    // this.light_test(renderer, canvas)     // 灯光测试
+    this.func_study(renderer, canvas)   // shader的方法学习
 
     // this.simplex(renderer, canvas)
 
@@ -67,6 +69,128 @@ export default class ShaderStudy extends React.Component {
 
     // this.pipeAnimation(renderer, canvas)
 
+  }
+
+  func_study(renderer, canvas){
+    // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+
+    // 场景
+    const scene = new THREE.Scene();
+
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+    
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis);
+
+    let geometry = new THREE.PlaneGeometry(30, 30);
+
+    let shader = new THREE.ShaderMaterial({
+      uniforms: {
+        u_time: {
+          type: 'f',
+          value: 1.0,
+        },
+        
+        // u_resolution (画布尺寸)
+        u_resolution: {
+          type: 'v2',
+          value: new THREE.Vector2(canvas.clientWidth,canvas.clientHeight),
+        }
+      },
+      vertexShader: `
+        precision lowp float;
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform vec2 u_resolution;
+        uniform float u_time;
+
+        float plot(vec2 st){
+          return smoothstep(0.02, 0.0, abs(st.y - st.x));
+        }
+
+        void main(){
+          // 1、利用取模函数mod()达到反复渐变效果
+          // float strength = mod(vUv.y * 10.0, 1.0);
+          // gl_FragColor = vec4(strength, strength, strength, 1.0);
+
+          // 2、利用step(edge, x)实现斑马线条纹效果
+          // float strength = mod(vUv.x * 10.0, 1.0);
+          // strength = step(0.8, strength);  // 该step(edge,x)函数中,如果x < edge,返回0.0,否则返回1.0
+          // gl_FragColor = vec4(strength, strength, strength, 1.0);
+
+          // 3、利用取最小值min()实现渐变
+          // float strength = min(abs(vUv.x - 0.5), abs(vUv.y - 0.5));
+          // gl_FragColor = vec4(strength, strength, strength, 1.0);
+
+          // 4、利用取最小值min()实现渐变
+          // float strength = floor(vUv.y *  10.0) / 10.0;
+          // gl_FragColor = vec4(strength, strength, strength, 1.0);
+
+          // 5、使用length返回向量长度()沿半径计算长度
+          // float strength = length(vUv);
+          // gl_FragColor = vec4(strength, strength, strength, 1.0);
+
+          // 6、使用distance函数计算两个向量之间的距离
+          // float strength = 1.0 - distance(vUv, vec2(0.5, 0.5));
+          // gl_FragColor = vec4(strength, strength, strength, 1.0);
+
+          // 7、利用相除,实现光点效果
+          // float strength = 0.15 / distance(vUv,vec2(0.5,0.5)) - 1.0;
+          // gl_FragColor = vec4(strength,strength,strength,1.0);
+
+          // 8、把规范化后的 x,y 坐标映射(map)到红色和绿色通道
+          // vec2 st = gl_FragCoord.xy / u_resolution;
+          // gl_FragColor = vec4(st.x, st.y, 0.0, 1.0);
+
+          // 9、绘制一条绿色的线
+          vec2 st = gl_FragCoord.xy / u_resolution;
+
+          float y = st.x;
+
+          vec3 color = vec3(y);
+
+          float pct = plot(st);
+          color = (1.0-pct)*color+pct*vec3(0.0, 1.0, 0.0);
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `,
+      side: THREE.DoubleSide,
+    })
+    
+    let mesh = new THREE.Mesh(geometry, shader);
+    scene.add(mesh)
+
+    function render() {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera)
+
+  
+    }
+
+    render();
   }
 
   light_test(renderer, canvas){
