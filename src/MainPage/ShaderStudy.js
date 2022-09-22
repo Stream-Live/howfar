@@ -26,7 +26,10 @@ import { PathGeometry } from '../libs/PathGeometry'
 import {SimplexNoise} from 'three/examples/jsm/math/SimplexNoise'
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { Scene } from "three";
+import * as Nodes from 'three/examples/jsm/nodes/Nodes';
 
+import { TeapotGeometry } from 'three/examples/jsm/geometries/TeapotGeometry.js';
+// import { nodeFrame } from 'three/examples/jsm/renderers/webgl/nodes/WebGLNodes.js';
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -55,11 +58,14 @@ export default class ShaderStudy extends React.Component {
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
-    // this.createLine2(renderer, canvas)     // 路径
+    this.createLine2(renderer, canvas)     // 路径1  大佬的代码
+
+    // this.createPath(renderer, canvas)     // 路径2  自己写的，没写完
+    // this.showFire(renderer, canvas)     // 线框
 
 
     // this.light_test(renderer, canvas)     // 灯光测试
-    this.func_study(renderer, canvas)   // shader的方法学习
+    // this.func_study(renderer, canvas)   // shader的方法学习
 
     // this.simplex(renderer, canvas)
 
@@ -71,8 +77,198 @@ export default class ShaderStudy extends React.Component {
 
   }
 
+  showFire(renderer, canvas){
+
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+
+    // 场景
+    const scene = new THREE.Scene();
+
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+
+    let light = new THREE.PointLight(0xffffff)
+    light.position.set(0, 70, 0)
+    scene.add(light)
+    
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis);
+
+    
+    let loader = new GLTFLoader();
+    let _this = this;
+
+    loader.load('/bdzzcjgd3.gltf', function(gltf){
+
+      scene.add(gltf.scene)
+
+      let obj = gltf.scene.getObjectByName('gaoyashiwaiqiang_1');
+
+
+      let fire = _this.createFire(obj)
+      scene.add(fire)
+    })
+
+    function render() {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera);
+
+      // nodeFrame?.update();
+
+    }
+
+    render();
+  }
+
+  createFire(mesh){
+
+    const sphereGeometry = new THREE.SphereGeometry( 50, 130, 16 );
+
+    const geometry = new THREE.BufferGeometry();
+
+    // buffers
+
+    const speed = [];
+    const intensity = [];
+    const size = [];
+
+    const positionAttribute = mesh.geometry.getAttribute( 'position' );
+    const particleCount = positionAttribute.count;
+
+    for ( let i = 0; i < particleCount; i ++ ) {
+
+      speed.push( 20 + Math.random() * 50 );
+
+      intensity.push( Math.random() * .15 );
+
+      size.push( 30 + Math.random() * 230 );
+
+    }
+
+    geometry.setAttribute( 'position', positionAttribute );
+    geometry.setAttribute( 'targetPosition', sphereGeometry.getAttribute( 'position' ) );
+    geometry.setAttribute( 'particleSpeed', new THREE.Float32BufferAttribute( speed, 1 ) );
+    geometry.setAttribute( 'particleIntensity', new THREE.Float32BufferAttribute( intensity, 1 ) );
+    geometry.setAttribute( 'particleSize', new THREE.Float32BufferAttribute( size, 1 ) );
+
+    const fireMap = new THREE.TextureLoader().load( 'textures/sprites/firetorch_1.jpg' );
+
+    const targetPosition = new Nodes.AttributeNode( 'targetPosition', 'vec3' );
+    const particleSpeed = new Nodes.AttributeNode( 'particleSpeed', 'float' );
+    const particleIntensity = new Nodes.AttributeNode( 'particleIntensity', 'float' );
+    const particleSize = new Nodes.AttributeNode( 'particleSize', 'float' );
+
+    const time = new Nodes.TimerNode();
+
+    const spriteSheetCount = new Nodes.ConstNode( new THREE.Vector2( 6, 6 ) );
+
+    const fireUV = new Nodes.SpriteSheetUVNode(
+      spriteSheetCount, // count
+      new Nodes.PointUVNode(), // uv
+      new Nodes.OperatorNode( '*', time, particleSpeed ) // current frame
+    );
+
+    const fireSprite = new Nodes.TextureNode( fireMap, fireUV );
+    const fire = new Nodes.OperatorNode( '*', fireSprite, particleIntensity );
+
+    const lerpPosition = new Nodes.UniformNode( 0 );
+
+    const positionNode = new Nodes.MathNode( Nodes.MathNode.MIX, new Nodes.PositionNode( Nodes.PositionNode.LOCAL ), targetPosition, lerpPosition );
+
+    // material
+
+    const material = new Nodes.PointsNodeMaterial( {
+      depthWrite: false,
+      transparent: true,
+      sizeAttenuation: true,
+      blending: THREE.AdditiveBlending
+    } );
+
+    material.colorNode = fire;
+    material.sizeNode = particleSize;
+    material.positionNode = positionNode;
+
+    const particles = new THREE.Points( geometry, material );
+    
+    return particles
+  }
+
+  createPath(renderer, canvas){
+
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    const fov = 40 // 视野范围
+    const aspect = 2 // 相机默认值 画布的宽高比
+    const near = 0.1 // 近平面
+    const far = 10000 // 远平面
+    // 透视投影相机
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
+    camera.position.set(10, 30, 30)
+    camera.lookAt(0, 0, 0)
+
+    // 场景
+    const scene = new THREE.Scene();
+
+    let ambientLight = new THREE.AmbientLight(0xffffff)
+    scene.add(ambientLight);
+    
+    // 控制相机
+    const controls = new OrbitControls(camera, canvas)
+    controls.update()
+
+    const axis = new THREE.AxesHelper(100);
+    scene.add(axis);
+
+    let curvePath = this.getLine([
+      [-15, 10, -5],
+      [15, 10, -5],
+      [30, 10, 5],
+      [15, 10, 10],
+    ], {
+      // divisions: 4000,
+      isStraight: false
+    }).curvePath;
+
+    const geometry = new THREE.TubeGeometry( curvePath, 100, 2, 6, false );
+    const material = new THREE.MeshLambertMaterial( { color: 0x00ff00 } );
+    const mesh = new THREE.Mesh( geometry, material );
+    // material.wireframe = true;
+    scene.add( mesh );
+
+
+    console.log(mesh);
+
+   
+
+    function render() {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera)
+
+  
+    }
+
+    render();
+  }
+
   func_study(renderer, canvas){
-    // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
     const fov = 40 // 视野范围
     const aspect = 2 // 相机默认值 画布的宽高比
@@ -505,7 +701,7 @@ export default class ShaderStudy extends React.Component {
     const geometry1 = new THREE.BufferGeometry().setFromPoints( pointsArr );
     const material = new THREE.LineBasicMaterial( { color: 0xff0000 } );
     const line = new THREE.Line( geometry1, material );
-    return line;
+    return {line, curvePath};
   }
 
   virtualize(renderer, canvas){
@@ -651,10 +847,10 @@ export default class ShaderStudy extends React.Component {
 
     // random vector3 points
     var points = [
-      new THREE.Vector3(-5, 0, 5),
-      new THREE.Vector3(5, 0, -5),
-      new THREE.Vector3(6, 0, 5),
-      new THREE.Vector3(5, 0, 10),
+      new THREE.Vector3(-15, 0, 15),
+      new THREE.Vector3(15, 0, -15),
+      new THREE.Vector3(6, 0, 15),
+      new THREE.Vector3(15, 0, 10),
     ];
 
     // create PathPointList
@@ -670,10 +866,14 @@ export default class ShaderStudy extends React.Component {
         progress: 1
     });
 
-    var texture = new THREE.TextureLoader().load( '/line1.png', function( texture ) {
-        texture.wrapS  = THREE.RepeatWrapping;
-        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    var texture = new THREE.TextureLoader().load( '/lightLine.png', function( texture ) {
+        // texture.wrapS  = THREE.RepeatWrapping;
+        // texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
         // texture.anisotropy = 16;
+
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.anisotropy = 16;
+
     });
 
     var material = new THREE.MeshPhongMaterial({
@@ -693,8 +893,8 @@ export default class ShaderStudy extends React.Component {
         requestAnimationFrame( render );
         controls.update();
 
-        texture.offset.x -= 0.03;
-        texture.repeat.x = 1;
+        texture.offset.x -= 0.01;
+        texture.repeat.x =  1 / 100;
         
       
         renderer.render(scene, camera)
