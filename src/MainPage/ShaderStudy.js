@@ -29,7 +29,9 @@ import { Scene } from "three";
 import * as Nodes from 'three/examples/jsm/nodes/Nodes';
 
 import { TeapotGeometry } from 'three/examples/jsm/geometries/TeapotGeometry.js';
-// import { nodeFrame } from 'three/examples/jsm/renderers/webgl/nodes/WebGLNodes.js';
+// import { nodeFrame } from 'three/examples/jsm/nodes/Nodes';
+
+import {MyGeometry} from '../libs/MyGeometry'
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -58,10 +60,10 @@ export default class ShaderStudy extends React.Component {
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
     // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
-    this.createLine2(renderer, canvas)     // 路径1  大佬的代码
+    // this.createLine2(renderer, canvas)     // 路径1  大佬的代码
 
-    // this.createPath(renderer, canvas)     // 路径2  自己写的，没写完
-    // this.showFire(renderer, canvas)     // 线框
+    this.createPath(renderer, canvas)     // 路径2  自己写的，没写完
+    // this.showFire(renderer, canvas)     // 火，搞不起来啊
 
 
     // this.light_test(renderer, canvas)     // 灯光测试
@@ -122,13 +124,14 @@ export default class ShaderStudy extends React.Component {
       scene.add(fire)
     })
 
+    let n = new Nodes.NodeFrame()
     function render() {
 
       requestAnimationFrame( render );
     
       renderer.render(scene, camera);
 
-      // nodeFrame?.update();
+      n?.update();
 
     }
 
@@ -224,8 +227,9 @@ export default class ShaderStudy extends React.Component {
     // 场景
     const scene = new THREE.Scene();
 
-    let ambientLight = new THREE.AmbientLight(0xffffff)
-    scene.add(ambientLight);
+    const light = new THREE.HemisphereLight( 0xfff0f0, 0x606066 );
+			light.position.set( 1, 1, 1 );
+			scene.add( light );
     
     // 控制相机
     const controls = new OrbitControls(camera, canvas)
@@ -244,8 +248,11 @@ export default class ShaderStudy extends React.Component {
       isStraight: false
     }).curvePath;
 
-    const geometry = new THREE.TubeGeometry( curvePath, 100, 2, 6, false );
-    const material = new THREE.MeshLambertMaterial( { color: 0x00ff00 } );
+    const geometry = new MyGeometry( curvePath, 100,);
+    const material = new THREE.MeshPhongMaterial( {
+      vertexColors: true,
+      wireframe: true
+    } );
     const mesh = new THREE.Mesh( geometry, material );
     // material.wireframe = true;
     scene.add( mesh );
