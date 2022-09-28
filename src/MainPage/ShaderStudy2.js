@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-09-27 17:18:18
+ * @LastEditTime: 2022-09-28 09:02:16
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description: 
  * 
@@ -13,6 +13,7 @@ import { Mesh } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
+import TWEEN from "tween.js";
 
 
 export default class ShaderStudy extends React.Component {
@@ -41,11 +42,39 @@ export default class ShaderStudy extends React.Component {
     
     let {scene, camera} = this.loadBasic(renderer);
 
+    const transitionParams = {
+      'useTexture': true,
+      'transition': 0,
+      'texture': 5,
+      'cycle': true,
+      'animate': true,
+      'threshold': 0.3
+    };
+    const clock = new THREE.Clock();
+
     let _this = this;
+
+    const sceneA = new createScene(0x0000ff, 0x00ffff);
+    const sceneB = new createScene(0xffff00, 0xffffff);
+
+    console.log(sceneA, sceneB);
+
+    const transition = new createTransition(sceneA, sceneB);
+
+    
+    animate();
+
+    function animate() {
+
+      requestAnimationFrame( animate );
+
+      transition.render( clock.getDelta() );
+
+    }
+
 
     function createTransition(sceneA, sceneB){
 
-      
       let {scene, camera} = _this.loadBasic(renderer);
 
       const material = new THREE.ShaderMaterial( {
@@ -67,9 +96,6 @@ export default class ShaderStudy extends React.Component {
           useTexture: {
             value: 1
           },
-          tMixTexture: {
-            value: textures[ 0 ]
-          }
         },
         vertexShader: [
 
@@ -89,7 +115,6 @@ export default class ShaderStudy extends React.Component {
 
           'uniform sampler2D tDiffuse1;',
           'uniform sampler2D tDiffuse2;',
-          'uniform sampler2D tMixTexture;',
 
           'uniform int useTexture;',
           'uniform float threshold;',
@@ -101,19 +126,8 @@ export default class ShaderStudy extends React.Component {
           '	vec4 texel1 = texture2D( tDiffuse1, vUv );',
           '	vec4 texel2 = texture2D( tDiffuse2, vUv );',
 
-          '	if (useTexture==1) {',
+          '	gl_FragColor = mix( texel2, texel1, mixRatio );',
 
-          '		vec4 transitionTexel = texture2D( tMixTexture, vUv );',
-          '		float r = mixRatio * (1.0 + threshold * 2.0) - threshold;',
-          '		float mixf=clamp((transitionTexel.r - r)*(1.0/threshold), 0.0, 1.0);',
-
-          '		gl_FragColor = mix( texel1, texel2, mixf );',
-
-          '	} else {',
-
-          '		gl_FragColor = mix( texel2, texel1, mixRatio );',
-
-          '	}',
 
           '}'
 
@@ -127,17 +141,89 @@ export default class ShaderStudy extends React.Component {
 
       material.uniforms.tDiffuse1.value = sceneA.fbo.texture;
       material.uniforms.tDiffuse2.value = sceneB.fbo.texture;
+
+      new TWEEN.Tween( transitionParams )
+					.to( { transition: 1 }, 1500 )
+					.repeat( Infinity )
+					.delay( 2000 )
+					.yoyo( true )
+					.start();
+
+      this.needsTextureChange = false;
+
+      this.render = function ( delta ) {
+
+        // Transition animation
+        if ( transitionParams.animate ) {
+
+          TWEEN.update();
+
+          // Change the current alpha texture after each transition
+          if ( transitionParams.cycle ) {
+
+            if ( transitionParams.transition == 0 || transitionParams.transition == 1 ) {
+
+              // if ( this.needsTextureChange ) {
+
+              //   transitionParams.texture = ( transitionParams.texture + 1 ) % textures.length;
+              //   material.uniforms.tMixTexture.value = textures[ transitionParams.texture ];
+              //   this.needsTextureChange = false;
+
+              // }
+
+              
+            } else {
+
+              this.needsTextureChange = true;
+
+            }
+
+          } else {
+
+            this.needsTextureChange = true;
+
+          }
+
+        }
+
+        material.uniforms.mixRatio.value = transitionParams.transition;
+
+        // Prevent render both scenes when it's not necessary
+        if ( transitionParams.transition == 0 ) {
+
+          sceneB.render( delta, false );
+
+        } else if ( transitionParams.transition == 1 ) {
+
+          sceneA.render( delta, false );
+
+        } else {
+
+          // When 0<transition<1 render transition between two scenes
+
+          sceneA.render( delta, true );
+          sceneB.render( delta, true );
+
+          renderer.setRenderTarget( null );
+          renderer.clear();
+          renderer.render( scene, camera );
+
+        }
+
+      };
     }
 
     function createScene(boxColor, clearColor){
 
       let {scene, camera} = _this.loadBasic(renderer);
 
-      let group = createBoxes(boxColor)
+      let boxes = createBoxes(boxColor)
 
-      scene.add(group);
+      scene.add(boxes);
 
-      function render(rtt){
+      this.fbo = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight );
+
+      this.render = function(rtt){
 
         renderer.setClearColor(clearColor);
 
