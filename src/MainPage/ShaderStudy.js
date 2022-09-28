@@ -57,9 +57,9 @@ export default class ShaderStudy extends React.Component {
     // 取代木棉树的API
     // this.fence(renderer, canvas) // 创建围栏
     // this.animationPath(renderer, canvas)  // 创建动画路径
-    this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
+    // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
-    // this.lightLine(renderer, canvas)   // 创建流光溢彩线
+    this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
     // this.createLine2(renderer, canvas)     // 路径1  大佬的代码
 
@@ -931,7 +931,7 @@ export default class ShaderStudy extends React.Component {
       pointSize: 10,
       speed: 1, // 速度，实际意义是每一帧运动的长度
       segment: 200,    // 实际意义是每块部分的长度
-      showArea: 0.5,  // 每条线在对应部分的显示区域，0-1之间
+      showArea: 1,  // 每条线在对应部分的显示区域，0-1之间
       isClosed: false,
     }
 
