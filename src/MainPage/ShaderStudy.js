@@ -880,13 +880,13 @@ export default class ShaderStudy extends React.Component {
         progress: 1
     });
 
-    var texture = new THREE.TextureLoader().load( '/line1.png', function( texture ) {
+    var texture = new THREE.TextureLoader().load( '/lightLine.png', function( texture ) {
         texture.wrapS  = THREE.RepeatWrapping;
-        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+        // texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
         // texture.anisotropy = 16;
 
-        // texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        // texture.anisotropy = 16;
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        texture.anisotropy = 16;
 
     });
 
@@ -907,8 +907,8 @@ export default class ShaderStudy extends React.Component {
         requestAnimationFrame( render );
         controls.update();
 
-        texture.offset.x -= 0.03;
-        texture.repeat.x =  1;
+        texture.offset.x -= 0.01;
+        texture.repeat.x =  0.01;
         
       
         renderer.render(scene, camera)
