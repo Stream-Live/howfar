@@ -59,9 +59,9 @@ export default class ShaderStudy extends React.Component {
     // this.animationPath(renderer, canvas)  // 创建动画路径
     // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标
-    this.lightLine(renderer, canvas)   // 创建流光溢彩线
+    // this.lightLine(renderer, canvas)   // 创建流光溢彩线
     // this.virtualize(renderer, canvas)   // 目标模型虚化
-    // this.createLine2(renderer, canvas)     // 路径1  大佬的代码
+    this.createLine2(renderer, canvas)     // 路径1  大佬的代码
 
     // this.createPath(renderer, canvas)     // 路径2  自己写的，没写完
     // this.showFire(renderer, canvas)     // 火，搞不起来啊
@@ -880,13 +880,13 @@ export default class ShaderStudy extends React.Component {
         progress: 1
     });
 
-    var texture = new THREE.TextureLoader().load( '/lightLine.png', function( texture ) {
-        // texture.wrapS  = THREE.RepeatWrapping;
-        // texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    var texture = new THREE.TextureLoader().load( '/line1.png', function( texture ) {
+        texture.wrapS  = THREE.RepeatWrapping;
+        texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
         // texture.anisotropy = 16;
 
-        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-        texture.anisotropy = 16;
+        // texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        // texture.anisotropy = 16;
 
     });
 
@@ -907,8 +907,8 @@ export default class ShaderStudy extends React.Component {
         requestAnimationFrame( render );
         controls.update();
 
-        texture.offset.x -= 0.01;
-        texture.repeat.x =  1 / 100;
+        texture.offset.x -= 0.03;
+        texture.repeat.x =  1;
         
       
         renderer.render(scene, camera)
@@ -1487,7 +1487,7 @@ export default class ShaderStudy extends React.Component {
     // })
   
 
-    let labelRenderer = new CSS3DRenderer();
+    let labelRenderer = new CSS2DRenderer();
     labelRenderer.setSize(window.innerWidth, window.innerHeight)
     labelRenderer.domElement.style.position = 'absolute';
     labelRenderer.domElement.style.top = '0px';
@@ -1606,7 +1606,7 @@ export default class ShaderStudy extends React.Component {
     let objects = []
     for(let item of infos){
 
-      const label = new CSS3DObject(item.dom);
+      const label = new CSS2DObject(item.dom);
       label.position.set(item.position[0], item.position[1], item.position[2]);
 
       scene.add(label);

@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-09-28 09:02:16
+ * @LastEditTime: 2022-10-18 13:24:13
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description: 
  * 
@@ -14,6 +14,15 @@ import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
 import TWEEN from "tween.js";
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
+import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
+import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
 
 
 export default class ShaderStudy extends React.Component {
@@ -34,7 +43,185 @@ export default class ShaderStudy extends React.Component {
 
     // this.loadAnimation(renderer);
     // this.cloud(renderer);
-    this.transition(renderer);
+    // this.transition(renderer);
+
+    this.bloom(renderer)
+  }
+
+  bloom(renderer){
+    // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    let {scene, camera, controls} = this.loadBasic(renderer);
+    camera.position.set(97.63992972765156,
+      661.5331147526151,
+      1719.1682731434032)
+    controls.update();
+
+    let light = new THREE.PointLight(0xffffff, 9.5);
+    light.position.set(-278, 1949, -1000);
+    scene.add(light);
+
+    // 效果合成器
+    const composer = new EffectComposer(renderer);
+
+    const params = {
+      exposure: 1,
+      bloomStrength: 1.5,
+      bloomThreshold: 0,
+      bloomRadius: 0
+    };
+
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('/draco/');
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load(
+      '/model-no-remarks.glb',
+      function (gltf) {
+        scene.add(gltf.scene)
+        
+        addBloom(gltf.scene)
+        
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+      },
+      // called when loading has errors
+      function (error) {
+        console.log('An error happened');
+      }
+    )
+
+    function addBloom(group){
+
+
+      const renderPass = new RenderPass(scene, camera);
+      composer.addPass(renderPass); // 将传入的过程添加到过程链
+
+      const outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
+      outlinePass.visibleEdgeColor.set(0x73D7F2)
+     
+      composer.addPass(outlinePass);
+
+      
+				const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+				// bloomPass.threshold = params.bloomThreshold;
+				// bloomPass.strength = params.bloomStrength;
+				// bloomPass.radius = params.bloomRadius;
+      composer.addPass(bloomPass);
+
+			const finalPass = new ShaderPass(
+				new THREE.ShaderMaterial( {
+					uniforms: {
+						baseTexture: { value: null },
+						bloomTexture: { value: composer.renderTarget2.texture }
+					},
+					vertexShader: `varying vec2 vUv;
+
+          void main() {
+    
+            vUv = uv;
+    
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+    
+          }`,
+					fragmentShader: `uniform sampler2D baseTexture;
+          uniform sampler2D bloomTexture;
+    
+          varying vec2 vUv;
+    
+          void main() {
+    
+            gl_FragColor = ( texture2D( baseTexture, vUv ) + vec4( 1.0 ) * texture2D( bloomTexture, vUv ) );
+    
+          }`,
+					defines: {}
+				} ), 'baseTexture'
+			);
+			finalPass.needsSwap = true;
+      // composer.addPass(finalPass);
+
+
+      const edge = scene.getObjectByName("map-材质");
+
+      edge.material = new THREE.ShaderMaterial({
+        uniforms: {
+          height: {
+            value: edge.position.y,
+          },
+          color1: {
+            value: new THREE.Color("#395C6F"),
+          },
+          color2: {
+            value: new THREE.Color("#73D7F2"),
+          },
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          void main(){
+            vUv = uv;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 color1;
+          uniform vec3 color2;
+          uniform float height;
+          varying vec2 vUv;
+          void main(){
+            gl_FragColor = vec4(mix(color1, color2, vUv.y), 1.0);
+            
+          }
+        `,
+      });
+
+      
+      outlinePass.selectedObjects = [edge];
+
+      const gui = new GUI();
+
+      gui.add( params, 'exposure', 0.1, 2 ).onChange( function ( value ) {
+
+        renderer.toneMappingExposure = Math.pow( value, 4.0 );
+
+      } );
+
+      gui.add( params, 'bloomThreshold', 0.0, 1.0 ).onChange( function ( value ) {
+
+        bloomPass.threshold = Number( value );
+
+      } );
+
+      gui.add( params, 'bloomStrength', 0.0, 3.0 ).onChange( function ( value ) {
+
+        bloomPass.strength = Number( value );
+
+      } );
+
+      gui.add( params, 'bloomRadius', 0.0, 1.0 ).step( 0.01 ).onChange( function ( value ) {
+
+        bloomPass.radius = Number( value );
+
+      } );
+
+
+    }
+    
+    function render() {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera);
+
+      composer.render();
+    }
+
+    render();
   }
 
   transition(renderer){
@@ -459,7 +646,8 @@ export default class ShaderStudy extends React.Component {
 
     return {
       scene,
-      camera
+      camera,
+      controls
     }
   }
   render() {
