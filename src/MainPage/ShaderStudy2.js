@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-10-18 13:24:13
+ * @LastEditTime: 2022-10-18 17:20:33
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description: 
  * 
@@ -23,6 +23,7 @@ import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
 import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
+import {FBXLoader} from 'three/examples/jsm/loaders/FBXLoader'
 
 
 export default class ShaderStudy extends React.Component {
@@ -45,7 +46,40 @@ export default class ShaderStudy extends React.Component {
     // this.cloud(renderer);
     // this.transition(renderer);
 
-    this.bloom(renderer)
+    // this.bloom(renderer)
+    this.technologe_sity(renderer)
+  }
+
+  technologe_sity(renderer){
+
+    let {scene, camera, controls} = this.loadBasic(renderer);
+
+    camera.position.set(1864.2980461117584, 806.6782979561754, -210.71294706606588)
+    controls.update();
+
+    // let pmremGenerator = new THREE.PMREMGenerator(renderer);
+    // pmremGenerator.compileEquirectangularShader();
+    // scene.environment = pmremGenerator.fromScene(
+    //   new RoomEnvironment(),
+    //   1
+    // ).texture;
+    
+    new FBXLoader().load('/shanghai.FBX', group => {
+
+      scene.add(group)
+    })
+
+    window.camera = camera;
+    
+    function render() {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera);
+
+    }
+
+    render();
   }
 
   bloom(renderer){
