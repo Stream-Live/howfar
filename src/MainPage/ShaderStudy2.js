@@ -2,14 +2,14 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-10-18 17:20:33
+ * @LastEditTime: 2022-10-19 17:25:58
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description: 
  * 
  */
 import React from "react";
 import * as THREE from "three";
-import { Mesh } from "three";
+import { Mesh, Scene } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
@@ -47,7 +47,178 @@ export default class ShaderStudy extends React.Component {
     // this.transition(renderer);
 
     // this.bloom(renderer)
-    this.technologe_sity(renderer)
+    // this.technologe_sity(renderer)
+    this.rain(renderer)
+    window.THREE = THREE
+  }
+
+  rain(renderer){
+
+    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    let {scene, camera, controls} = this.loadBasic(renderer);
+
+    camera.position.set(50,50,60);
+    controls.update();
+
+    let light = new THREE.PointLight(0xffffff)
+    light.position.y = 200
+    scene.add(light)
+
+    let box = new THREE.Mesh(new THREE.BoxGeometry(100,100,100), new THREE.MeshLambertMaterial({color: 0xffff00})) 
+    // scene.add(box);
+    box.geometry.computeBoundingBox();
+
+    let {min,max} = box.geometry.boundingBox;
+    let height = max.y - min.y;
+    console.log(min,max)
+    console.log(min.y, max.y);
+
+    let geometry = new THREE.BufferGeometry();
+    let arr = [];
+    let geometries = [];
+
+    let d = 1;
+    let num = 16;
+
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true, 
+      opacity: 0.7
+    });  
+    const group = new THREE.Group();
+    for(let i=0; i< 1000; i++){
+
+      const pos = new THREE.Vector3();
+      pos.x = Math.random() * (max.x - min.x) + min.x;
+      pos.y = Math.random() * (max.y - min.y) + min.y;
+      pos.z = Math.random() * (max.z - min.z) + min.z;
+
+      // for(let j=0;j<num;j++){
+      //   arr.push(pos.x);
+      //   arr.push(pos.y + (d * j));
+      //   arr.push(pos.z);
+      // }
+
+      const points = [];
+      points.push( pos );
+      points.push( new THREE.Vector3( pos.x, pos.y + d, pos.z ) );
+      let g = new THREE.BufferGeometry().setFromPoints( points )
+      let mesh = new THREE.Line(g, lineMat);
+      mesh.name = 'line_'+i
+      // scene.add(mesh);
+      group.add(mesh);
+
+    }
+    
+
+    const h = new THREE.BoxHelper(group)
+    scene.add(h)
+    // scene.add(group)
+    console.log(group);
+    scene.add(group)
+    // let mergedGeometry = mergeBufferGeometries(geometries);
+  
+    // let mergedMesh = new THREE.Mesh(mergedGeometry, lineMat);
+    // scene.add(mergedMesh)
+
+    // geometry.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+
+
+    let shader = new THREE.ShaderMaterial({
+      uniforms:{
+        uSize: {
+          value: 0.5
+        },
+        uTime: {
+          value: 0
+        },
+        uHeight:{
+          value: max.y - min.y
+        }
+      },
+      vertexShader: `
+        uniform float uSize;
+        uniform float uTime;
+        uniform float uHeight;
+        void main(){
+          // position.y = mod((position.y + uTime), uHeight);
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          gl_PointSize = uSize * 300.0 / (-mvPosition.z);
+        }
+      `,
+      fragmentShader: `
+        void main(){
+          gl_FragColor = vec4(1.0, 1.0, 1.0, 0.5);
+        }
+      `,
+      transparent: true,
+    })
+
+    let rain = new THREE.Points(geometry, shader)
+    // scene.add(rain)
+    function move(){
+      // console.log(group);
+      group.children.forEach((_mesh,index) => {
+        // console.log(_mesh)
+        let arr1 = _mesh.geometry.attributes.position.array;
+        // if(arr1[4] < min.y){
+        //   arr1[4] = max.y-d;
+        //   arr1[1] = max.y;
+        // }else{
+        //   arr1[4] -= 0.4;
+        //   arr1[1] -= 0.4;
+        // }
+        // _mesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(arr1, 3));
+
+        // _mesh.position.y -= (0.2*index *0.01);
+        // _mesh.position.y -= (Math.random() * (1.5-0.2+1) + 0.2);
+        // _mesh.position.y -= 0.2;
+        
+        // let y = _mesh.position.y + pos.y;
+        // console.log(_mesh);
+        if(_mesh.position.y < min.y){
+          _mesh.position.y = max.y
+        }
+      })
+    }
+
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath('/draco/');
+    loader.setDRACOLoader(dracoLoader);
+
+    // loader.load(
+    //   '/tashan.glb',
+    //   function (gltf) {
+    //     scene.add(gltf.scene)
+        
+    //   },
+    //   // called while loading is progressing
+    //   function (xhr) {
+    //     console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+    //   },
+    //   // called when loading has errors
+    //   function (error) {
+    //     console.log('An error happened');
+    //   }
+    // )
+
+
+    function render() {
+
+      requestAnimationFrame( render );
+    
+      renderer.render(scene, camera);
+
+      move();
+
+    }
+
+    render();
   }
 
   technologe_sity(renderer){
@@ -57,19 +228,68 @@ export default class ShaderStudy extends React.Component {
     camera.position.set(1864.2980461117584, 806.6782979561754, -210.71294706606588)
     controls.update();
 
-    // let pmremGenerator = new THREE.PMREMGenerator(renderer);
-    // pmremGenerator.compileEquirectangularShader();
-    // scene.environment = pmremGenerator.fromScene(
-    //   new RoomEnvironment(),
-    //   1
-    // ).texture;
+    let light = new THREE.PointLight(0xffffff)
+    light.position.y = 800
+    scene.add(light)
     
     new FBXLoader().load('/shanghai.FBX', group => {
 
       scene.add(group)
+
+      addShader();
     })
 
-    window.camera = camera;
+
+    function addShader(){
+
+      let city = scene.getObjectByName('CITY_UNTRIANGULATED');
+
+      city.geometry.computeBoundingBox();
+
+      let {min, max} = city.geometry.boundingBox;
+      let size = new THREE.Vector3(
+        max.x - min.x,
+        max.y - min.y,
+        max.z - min.z,
+      )
+
+      console.log(city.geometry);
+
+
+      city.material = new THREE.ShaderMaterial({
+        uniforms: {
+          uColor1: {
+            value: new THREE.Color('#1B3045')
+          },
+          uMin: {
+            value: min
+          },
+          uMax: {
+            value: max
+          },
+          uSize: {
+            value: size
+          },
+        },
+        vertexShader: `
+          varying vec3 vPosition;
+          void main(){
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 uColor1;
+          uniform vec3 uColor2;
+          varying vec3 vPosition;
+          void main(){
+            let
+            gl_FragColor = vec4(uColor1, 1);
+          }
+        `
+      })
+
+    }
     
     function render() {
 
@@ -678,6 +898,9 @@ export default class ShaderStudy extends React.Component {
     const axis = new THREE.AxesHelper(100);
     scene.add(axis);
 
+    window.scene = scene;
+    window.camera = camera;
+    window.controls = controls;
     return {
       scene,
       camera,
