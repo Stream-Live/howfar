@@ -2,45 +2,42 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-10-19 17:25:58
+ * @LastEditTime: 2022-10-20 17:28:17
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
- * @Description: 
- * 
+ * @Description:
+ *
  */
 import React from "react";
 import * as THREE from "three";
-import { Mesh, Scene } from "three";
+import { BufferGeometry, Mesh, Scene, ShaderMaterial } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
 import TWEEN from "tween.js";
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { GUI } from 'three/examples/jsm/libs/lil-gui.module.min.js';
+import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
+import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
+import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
+import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
-import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-import { OutlinePass } from 'three/examples/jsm/postprocessing/OutlinePass.js';
-import { FXAAShader } from 'three/examples/jsm/shaders/FXAAShader.js';
-import {FBXLoader} from 'three/examples/jsm/loaders/FBXLoader'
-
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
+import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
+import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
+import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
+import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
 
 export default class ShaderStudy extends React.Component {
-
   componentDidMount() {
     this.draw();
   }
   draw() {
-
     const renderer = new THREE.WebGLRenderer({
-      antialias: true   // 抗锯齿
+      antialias: true, // 抗锯齿
     });
     document.getElementById("box").appendChild(renderer.domElement);
 
     // 开启Hidpi设置
-    renderer.setPixelRatio(window.devicePixelRatio)
-    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
     // this.loadAnimation(renderer);
     // this.cloud(renderer);
@@ -48,30 +45,232 @@ export default class ShaderStudy extends React.Component {
 
     // this.bloom(renderer)
     // this.technologe_sity(renderer)
-    this.rain(renderer)
-    window.THREE = THREE
+    // this.rain(renderer)
+    window.THREE = THREE;
+
+    // this.temperature(renderer); // 设置设备温度
+    this.virtual(renderer); // 虚化
   }
 
-  rain(renderer){
+  virtual(renderer) {
+    let { scene, camera, controls } = this.loadBasic(renderer);
 
-    renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
-
-    let {scene, camera, controls} = this.loadBasic(renderer);
-
-    camera.position.set(50,50,60);
+    camera.position.set(50, 50, 60);
     controls.update();
 
-    let light = new THREE.PointLight(0xffffff)
-    light.position.y = 200
-    scene.add(light)
+    let light = new THREE.PointLight(0xffffff);
+    light.position.y = 200;
+    scene.add(light);
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
 
-    let box = new THREE.Mesh(new THREE.BoxGeometry(100,100,100), new THREE.MeshLambertMaterial({color: 0xffff00})) 
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load(
+      "/tashan.glb",
+      function (gltf) {
+        scene.add(gltf.scene);
+
+        // scene.getObjectByName('屋顶1').visible = false;
+        // scene.getObjectByName('主体1').visible = false;
+
+        scene.getObjectByName('主体1').visible = false;
+        scene.getObjectByName('主体2').visible = false;
+        scene.getObjectByName('屋顶1').visible = false;
+        scene.getObjectByName('屋顶2').visible = false;
+
+        scene.getObjectByName('10kv\\35kv开关室').traverse( mesh => {
+
+          if(mesh.isMesh){
+            changeMat(mesh, true)
+          }
+        })
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
+    // loader.load(
+    //   "/tree.glb",
+    //   function (gltf) {
+    //     scene.add(gltf.scene);
+        
+    //     gltf.scene.traverse( mesh => {
+
+    //       if(mesh.isMesh){
+    //         changeMat(mesh)
+    //       }
+    //     })
+    //   },
+    //   // called while loading is progressing
+    //   function (xhr) {
+    //     console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+    //   },
+    //   // called when loading has errors
+    //   function (error) {
+    //     console.log("An error happened");
+    //   }
+    // );
+
+    function changeMat(mesh, isVirtual){
+      // mesh.visible = false;
+
+      // console.log(mesh.geometry);
+      mesh.geometry.computeBoundingBox();
+
+
+      let { min, max } = mesh.geometry.boundingBox;
+      let height = max.y - min.y;
+
+      // mesh.material = new ShaderMaterial({
+      //   uniforms: {
+      //     uHeight: {
+      //       value: height
+      //     },
+      //     uColor: {
+      //       value: new THREE.Color('#00ffff')
+      //     },
+      //     maxOpacity:{
+      //       value: 0.6
+      //     }
+      //   },
+      //   transparent: true,
+      //   vertexShader: `
+      //     varying vec3 vPosition;
+      //     void main() {
+      //       vPosition = position;
+      //       gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+      //     }
+      //   `,
+      //   fragmentShader: `
+      //     uniform float uHeight;
+      //     uniform vec3 uColor;
+      //     uniform float maxOpacity;
+      //     varying vec3 vPosition;
+      //     void main(){
+      //       float dist = 1.0 - ((vPosition.y+uHeight/2.0) / uHeight);
+      //       gl_FragColor = vec4(uColor, dist * maxOpacity);
+      //     }
+      //   `
+      // })
+
+      const vertex = `varying vec3 vPosition;
+        void main() {
+          vPosition = position;`
+      const fragment = `uniform float uHeight;
+        uniform vec3 uColor;
+        uniform float maxOpacity;
+        varying vec3 vPosition;
+        void main() {`
+      const fragmentColor = `float dist = 1.0 - ((vPosition.y+uHeight/2.0) / uHeight);
+          gl_FragColor = vec4(uColor, dist * maxOpacity);
+        }`
+      const originVertex = `void main() {`
+      const originFragment = `void main() {`
+      const originFragmentColor = `}`
+
+      mesh.material.transparent = true;
+      mesh.material.onBeforeCompile = shader => {
+        Object.assign(shader.uniforms, {
+          uHeight: {
+            value: height
+          },
+          uColor: {
+            value: new THREE.Color('#00ffff')
+          },
+          maxOpacity:{
+            value: 0.6
+          }
+        }) 
+        
+        if(isVirtual){
+          shader.vertexShader = shader.vertexShader.replace(originVertex, vertex)
+          shader.fragmentShader = shader.fragmentShader.replace(originFragment, fragment)
+          shader.fragmentShader = shader.fragmentShader.replace(originFragmentColor, fragmentColor)
+        }else{
+          shader.vertexShader = shader.vertexShader.replace(vertex, originVertex)
+          shader.fragmentShader = shader.fragmentShader.replace(fragment, originFragment)
+          shader.fragmentShader = shader.fragmentShader.replace(fragmentColor, originFragmentColor)
+
+        }
+        
+      }
+      mesh.material.needsUpdate = true;
+      if(!isVirtual) return
+      let geometry = new THREE.WireframeGeometry(mesh.geometry);
+
+      let shader = new THREE.ShaderMaterial({
+        uniforms: {
+          vColor: {
+            value: new THREE.Color('#00ffff')
+          }
+        },
+        transparent: true,
+        vertexShader: `
+          void main() {
+
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+    
+          }
+        `,
+        fragmentShader: `
+          uniform vec3 vColor;
+          void main(){
+            gl_FragColor = vec4(vColor, 0.5);
+          }
+        `
+      })
+
+      let seg = new THREE.LineSegments(geometry, shader);
+
+      // 获取物体的世界坐标 旋转等
+      const worldPosition = new THREE.Vector3();
+      mesh.getWorldPosition(worldPosition);
+
+      seg.position.copy(worldPosition)
+
+      scene.add(seg);
+    }
+
+    window.changeMat = changeMat
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+    }
+
+    render();
+  }
+
+  rain(renderer) {
+    // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
+
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    camera.position.set(50, 50, 60);
+    controls.update();
+
+    let light = new THREE.PointLight(0xffffff);
+    light.position.y = 200;
+    scene.add(light);
+
+    let box = new THREE.Mesh(
+      new THREE.BoxGeometry(100, 100, 100),
+      new THREE.MeshLambertMaterial({ color: 0xffff00 })
+    );
     // scene.add(box);
     box.geometry.computeBoundingBox();
 
-    let {min,max} = box.geometry.boundingBox;
+    let { min, max } = box.geometry.boundingBox;
     let height = max.y - min.y;
-    console.log(min,max)
+    console.log(min, max);
     console.log(min.y, max.y);
 
     let geometry = new THREE.BufferGeometry();
@@ -83,12 +282,11 @@ export default class ShaderStudy extends React.Component {
 
     const lineMat = new THREE.LineBasicMaterial({
       color: 0xffffff,
-      transparent: true, 
-      opacity: 0.7
-    });  
+      transparent: true,
+      opacity: 0.7,
+    });
     const group = new THREE.Group();
-    for(let i=0; i< 1000; i++){
-
+    for (let i = 0; i < 1000; i++) {
       const pos = new THREE.Vector3();
       pos.x = Math.random() * (max.x - min.x) + min.x;
       pos.y = Math.random() * (max.y - min.y) + min.y;
@@ -101,41 +299,38 @@ export default class ShaderStudy extends React.Component {
       // }
 
       const points = [];
-      points.push( pos );
-      points.push( new THREE.Vector3( pos.x, pos.y + d, pos.z ) );
-      let g = new THREE.BufferGeometry().setFromPoints( points )
+      points.push(pos);
+      points.push(new THREE.Vector3(pos.x, pos.y + d, pos.z));
+      let g = new THREE.BufferGeometry().setFromPoints(points);
       let mesh = new THREE.Line(g, lineMat);
-      mesh.name = 'line_'+i
+      mesh.name = "line_" + i;
       // scene.add(mesh);
       group.add(mesh);
-
     }
-    
 
-    const h = new THREE.BoxHelper(group)
-    scene.add(h)
+    const h = new THREE.BoxHelper(group);
+    scene.add(h);
     // scene.add(group)
     console.log(group);
-    scene.add(group)
+    scene.add(group);
     // let mergedGeometry = mergeBufferGeometries(geometries);
-  
+
     // let mergedMesh = new THREE.Mesh(mergedGeometry, lineMat);
     // scene.add(mergedMesh)
 
     // geometry.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
 
-
     let shader = new THREE.ShaderMaterial({
-      uniforms:{
+      uniforms: {
         uSize: {
-          value: 0.5
+          value: 0.5,
         },
         uTime: {
-          value: 0
+          value: 0,
         },
-        uHeight:{
-          value: max.y - min.y
-        }
+        uHeight: {
+          value: max.y - min.y,
+        },
       },
       vertexShader: `
         uniform float uSize;
@@ -154,15 +349,15 @@ export default class ShaderStudy extends React.Component {
         }
       `,
       transparent: true,
-    })
+    });
 
-    let rain = new THREE.Points(geometry, shader)
+    let rain = new THREE.Points(geometry, shader);
     // scene.add(rain)
-    function move(){
+    function move() {
       // console.log(group);
-      group.children.forEach((_mesh,index) => {
+      group.children.forEach((_mesh, index) => {
         // console.log(_mesh)
-        let arr1 = _mesh.geometry.attributes.position.array;
+        // let arr1 = _mesh.geometry.attributes.position.array;
         // if(arr1[4] < min.y){
         //   arr1[4] = max.y-d;
         //   arr1[1] = max.y;
@@ -173,29 +368,29 @@ export default class ShaderStudy extends React.Component {
         // _mesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(arr1, 3));
 
         // _mesh.position.y -= (0.2*index *0.01);
-        // _mesh.position.y -= (Math.random() * (1.5-0.2+1) + 0.2);
+        _mesh.position.y -= Math.random() * (1.5 - 0.2 + 1) + 0.2;
         // _mesh.position.y -= 0.2;
-        
+
         // let y = _mesh.position.y + pos.y;
         // console.log(_mesh);
-        if(_mesh.position.y < min.y){
-          _mesh.position.y = max.y
+        if (_mesh.position.y < min.y) {
+          _mesh.position.y = max.y;
         }
-      })
+      });
     }
 
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
 
     const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('/draco/');
+    dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
     // loader.load(
     //   '/tashan.glb',
     //   function (gltf) {
     //     scene.add(gltf.scene)
-        
+
     //   },
     //   // called while loading is progressing
     //   function (xhr) {
@@ -207,108 +402,168 @@ export default class ShaderStudy extends React.Component {
     //   }
     // )
 
-
     function render() {
+      requestAnimationFrame(render);
 
-      requestAnimationFrame( render );
-    
       renderer.render(scene, camera);
 
       move();
-
     }
 
     render();
   }
 
-  technologe_sity(renderer){
+  temperature(renderer) {
+    let { scene, camera, controls } = this.loadBasic(renderer);
 
-    let {scene, camera, controls} = this.loadBasic(renderer);
-
-    camera.position.set(1864.2980461117584, 806.6782979561754, -210.71294706606588)
+    camera.position.set(50, 50, 60);
     controls.update();
 
-    let light = new THREE.PointLight(0xffffff)
-    light.position.y = 800
-    scene.add(light)
-    
-    new FBXLoader().load('/shanghai.FBX', group => {
+    let light = new THREE.PointLight(0xffffff);
+    light.position.y = 200;
+    scene.add(light);
 
-      scene.add(group)
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load(
+      "/tashan.glb",
+      function (gltf) {
+        scene.add(gltf.scene.getObjectByName("10kv\\35kv开关室"));
+
+        scene.getObjectByName("#3主变10kv开关").traverse((mesh) => {
+          if (mesh.material) {
+            mesh.material = mesh.material.clone();
+            mesh.material.onBeforeCompile = (shader) => {
+              const fragmentColor = `
+                gl_FragColor.x = 0.3;}
+              `;
+              shader.fragmentShader = shader.fragmentShader.replace(
+                "}",
+                fragmentColor
+              );
+            };
+          }
+          // mesh?
+        });
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+    }
+
+    render();
+  }
+
+  technologe_sity(renderer) {
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    camera.position.set(
+      1864.2980461117584,
+      806.6782979561754,
+      -210.71294706606588
+    );
+    controls.update();
+
+    let light = new THREE.PointLight(0xffffff);
+    light.position.y = 800;
+    scene.add(light);
+
+    new FBXLoader().load("/shanghai.FBX", (group) => {
+      scene.add(group);
 
       addShader();
-    })
+    });
 
-
-    function addShader(){
-
-      let city = scene.getObjectByName('CITY_UNTRIANGULATED');
+    function addShader() {
+      let city = scene.getObjectByName("CITY_UNTRIANGULATED");
 
       city.geometry.computeBoundingBox();
 
-      let {min, max} = city.geometry.boundingBox;
-      let size = new THREE.Vector3(
-        max.x - min.x,
-        max.y - min.y,
-        max.z - min.z,
-      )
+      let { min, max } = city.geometry.boundingBox;
+      let size = new THREE.Vector3(max.x - min.x, max.y - min.y, max.z - min.z);
+      const material = city.material;
 
-      console.log(city.geometry);
+      material.transparent = true;
+      material.color.setStyle("#1B3045");
+      console.log(material);
 
-
-      city.material = new THREE.ShaderMaterial({
-        uniforms: {
-          uColor1: {
-            value: new THREE.Color('#1B3045')
-          },
-          uMin: {
-            value: min
-          },
-          uMax: {
-            value: max
-          },
-          uSize: {
-            value: size
-          },
-        },
-        vertexShader: `
+      material.onBeforeCompile = (shader) => {
+        shader.uniforms.uSize = {
+          value: size,
+        };
+        shader.uniforms.uTopColor = {
+          value: new THREE.Color("#FFFFDC"),
+        };
+        const vertex = `
           varying vec3 vPosition;
           void main(){
             vPosition = position;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `,
-        fragmentShader: `
-          uniform vec3 uColor1;
-          uniform vec3 uColor2;
-          varying vec3 vPosition;
-          void main(){
-            let
-            gl_FragColor = vec4(uColor1, 1);
-          }
-        `
-      })
+        `;
 
+        const fragment = `
+            varying vec3 vPosition;
+            uniform vec3 uTopColor;
+            uniform vec3 uSize;
+            void main(){
+        `;
+        const fragmentColor = `
+            vec3 distColor = outgoingLight;
+            float indexMix = vPosition.z / (uSize.z * 0.6);
+            distColor = mix(distColor, uTopColor, indexMix);
+            gl_FragColor = vec4(distColor, 1.0);}
+        `;
+
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "void main() {",
+          fragment
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "}",
+          fragmentColor
+        );
+        shader.vertexShader = shader.vertexShader.replace(
+          "void main() {",
+          vertex
+        );
+
+        console.log(shader);
+      };
     }
-    
+
     function render() {
+      requestAnimationFrame(render);
 
-      requestAnimationFrame( render );
-    
       renderer.render(scene, camera);
-
     }
 
     render();
   }
 
-  bloom(renderer){
+  bloom(renderer) {
     // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
-    let {scene, camera, controls} = this.loadBasic(renderer);
-    camera.position.set(97.63992972765156,
+    let { scene, camera, controls } = this.loadBasic(renderer);
+    camera.position.set(
+      97.63992972765156,
       661.5331147526151,
-      1719.1682731434032)
+      1719.1682731434032
+    );
     controls.update();
 
     let light = new THREE.PointLight(0xffffff, 9.5);
@@ -322,59 +577,64 @@ export default class ShaderStudy extends React.Component {
       exposure: 1,
       bloomStrength: 1.5,
       bloomThreshold: 0,
-      bloomRadius: 0
+      bloomRadius: 0,
     };
 
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
 
     const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath('/draco/');
+    dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
     loader.load(
-      '/model-no-remarks.glb',
+      "/model-no-remarks.glb",
       function (gltf) {
-        scene.add(gltf.scene)
-        
-        addBloom(gltf.scene)
-        
+        scene.add(gltf.scene);
+
+        addBloom(gltf.scene);
       },
       // called while loading is progressing
       function (xhr) {
-        console.log((xhr.loaded / xhr.total * 100) + '% loaded');
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
       },
       // called when loading has errors
       function (error) {
-        console.log('An error happened');
+        console.log("An error happened");
       }
-    )
+    );
 
-    function addBloom(group){
-
-
+    function addBloom(group) {
       const renderPass = new RenderPass(scene, camera);
       composer.addPass(renderPass); // 将传入的过程添加到过程链
 
-      const outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
-      outlinePass.visibleEdgeColor.set(0x73D7F2)
-     
+      const outlinePass = new OutlinePass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        scene,
+        camera
+      );
+      outlinePass.visibleEdgeColor.set(0x73d7f2);
+
       composer.addPass(outlinePass);
 
-      
-				const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
-				// bloomPass.threshold = params.bloomThreshold;
-				// bloomPass.strength = params.bloomStrength;
-				// bloomPass.radius = params.bloomRadius;
+      const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        1.5,
+        0.4,
+        0.85
+      );
+      // bloomPass.threshold = params.bloomThreshold;
+      // bloomPass.strength = params.bloomStrength;
+      // bloomPass.radius = params.bloomRadius;
       composer.addPass(bloomPass);
 
-			const finalPass = new ShaderPass(
-				new THREE.ShaderMaterial( {
-					uniforms: {
-						baseTexture: { value: null },
-						bloomTexture: { value: composer.renderTarget2.texture }
-					},
-					vertexShader: `varying vec2 vUv;
+      const finalPass = new ShaderPass(
+        new THREE.ShaderMaterial({
+          uniforms: {
+            baseTexture: { value: null },
+            bloomTexture: { value: composer.renderTarget2.texture },
+          },
+          vertexShader: `varying vec2 vUv;
 
           void main() {
     
@@ -383,7 +643,7 @@ export default class ShaderStudy extends React.Component {
             gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
     
           }`,
-					fragmentShader: `uniform sampler2D baseTexture;
+          fragmentShader: `uniform sampler2D baseTexture;
           uniform sampler2D bloomTexture;
     
           varying vec2 vUv;
@@ -393,12 +653,12 @@ export default class ShaderStudy extends React.Component {
             gl_FragColor = ( texture2D( baseTexture, vUv ) + vec4( 1.0 ) * texture2D( bloomTexture, vUv ) );
     
           }`,
-					defines: {}
-				} ), 'baseTexture'
-			);
-			finalPass.needsSwap = true;
+          defines: {},
+        }),
+        "baseTexture"
+      );
+      finalPass.needsSwap = true;
       // composer.addPass(finalPass);
-
 
       const edge = scene.getObjectByName("map-材质");
 
@@ -434,42 +694,33 @@ export default class ShaderStudy extends React.Component {
         `,
       });
 
-      
       outlinePass.selectedObjects = [edge];
 
       const gui = new GUI();
 
-      gui.add( params, 'exposure', 0.1, 2 ).onChange( function ( value ) {
+      gui.add(params, "exposure", 0.1, 2).onChange(function (value) {
+        renderer.toneMappingExposure = Math.pow(value, 4.0);
+      });
 
-        renderer.toneMappingExposure = Math.pow( value, 4.0 );
+      gui.add(params, "bloomThreshold", 0.0, 1.0).onChange(function (value) {
+        bloomPass.threshold = Number(value);
+      });
 
-      } );
+      gui.add(params, "bloomStrength", 0.0, 3.0).onChange(function (value) {
+        bloomPass.strength = Number(value);
+      });
 
-      gui.add( params, 'bloomThreshold', 0.0, 1.0 ).onChange( function ( value ) {
-
-        bloomPass.threshold = Number( value );
-
-      } );
-
-      gui.add( params, 'bloomStrength', 0.0, 3.0 ).onChange( function ( value ) {
-
-        bloomPass.strength = Number( value );
-
-      } );
-
-      gui.add( params, 'bloomRadius', 0.0, 1.0 ).step( 0.01 ).onChange( function ( value ) {
-
-        bloomPass.radius = Number( value );
-
-      } );
-
-
+      gui
+        .add(params, "bloomRadius", 0.0, 1.0)
+        .step(0.01)
+        .onChange(function (value) {
+          bloomPass.radius = Number(value);
+        });
     }
-    
-    function render() {
 
-      requestAnimationFrame( render );
-    
+    function render() {
+      requestAnimationFrame(render);
+
       renderer.render(scene, camera);
 
       composer.render();
@@ -478,18 +729,18 @@ export default class ShaderStudy extends React.Component {
     render();
   }
 
-  transition(renderer){
+  transition(renderer) {
     renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
-    
-    let {scene, camera} = this.loadBasic(renderer);
+
+    let { scene, camera } = this.loadBasic(renderer);
 
     const transitionParams = {
-      'useTexture': true,
-      'transition': 0,
-      'texture': 5,
-      'cycle': true,
-      'animate': true,
-      'threshold': 0.3
+      useTexture: true,
+      transition: 0,
+      texture: 5,
+      cycle: true,
+      animate: true,
+      threshold: 0.3,
     };
     const clock = new THREE.Clock();
 
@@ -502,193 +753,161 @@ export default class ShaderStudy extends React.Component {
 
     const transition = new createTransition(sceneA, sceneB);
 
-    
     animate();
 
     function animate() {
+      requestAnimationFrame(animate);
 
-      requestAnimationFrame( animate );
-
-      transition.render( clock.getDelta() );
-
+      transition.render(clock.getDelta());
     }
 
+    function createTransition(sceneA, sceneB) {
+      let { scene, camera } = _this.loadBasic(renderer);
 
-    function createTransition(sceneA, sceneB){
-
-      let {scene, camera} = _this.loadBasic(renderer);
-
-      const material = new THREE.ShaderMaterial( {
-
+      const material = new THREE.ShaderMaterial({
         uniforms: {
-
           tDiffuse1: {
-            value: null
+            value: null,
           },
           tDiffuse2: {
-            value: null
+            value: null,
           },
           mixRatio: {
-            value: 0.0
+            value: 0.0,
           },
           threshold: {
-            value: 0.1
+            value: 0.1,
           },
           useTexture: {
-            value: 1
+            value: 1,
           },
         },
         vertexShader: [
+          "varying vec2 vUv;",
 
-          'varying vec2 vUv;',
+          "void main() {",
 
-          'void main() {',
+          "vUv = vec2( uv.x, uv.y );",
+          "gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );",
 
-          'vUv = vec2( uv.x, uv.y );',
-          'gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );',
-
-          '}'
-
-        ].join( '\n' ),
+          "}",
+        ].join("\n"),
         fragmentShader: [
+          "uniform float mixRatio;",
 
-          'uniform float mixRatio;',
+          "uniform sampler2D tDiffuse1;",
+          "uniform sampler2D tDiffuse2;",
 
-          'uniform sampler2D tDiffuse1;',
-          'uniform sampler2D tDiffuse2;',
+          "uniform int useTexture;",
+          "uniform float threshold;",
 
-          'uniform int useTexture;',
-          'uniform float threshold;',
+          "varying vec2 vUv;",
 
-          'varying vec2 vUv;',
+          "void main() {",
 
-          'void main() {',
+          "	vec4 texel1 = texture2D( tDiffuse1, vUv );",
+          "	vec4 texel2 = texture2D( tDiffuse2, vUv );",
 
-          '	vec4 texel1 = texture2D( tDiffuse1, vUv );',
-          '	vec4 texel2 = texture2D( tDiffuse2, vUv );',
+          "	gl_FragColor = mix( texel2, texel1, mixRatio );",
 
-          '	gl_FragColor = mix( texel2, texel1, mixRatio );',
+          "}",
+        ].join("\n"),
+      });
 
-
-          '}'
-
-        ].join( '\n' )
-
-      } );
-
-      const geometry = new THREE.PlaneGeometry( window.innerWidth, window.innerHeight );
-      const mesh = new THREE.Mesh( geometry, material );
-      scene.add( mesh );
+      const geometry = new THREE.PlaneGeometry(
+        window.innerWidth,
+        window.innerHeight
+      );
+      const mesh = new THREE.Mesh(geometry, material);
+      scene.add(mesh);
 
       material.uniforms.tDiffuse1.value = sceneA.fbo.texture;
       material.uniforms.tDiffuse2.value = sceneB.fbo.texture;
 
-      new TWEEN.Tween( transitionParams )
-					.to( { transition: 1 }, 1500 )
-					.repeat( Infinity )
-					.delay( 2000 )
-					.yoyo( true )
-					.start();
+      new TWEEN.Tween(transitionParams)
+        .to({ transition: 1 }, 1500)
+        .repeat(Infinity)
+        .delay(2000)
+        .yoyo(true)
+        .start();
 
       this.needsTextureChange = false;
 
-      this.render = function ( delta ) {
-
+      this.render = function (delta) {
         // Transition animation
-        if ( transitionParams.animate ) {
-
+        if (transitionParams.animate) {
           TWEEN.update();
 
           // Change the current alpha texture after each transition
-          if ( transitionParams.cycle ) {
-
-            if ( transitionParams.transition == 0 || transitionParams.transition == 1 ) {
-
+          if (transitionParams.cycle) {
+            if (
+              transitionParams.transition == 0 ||
+              transitionParams.transition == 1
+            ) {
               // if ( this.needsTextureChange ) {
-
               //   transitionParams.texture = ( transitionParams.texture + 1 ) % textures.length;
               //   material.uniforms.tMixTexture.value = textures[ transitionParams.texture ];
               //   this.needsTextureChange = false;
-
               // }
-
-              
             } else {
-
               this.needsTextureChange = true;
-
             }
-
           } else {
-
             this.needsTextureChange = true;
-
           }
-
         }
 
         material.uniforms.mixRatio.value = transitionParams.transition;
 
         // Prevent render both scenes when it's not necessary
-        if ( transitionParams.transition == 0 ) {
-
-          sceneB.render( delta, false );
-
-        } else if ( transitionParams.transition == 1 ) {
-
-          sceneA.render( delta, false );
-
+        if (transitionParams.transition == 0) {
+          sceneB.render(delta, false);
+        } else if (transitionParams.transition == 1) {
+          sceneA.render(delta, false);
         } else {
-
           // When 0<transition<1 render transition between two scenes
 
-          sceneA.render( delta, true );
-          sceneB.render( delta, true );
+          sceneA.render(delta, true);
+          sceneB.render(delta, true);
 
-          renderer.setRenderTarget( null );
+          renderer.setRenderTarget(null);
           renderer.clear();
-          renderer.render( scene, camera );
-
+          renderer.render(scene, camera);
         }
-
       };
     }
 
-    function createScene(boxColor, clearColor){
+    function createScene(boxColor, clearColor) {
+      let { scene, camera } = _this.loadBasic(renderer);
 
-      let {scene, camera} = _this.loadBasic(renderer);
-
-      let boxes = createBoxes(boxColor)
+      let boxes = createBoxes(boxColor);
 
       scene.add(boxes);
 
-      this.fbo = new THREE.WebGLRenderTarget( window.innerWidth, window.innerHeight );
+      this.fbo = new THREE.WebGLRenderTarget(
+        window.innerWidth,
+        window.innerHeight
+      );
 
-      this.render = function(rtt){
-
+      this.render = function (rtt) {
         renderer.setClearColor(clearColor);
 
-        if(rtt){
-
+        if (rtt) {
           renderer.setRenderTarget(this.fbo);
           renderer.clear();
           renderer.render(scene, camera);
-
-        }else{
-
+        } else {
           renderer.setRenderTarget(null);
           renderer.render(scene, camera);
         }
-      }
+      };
     }
 
-    function createBoxes(color){
-
+    function createBoxes(color) {
       let group = new THREE.Group();
-      let material = new THREE.MeshLambertMaterial({color});
-      for(let i=0;i<500;i++){
-
-        let mesh = new Mesh(new THREE.BoxGeometry(1,1,1), material)
+      let material = new THREE.MeshLambertMaterial({ color });
+      for (let i = 0; i < 500; i++) {
+        let mesh = new Mesh(new THREE.BoxGeometry(1, 1, 1), material);
         group.add(mesh);
 
         mesh.position.x = Math.random() * 100 - 50;
@@ -699,25 +918,22 @@ export default class ShaderStudy extends React.Component {
         mesh.rotation.y = Math.random() * 2 * Math.PI;
         mesh.rotation.z = Math.random() * 2 * Math.PI;
       }
-      return group
+      return group;
     }
 
     function render() {
+      requestAnimationFrame(render);
 
-      requestAnimationFrame( render );
-    
       renderer.render(scene, camera);
-
     }
 
     render();
-
   }
 
-  cloud(renderer){
+  cloud(renderer) {
     renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
-    
-    let {scene, camera} = this.loadBasic(renderer);
+
+    let { scene, camera } = this.loadBasic(renderer);
 
     // 云的个数
     const cloudCount = 1000;
@@ -733,7 +949,7 @@ export default class ShaderStudy extends React.Component {
     const randomPositionY = 120;
 
     // 背景色
-    const backgroundColor = '#1e4877';
+    const backgroundColor = "#1e4877";
 
     const pageWidth = window.innerWidth;
     const pageHeight = window.innerHeight;
@@ -745,7 +961,7 @@ export default class ShaderStudy extends React.Component {
     // 可以改变雾的颜色，发现远处的云的颜色有所变化
     const fog = new THREE.Fog(backgroundColor, 1, 1000);
 
-    const texture = new THREE.TextureLoader().load('/cloud.png')
+    const texture = new THREE.TextureLoader().load("/cloud.png");
 
     const geometry = new THREE.PlaneGeometry(64, 64);
 
@@ -757,7 +973,7 @@ export default class ShaderStudy extends React.Component {
         vUv = uv;
         gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
-    `
+    `;
     const fShader = `
       uniform sampler2D map;
       uniform vec3 fogColor;
@@ -771,7 +987,7 @@ export default class ShaderStudy extends React.Component {
         gl_FragColor.w *= pow(gl_FragCoord.z, 20.0);
         gl_FragColor = mix(gl_FragColor, vec4(fogColor, gl_FragColor.w), fogFactor);
       }
-    `
+    `;
 
     const material = new THREE.ShaderMaterial({
       uniforms: {
@@ -782,21 +998,25 @@ export default class ShaderStudy extends React.Component {
           value: fog.color,
         },
         fogNear: {
-          value: fog.near
+          value: fog.near,
         },
         fogFar: {
-          value: fog.far
-        }
+          value: fog.far,
+        },
       },
       vertexShader: vShader,
       fragmentShader: fShader,
       transparent: true,
-    })
+    });
 
-    for(let i=0; i< cloudCount; i++){
+    for (let i = 0; i < cloudCount; i++) {
       const instanceGeometry = geometry.clone();
 
-      instanceGeometry.translate(Math.random() * randomPositionX, -Math.random() * randomPositionY, i * perCloudz);
+      instanceGeometry.translate(
+        Math.random() * randomPositionX,
+        -Math.random() * randomPositionY,
+        i * perCloudz
+      );
 
       geometries.push(instanceGeometry);
     }
@@ -806,22 +1026,18 @@ export default class ShaderStudy extends React.Component {
     const mesh = new THREE.Mesh(mergedGeometry, material);
 
     scene.add(mesh);
-    
+
     function render() {
+      requestAnimationFrame(render);
 
-      requestAnimationFrame( render );
-    
       renderer.render(scene, camera);
-
     }
 
     render();
-    
   }
 
-  loadAnimation(renderer){
-
-    let {scene, camera} = this.loadBasic(renderer);
+  loadAnimation(renderer) {
+    let { scene, camera } = this.loadBasic(renderer);
 
     // let box = new THREE.BoxGeometry(10,10,10);
     // let mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({
@@ -831,69 +1047,60 @@ export default class ShaderStudy extends React.Component {
 
     // 进度条需要下面两种一起用，先加载GLTFLoader的onProgress，再加载LoadingManager的onProgress，一半一半
     let loadManager = new THREE.LoadingManager(
-      () =>{},
+      () => {},
       (url, loaded, total) => {
         console.log(loaded, total);
-      }  
-    )
+      }
+    );
     let loader = new GLTFLoader(loadManager);
 
     loader.load(
       // resource URL
-      'bdzzcjgd3.gltf',
+      "bdzzcjgd3.gltf",
       // called when the resource is loaded
-      function ( gltf ) {
-    
-        scene.add( gltf.scene );
-    
+      function (gltf) {
+        scene.add(gltf.scene);
       },
       // called while loading is progressing
-      function ( xhr ) {
-    
-        console.log( ( xhr.loaded, xhr.total));
-    
+      function (xhr) {
+        console.log((xhr.loaded, xhr.total));
       },
       // called when loading has errors
-      function ( error ) {
-    
-        console.log( 'An error happened' );
-    
+      function (error) {
+        console.log("An error happened");
       }
     );
 
     function render() {
+      requestAnimationFrame(render);
 
-      requestAnimationFrame( render );
-    
       renderer.render(scene, camera);
-
     }
 
     render();
   }
 
-
-  loadBasic(renderer){
+  loadBasic(renderer) {
     // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
-    const fov = 40 // 视野范围
-    const aspect = 2 // 相机默认值 画布的宽高比
-    const near = 0.1 // 近平面
-    const far = 10000 // 远平面
+    const fov = 40; // 视野范围
+    const aspect = 2; // 相机默认值 画布的宽高比
+    const near = 0.1; // 近平面
+    const far = 10000; // 远平面
     // 透视投影相机
-    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far)
-    camera.position.set(10, 30, 30)
-    camera.lookAt(0, 0, 0)
+    const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+    camera.position.set(10, 30, 30);
+    camera.lookAt(0, 0, 0);
 
     // 场景
     const scene = new THREE.Scene();
 
-    let ambientLight = new THREE.AmbientLight(0xffffff)
+    let ambientLight = new THREE.AmbientLight(0xffffff);
     scene.add(ambientLight);
-    
+
     // 控制相机
-    const controls = new OrbitControls(camera, renderer.domElement)
-    controls.update()
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.update();
 
     const axis = new THREE.AxesHelper(100);
     scene.add(axis);
@@ -904,15 +1111,14 @@ export default class ShaderStudy extends React.Component {
     return {
       scene,
       camera,
-      controls
-    }
+      controls,
+    };
   }
   render() {
-    
-    return <div>
-
-      <div id="box" style={{width: '100%', height: '100%'}}/>
-
-    </div>;
+    return (
+      <div>
+        <div id="box" style={{ width: "100%", height: "100%" }} />
+      </div>
+    );
   }
 }
