@@ -32,7 +32,6 @@ import * as TWEEN from '@tweenjs/tween.js';
 export default class EditPage extends React.Component {
   componentDidMount() {
     this.draw();
-    console.log(22);
   }
   draw() {
     const canvas = document.querySelector('#c2d');
@@ -1294,6 +1293,10 @@ export default class EditPage extends React.Component {
 
     const outlinePass = new OutlinePass(new THREE.Vector2(window.innerWidth, window.innerHeight), scene, camera);
     outlinePass.visibleEdgeColor.set(0xffff00)
+    outlinePass.edgeStrength = 3;
+    outlinePass.edgeGlow = 0.3;
+    outlinePass.edgeThickness = 3;
+    outlinePass.pulsePeriod = 2.5;
     composer.addPass(outlinePass);
 
     const effectFXAA = new ShaderPass(FXAAShader);

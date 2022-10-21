@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-10-20 17:28:17
+ * @LastEditTime: 2022-10-21 13:39:57
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -49,7 +49,189 @@ export default class ShaderStudy extends React.Component {
     window.THREE = THREE;
 
     // this.temperature(renderer); // 设置设备温度
-    this.virtual(renderer); // 虚化
+    // this.virtual(renderer); // 虚化
+    this.mouse_bloom(renderer); // 鼠标悬浮发光
+  }
+
+  mouse_bloom(renderer){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    camera.position.set(50, 50, 60);
+    controls.update();
+    controls.addEventListener( 'change', render );
+
+    let light = new THREE.PointLight(0xffffff);
+    light.position.y = 200;
+    scene.add(light);
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    let children = [];
+    loader.load(
+      "/tashan.glb",
+      function (gltf) {
+        scene.add(gltf.scene);
+        gltf.scene.children.forEach(item => {
+          if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
+            children.push(item)
+          }
+        });
+
+        scene.getObjectByName('主体1').visible = false;
+        scene.getObjectByName('主体2').visible = false;
+        scene.getObjectByName('屋顶1').visible = false;
+        scene.getObjectByName('屋顶2').visible = false;
+
+        render();
+
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
+    const params = {
+      exposure: 1.2,
+      bloomStrength: 5,
+      bloomThreshold: 0,
+      bloomRadius: 0.5,
+      scene: 'Scene with Glow'
+    };
+    renderer.toneMappingExposure = Math.pow( params.exposure, 4.0 );
+
+    const ENTIRE_SCENE = 1, BLOOM_SCENE = 2;
+    const bloomLayer = new THREE.Layers();
+    bloomLayer.set(BLOOM_SCENE);
+
+    const darkMaterial = new THREE.MeshBasicMaterial({color: 'black'})
+    const materials = {};
+    renderer.toneMapping = THREE.ReinhardToneMapping;
+
+    const renderScene = new RenderPass(scene, camera)
+
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85)
+    bloomPass.threshold = params.threshold;
+    bloomPass.strength = params.strength;
+    bloomPass.radius = params.bloomRadius;
+
+    const bloomComposer = new EffectComposer(renderer)
+    bloomComposer.renderToScreen = false;
+    bloomComposer.addPass(renderScene)
+    bloomComposer.addPass(bloomPass)
+
+    const finalPass = new ShaderPass(new THREE.ShaderMaterial({
+      uniforms: {
+        baseTexture: { value: null},
+        bloomTexture: { value: bloomComposer.renderTarget2.texture}
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D baseTexture;
+        uniform sampler2D bloomTexture;
+        varying vec2 vUv;
+        void main(){
+          gl_FragColor = (texture2D(baseTexture, vUv) + vec4(1.0) * texture2D(bloomTexture, vUv));
+        }
+      `,
+    }), 'baseTexture')
+    finalPass.needsSwap = true;
+
+    const finalComposer = new EffectComposer(renderer)
+    finalComposer.addPass(renderScene)
+    finalComposer.addPass(finalPass)
+
+    const raycaster = new THREE.Raycaster();
+
+    const mouse = new THREE.Vector2();
+
+    window.addEventListener('pointerdown', onPointerDown)
+
+    setupScene();
+
+    function onPointerDown(event){
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(children, true)
+      if(intersects.length > 0){
+
+        const object = intersects[0].object;
+        object.layers.toggle(BLOOM_SCENE)
+        render();
+        console.log('点击了', object);
+      }
+    }
+
+    function setupScene(){
+
+      scene.traverse(disposeMaterial);
+      
+      render();
+
+    }
+
+    function render() {
+      
+      renderBloom(true);
+
+      finalComposer.render();
+    }
+
+    function disposeMaterial(obj){
+      if(obj.material){
+        obj.material.dispose();
+      }
+    }
+
+    function renderBloom(mask){
+
+      if(mask){
+
+        scene.traverse(darkenNonBloomed);
+        bloomComposer.render();
+        scene.traverse(restoreMaterial);
+
+      }else{
+
+        camera.layers.set(BLOOM_SCENE);
+        bloomComposer.render();
+        camera.layers.set(ENTIRE_SCENE);
+      }
+    }
+
+    function darkenNonBloomed(obj){
+
+      if(obj.isMesh && bloomLayer.test(obj.layers) === false){
+
+        materials[obj.uuid] = obj.material;
+        obj.material = darkMaterial;
+      }
+    }
+    function restoreMaterial(obj){
+
+      if(materials[obj.uuid]){
+        obj.material = materials[obj.uuid];
+        delete materials[obj.uuid];
+      }
+    }
+
+    render();
   }
 
   virtual(renderer) {
@@ -118,66 +300,33 @@ export default class ShaderStudy extends React.Component {
     //     console.log("An error happened");
     //   }
     // );
+    let matObj = {};
+    let lineGroup = new THREE.Group();
+    scene.add(lineGroup);
 
-    function changeMat(mesh, isVirtual){
+    function changeMat(mesh, isVirtual, isAfter){
       // mesh.visible = false;
 
-      // console.log(mesh.geometry);
       mesh.geometry.computeBoundingBox();
 
 
       let { min, max } = mesh.geometry.boundingBox;
       let height = max.y - min.y;
 
-      // mesh.material = new ShaderMaterial({
-      //   uniforms: {
-      //     uHeight: {
-      //       value: height
-      //     },
-      //     uColor: {
-      //       value: new THREE.Color('#00ffff')
-      //     },
-      //     maxOpacity:{
-      //       value: 0.6
-      //     }
-      //   },
-      //   transparent: true,
-      //   vertexShader: `
-      //     varying vec3 vPosition;
-      //     void main() {
-      //       vPosition = position;
-      //       gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
-      //     }
-      //   `,
-      //   fragmentShader: `
-      //     uniform float uHeight;
-      //     uniform vec3 uColor;
-      //     uniform float maxOpacity;
-      //     varying vec3 vPosition;
-      //     void main(){
-      //       float dist = 1.0 - ((vPosition.y+uHeight/2.0) / uHeight);
-      //       gl_FragColor = vec4(uColor, dist * maxOpacity);
-      //     }
-      //   `
-      // })
-
-      const vertex = `varying vec3 vPosition;
-        void main() {
-          vPosition = position;`
-      const fragment = `uniform float uHeight;
-        uniform vec3 uColor;
-        uniform float maxOpacity;
-        varying vec3 vPosition;
-        void main() {`
-      const fragmentColor = `float dist = 1.0 - ((vPosition.y+uHeight/2.0) / uHeight);
-          gl_FragColor = vec4(uColor, dist * maxOpacity);
-        }`
-      const originVertex = `void main() {`
-      const originFragment = `void main() {`
-      const originFragmentColor = `}`
-
       mesh.material.transparent = true;
+
+      if(isAfter){
+
+        for(let key in matObj){
+          matObj[key].uniforms.isVirtual.value = isVirtual
+        }
+        lineGroup.visible = isVirtual;
+        mesh.material.needsUpdate = true;
+        return
+      }
+      mesh.material = mesh.material.clone();
       mesh.material.onBeforeCompile = shader => {
+        matObj[mesh.material.uuid] = shader
         Object.assign(shader.uniforms, {
           uHeight: {
             value: height
@@ -187,24 +336,45 @@ export default class ShaderStudy extends React.Component {
           },
           maxOpacity:{
             value: 0.6
-          }
+          },
+          isVirtual: {
+            value: true,
+          },
+          minY: {
+            value: min.y
+          },
+          maxY: {
+            value: max.y
+          },
         }) 
         
-        if(isVirtual){
-          shader.vertexShader = shader.vertexShader.replace(originVertex, vertex)
-          shader.fragmentShader = shader.fragmentShader.replace(originFragment, fragment)
-          shader.fragmentShader = shader.fragmentShader.replace(originFragmentColor, fragmentColor)
-        }else{
-          shader.vertexShader = shader.vertexShader.replace(vertex, originVertex)
-          shader.fragmentShader = shader.fragmentShader.replace(fragment, originFragment)
-          shader.fragmentShader = shader.fragmentShader.replace(fragmentColor, originFragmentColor)
+        const vertex = `
+          varying vec3 vPosition;
+          void main() {
+            vPosition = position;`
+        const fragment = `
+          uniform float uHeight;
+          uniform vec3 uColor;
+          uniform float maxOpacity;
+          uniform float minY;
+          uniform float maxY;
+          uniform bool isVirtual;
+          varying vec3 vPosition;
+          void main() {`
+        const fragmentColor = `
+          float dist = 1.0 - ((vPosition.y-minY) / uHeight);
+          if(isVirtual){
+            gl_FragColor = vec4(uColor, dist * maxOpacity);
+          }
+        }`
 
-        }
-        
+        shader.vertexShader = shader.vertexShader.replace(`void main() {`, vertex)
+        shader.fragmentShader = shader.fragmentShader.replace(`void main() {`, fragment)
+        shader.fragmentShader = shader.fragmentShader.replace(`}`, fragmentColor)
+       
       }
-      mesh.material.needsUpdate = true;
       if(!isVirtual) return
-      let geometry = new THREE.WireframeGeometry(mesh.geometry);
+      let geometry = new THREE.EdgesGeometry(mesh.geometry);
 
       let shader = new THREE.ShaderMaterial({
         uniforms: {
@@ -236,7 +406,7 @@ export default class ShaderStudy extends React.Component {
 
       seg.position.copy(worldPosition)
 
-      scene.add(seg);
+      lineGroup.add(seg);
     }
 
     window.changeMat = changeMat
