@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-10-21 16:05:16
+ * @LastEditTime: 2022-10-24 14:42:45
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -17,7 +17,7 @@ import TWEEN from "tween.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
-import { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
+import g, { GUI } from "three/examples/jsm/libs/lil-gui.module.min.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
@@ -59,7 +59,115 @@ export default class ShaderStudy extends React.Component {
     // this.temperature(renderer); // 设置设备温度
     // this.virtual(renderer); // 虚化
     // this.mouse_bloom(renderer); // 鼠标悬浮发光
-    this.fire1(renderer); // 火1
+    // this.fire1(renderer); // 火1
+
+    this.water(renderer)
+  }
+
+  water(renderer){
+
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let material = new THREE.LineDashedMaterial({color: 0xffffff, dashSize: 0.2, gapSize: 0.1, transparent: true, opacity: 0.5});
+    let _shader;
+    material.onBeforeCompile = shader => {
+      console.log(shader);
+      _shader = shader;
+
+      shader.uniforms.time = {
+        value: 0
+      }
+
+      const vertex = `
+        uniform float time;
+        void main() {
+      `
+      const vertexShader = `
+        vLineDistance = scale * lineDistance + time;
+      `
+
+      shader.vertexShader = shader.vertexShader.replace('void main() {', vertex)
+      shader.vertexShader = shader.vertexShader.replace('vLineDistance = scale * lineDistance', vertexShader)
+    }
+
+    
+    const points = [
+      // 第一排
+      [0, 6, 0],
+      [1, 6, 0],
+      [2, 5, 0],
+      [2, 4, 0],
+
+      [0, 6, 0],
+      [2, 6, 0],
+      [3, 5, 0],
+      [3, 4, 0],
+      
+      [0, 6, 0],
+      [1, 6, 0.2],
+      [2, 5, 0.5],
+      [2, 4, 0.5],
+      // 第二排
+      [0, 6, 0],
+      [1.5, 6, 0],
+      [2.5, 5, 0],
+      [2.5, 4, 0],
+
+      [0, 6, 0],
+      [1.5, 6, 0.4],
+      [2.5, 5, 0.6],
+      [2.5, 4, 0.6],
+      
+      [0, 6, 0],
+      [1.5, 6, 0.8],
+      [2.5, 5, 1],
+      [2.5, 4, 1],
+      // 第三排
+      [0, 6, 0],
+      [2, 6, 0.3],
+      [3, 5, 0.6],
+      [3, 4, 0.6],
+
+      [0, 6, 0],
+      [1, 6, 0.8],
+      [2, 5, 1],
+      [2, 4, 1],
+      
+      [0, 6, 0],
+      [2, 6, 1],
+      [3, 5, 1.2],
+      [3, 4, 1.2],
+    ]
+
+    for(let i=0; i< points.length; i+=4){
+
+      let p1 = new THREE.Vector3(points[i][0], points[i][1], points[i][2]);
+      let p2 = new THREE.Vector3(points[i+1][0], points[i+1][1], points[i+1][2]);
+      let p3 = new THREE.Vector3(points[i+2][0], points[i+2][1], points[i+2][2]);
+      let p4 = new THREE.Vector3(points[i+3][0], points[i+3][1], points[i+3][2]);
+      const spline = new THREE.CubicBezierCurve3( p1, p2, p3, p4);
+  
+      const samples = spline.getPoints( 50 );
+      const geometrySpline = new THREE.BufferGeometry().setFromPoints( samples );
+  
+      let mesh = new THREE.Line(geometrySpline, material)
+      mesh.computeLineDistances();
+
+      scene.add(mesh)
+    }
+   
+
+    
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+      if(_shader)
+        _shader.uniforms.time.value -= 0.02
+    }
+
+    render();
   }
 
   fire1(renderer){
@@ -79,11 +187,11 @@ export default class ShaderStudy extends React.Component {
       camera.position.z = - 300;
 
       // scene = new THREE.Scene();
-      scene.fog = new THREE.FogExp2( 0x000000, 0.001 );
+      // scene.fog = new THREE.FogExp2( 0x000000, 0.001 );
 
       // geometries
 
-      const teapotGeometry = new TeapotGeometry( 50, 7 );
+      const teapotGeometry = new THREE.BoxGeometry( 20,20,20, 1, 10, 10, 10 );
       const sphereGeometry = new THREE.SphereGeometry( 100, 130, 16 );
 
       const geometry = new THREE.BufferGeometry();
