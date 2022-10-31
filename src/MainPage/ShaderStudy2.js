@@ -32,6 +32,7 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { TeapotGeometry } from 'three/examples/jsm/geometries/TeapotGeometry.js';
 
 import { nodeFrame } from 'three/examples/jsm/renderers/webgl/nodes/WebGLNodes.js';
+import { MeshLambertMaterial } from "three";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -61,7 +62,110 @@ export default class ShaderStudy extends React.Component {
     // this.mouse_bloom(renderer); // 鼠标悬浮发光
     // this.fire1(renderer); // 火1
 
-    this.water(renderer)
+    // this.water(renderer)
+    this.computedWater(renderer)
+  }
+
+  computedWater(renderer, paramsOption){
+    
+    let { scene, camera, controls } = this.loadBasic(renderer);
+    camera.position.set(0,4,15)
+    controls.update();
+
+    const defOption = {
+      length: 8,  // 水柱的长度
+      width: 3,   // 底部矩形的宽
+      height: 4,  // 底部矩形的高
+      widthSegment: 5,  // 底部矩形的宽度分段数
+      heightSegment: 5, // 底部矩形的高度分段数
+      color: 0xffffff,  // 水柱颜色
+      opacity: 0.8,     // 水柱的透明度
+      dashSize: 0.2,    // 每段虚线的长度
+      gapSize: 0.1,     // 每段虚线的间隔
+      speed: 0.02,      // 虚线移动的速度，实际意义是每一帧移动的距离
+    }
+  
+    const option = Object.assign(defOption, paramsOption || {})
+
+    let plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(option.width, option.height, option.widthSegment,option.heightSegment), 
+      new MeshLambertMaterial({
+        color: 0x0000ff,
+        wireframe: true,
+      })
+    ); 
+    plane.rotateX(Math.PI * 0.5);
+    plane.position.x = 8;
+    plane.updateMatrixWorld();
+
+    let points = [];
+    let array = plane.geometry.getAttribute('position').array
+    for(let i=0; i< array.length; i+= 3){
+      let p = new THREE.Vector3(array[i], array[i+1], array[i+2]);
+      p.applyMatrix4(plane.matrixWorld)
+      points.push(p)
+    }
+
+    scene.add(plane);
+
+    let material = new THREE.LineDashedMaterial({
+      color: option.color, 
+      dashSize: option.dashSize, 
+      gapSize: option.gapSize, 
+      transparent: true, 
+      opacity: option.opacity,
+    });
+    let _shader;
+    material.onBeforeCompile = shader => {
+      _shader = shader;
+
+      shader.uniforms.time = {
+        value: 0
+      }
+      const vertex = `
+        uniform float time;
+        void main() {
+      `
+      const vertexShader = `
+        vLineDistance = scale * lineDistance + time;
+      `
+      shader.vertexShader = shader.vertexShader.replace('void main() {', vertex)
+      shader.vertexShader = shader.vertexShader.replace('vLineDistance = scale * lineDistance', vertexShader)
+    }
+
+    const group = new THREE.Group();
+
+    const start = new THREE.Vector3(0,7,0);
+
+    for(let end of points){
+
+      let d1 = start,
+          d2 = new THREE.Vector3((start.x + end.x) / 2,start.y, (start.z + end.z) / 2),
+          d3 = new THREE.Vector3(end.x, (start.y + end.y) / 2, end.z),
+          d4 = end;
+
+      let line = new THREE.CubicBezierCurve3(d1, d2, d3, d4);
+
+      const linePoints = line.getPoints(50);
+      const curveObject = new THREE.Line(
+        new THREE.BufferGeometry().setFromPoints(linePoints),
+        material
+      )
+      curveObject.computeLineDistances();
+      group.add(curveObject)
+    }
+    scene.add(group);
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+      if(_shader)
+        _shader.uniforms.time.value -= option.speed;
+    }
+
+    render();
   }
 
   water(renderer){
