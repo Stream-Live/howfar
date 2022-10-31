@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-10-24 14:42:45
+ * @LastEditTime: 2022-10-25 16:42:52
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -24,6 +24,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
+import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
 
 import * as Nodes from 'three/nodes';
 
@@ -54,7 +55,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.bloom(renderer)
     // this.technologe_sity(renderer)
-    // this.rain(renderer)
+    this.rain(renderer)
     window.THREE = THREE;
 
     // this.temperature(renderer); // 设置设备温度
@@ -459,16 +460,17 @@ export default class ShaderStudy extends React.Component {
       "/tashan.glb",
       function (gltf) {
         scene.add(gltf.scene);
-        gltf.scene.children.forEach(item => {
-          if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
-            children.push(item)
-          }
-        });
+        // 虚化
+        // gltf.scene.children.forEach(item => {
+        //   if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
+        //     children.push(item)
+        //   }
+        // });
 
-        scene.getObjectByName('主体1').visible = false;
-        scene.getObjectByName('主体2').visible = false;
-        scene.getObjectByName('屋顶1').visible = false;
-        scene.getObjectByName('屋顶2').visible = false;
+        // scene.getObjectByName('主体1').visible = false;
+        // scene.getObjectByName('主体2').visible = false;
+        // scene.getObjectByName('屋顶1').visible = false;
+        // scene.getObjectByName('屋顶2').visible = false;
 
         render();
 
@@ -482,6 +484,19 @@ export default class ShaderStudy extends React.Component {
         console.log("An error happened");
       }
     );
+
+    // const pmremGenerator = new THREE.PMREMGenerator(renderer);
+    // pmremGenerator.compileEquirectangularShader();
+    // new RGBELoader().load(
+    //   '/hdr/dikhololo_night_1k.hdr',
+    //   (texture) => {
+    //     const envMap = pmremGenerator.fromEquirectangular(texture).texture;
+    //     pmremGenerator.dispose();
+    //     scene.environment = envMap;
+    //   },
+    //   undefined
+    // );
+
     const params = {
       exposure: 1.2,
       bloomStrength: 5,
@@ -542,7 +557,7 @@ export default class ShaderStudy extends React.Component {
 
     const mouse = new THREE.Vector2();
 
-    window.addEventListener('pointerdown', onPointerDown)
+    // window.addEventListener('pointerdown', onPointerDown)
 
     setupScene();
 
@@ -823,16 +838,8 @@ export default class ShaderStudy extends React.Component {
     box.geometry.computeBoundingBox();
 
     let { min, max } = box.geometry.boundingBox;
-    let height = max.y - min.y;
-    console.log(min, max);
-    console.log(min.y, max.y);
-
-    let geometry = new THREE.BufferGeometry();
-    let arr = [];
-    let geometries = [];
 
     let d = 1;
-    let num = 16;
 
     const lineMat = new THREE.LineBasicMaterial({
       color: 0xffffff,
@@ -842,15 +849,9 @@ export default class ShaderStudy extends React.Component {
     const group = new THREE.Group();
     for (let i = 0; i < 1000; i++) {
       const pos = new THREE.Vector3();
-      pos.x = Math.random() * (max.x - min.x) + min.x;
-      pos.y = Math.random() * (max.y - min.y) + min.y;
-      pos.z = Math.random() * (max.z - min.z) + min.z;
-
-      // for(let j=0;j<num;j++){
-      //   arr.push(pos.x);
-      //   arr.push(pos.y + (d * j));
-      //   arr.push(pos.z);
-      // }
+      pos.x = Math.random() * (max.x - min.x + 1) + min.x;
+      pos.y = Math.random() * (max.y - min.y + 1) + min.y;
+      pos.z = Math.random() * (max.z - min.z + 1) + min.z;
 
       const points = [];
       points.push(pos);
@@ -864,107 +865,122 @@ export default class ShaderStudy extends React.Component {
 
     const h = new THREE.BoxHelper(group);
     scene.add(h);
-    // scene.add(group)
+
+    group.children.forEach(_mesh => {
+      
+      let delta = Math.random() * (max.y - min.y + 1) + min.y;
+      if(Math.random() > 0.5) _mesh.position.y += delta;
+      else _mesh.position.y -= delta;
+    })
+    
     console.log(group);
-    scene.add(group);
-    // let mergedGeometry = mergeBufferGeometries(geometries);
+    // scene.add(group);
 
-    // let mergedMesh = new THREE.Mesh(mergedGeometry, lineMat);
-    // scene.add(mergedMesh)
-
-    // geometry.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
-
-    let shader = new THREE.ShaderMaterial({
-      uniforms: {
-        uSize: {
-          value: 0.5,
-        },
-        uTime: {
-          value: 0,
-        },
-        uHeight: {
-          value: max.y - min.y,
-        },
-      },
-      vertexShader: `
-        uniform float uSize;
-        uniform float uTime;
-        uniform float uHeight;
-        void main(){
-          // position.y = mod((position.y + uTime), uHeight);
-          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-          gl_Position = projectionMatrix * mvPosition;
-          gl_PointSize = uSize * 300.0 / (-mvPosition.z);
-        }
-      `,
-      fragmentShader: `
-        void main(){
-          gl_FragColor = vec4(1.0, 1.0, 1.0, 0.5);
-        }
-      `,
-      transparent: true,
-    });
-
-    let rain = new THREE.Points(geometry, shader);
-    // scene.add(rain)
+    let maxSpeed = 1, minSpeed = 0.2
     function move() {
-      // console.log(group);
       group.children.forEach((_mesh, index) => {
-        // console.log(_mesh)
-        // let arr1 = _mesh.geometry.attributes.position.array;
-        // if(arr1[4] < min.y){
-        //   arr1[4] = max.y-d;
-        //   arr1[1] = max.y;
-        // }else{
-        //   arr1[4] -= 0.4;
-        //   arr1[1] -= 0.4;
-        // }
-        // _mesh.geometry.setAttribute('position', new THREE.Float32BufferAttribute(arr1, 3));
 
-        // _mesh.position.y -= (0.2*index *0.01);
-        _mesh.position.y -= Math.random() * (1.5 - 0.2 + 1) + 0.2;
-        // _mesh.position.y -= 0.2;
-
-        // let y = _mesh.position.y + pos.y;
-        // console.log(_mesh);
+        _mesh.position.y -= Math.random() * (maxSpeed - minSpeed + 1) + minSpeed;
         if (_mesh.position.y < min.y) {
           _mesh.position.y = max.y;
         }
       });
     }
 
-    // 1、加载gltf文件1719.1682731434032
-    const loader = new GLTFLoader();
+    let obj = this.createRain(100, 100, 100);
 
-    const dracoLoader = new DRACOLoader();
-    dracoLoader.setDecoderPath("/draco/");
-    loader.setDRACOLoader(dracoLoader);
+    scene.add(obj.group);
+    obj.start();
 
-    // loader.load(
-    //   '/tashan.glb',
-    //   function (gltf) {
-    //     scene.add(gltf.scene)
-
-    //   },
-    //   // called while loading is progressing
-    //   function (xhr) {
-    //     console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-    //   },
-    //   // called when loading has errors
-    //   function (error) {
-    //     console.log('An error happened');
-    //   }
-    // )
 
     function render() {
       requestAnimationFrame(render);
 
       renderer.render(scene, camera);
-
-      move();
     }
 
     render();
+  }
+
+  /**
+   * @description: 创建雨
+   * @param {*} width   立方体雨的宽
+   * @param {*} height  立方体雨的高
+   * @param {*} depth   立方体雨的深
+   * @param {*} paramsOption
+   * @return {*}
+   */  
+  createRain(width, height, depth, paramsOption){
+
+    const defOption = {
+      maxSpeed: 1.5,  // 雨滴下落最大速度
+      minSpeed: 0.2,  // 雨滴下落最小速度 
+      length: 1,     // 每个雨滴的长度
+    }
+  
+    const option = Object.assign(defOption, paramsOption || {})
+  
+    let box = new THREE.Mesh(
+      new THREE.BoxGeometry(width, height/2, depth),
+      new THREE.MeshLambertMaterial({ color: 0xffff00 })
+    );
+  
+    box.geometry.computeBoundingBox();
+  
+    let { min, max } = box.geometry.boundingBox;
+  
+    const lineMat = new THREE.LineBasicMaterial({
+      color: 0xffffff,
+      transparent: true,
+      opacity: 0.7,
+    });
+    const group = new THREE.Group();
+    for (let i = 0; i < 1000; i++) {
+      const pos = new THREE.Vector3();
+      pos.x = Math.random() * (max.x - min.x + 1) + min.x;
+      pos.y = Math.random() * (max.y - min.y + 1) + min.y;
+      pos.z = Math.random() * (max.z - min.z + 1) + min.z;
+  
+      const points = [];
+      points.push(pos);
+      points.push(new THREE.Vector3(pos.x, pos.y + option.length, pos.z));
+      let g = new THREE.BufferGeometry().setFromPoints(points);
+      let mesh = new THREE.Line(g, lineMat);
+      mesh.name = "line_" + i;
+      group.add(mesh);
+    }
+  
+    group.children.forEach(_mesh => {
+      
+      let delta = Math.random() * (max.y - min.y + 1) + min.y;
+      if(Math.random() > 0.5) _mesh.position.y += delta;
+      else _mesh.position.y -= delta;
+    })
+  
+    const obj = {
+      group,
+      isStarted: false,
+      start(){
+        this.isStarted = true;
+        render();
+      },
+      stop(){
+        this.isStarted = false;
+      },
+    }
+  
+    function render(){
+      obj.isStarted && requestAnimationFrame(render);
+  
+      group.children.forEach((_mesh, index) => {
+  
+        _mesh.position.y -= Math.random() * (option.maxSpeed - option.minSpeed + 1) + option.minSpeed;
+        if (_mesh.position.y < min.y) {
+          _mesh.position.y = max.y;
+        }
+      });
+    }
+    return obj;
   }
 
   temperature(renderer) {
