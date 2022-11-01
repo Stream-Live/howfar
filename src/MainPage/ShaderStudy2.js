@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-11-01 08:40:04
+ * @LastEditTime: 2022-11-01 17:16:32
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -37,6 +37,7 @@ import { DragControls } from "three/examples/jsm/controls/DragControls";
 import * as TWEEN from '@tweenjs/tween.js';
 import { mode } from "d3";
 import { MeshLambertMaterial } from "three";
+import h337 from "heatmapjs";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -61,13 +62,109 @@ export default class ShaderStudy extends React.Component {
     // this.rain(renderer)
     window.THREE = THREE;
 
-    this.temperature(renderer); // 设置设备温度
+    // this.temperature(renderer); // 设置设备温度
     // this.virtual(renderer); // 虚化
     // this.mouse_bloom(renderer); // 鼠标悬浮发光
     // this.fire1(renderer); // 火1
 
     // this.water(renderer)
-    this.computedWater(renderer)
+    // this.computedWater(renderer)
+    this.temperature2(renderer); // 设置设备温度
+
+  }
+
+  temperature2(renderer){
+
+    
+    let heatmapInstance = h337.create({
+      container: document.querySelector('#box2')
+    })
+
+    //构建一些随机数据点,网页切图价格这里替换成你的业务数据
+    let points = [
+      {
+        x: 100,
+        y: 100,
+        value: 100
+      },
+      {
+        x: 90,
+        y: 150,
+        value: 80
+      },
+      {
+        x: 200,
+        y: 200,
+        value: 40
+      },
+      {
+        x: 500,
+        y: 200,
+        value: 50
+      },
+    ];
+    let data = {
+        max: 100,
+        data: points
+    };
+    //因为data是一组数据,web切图报价所以直接setData
+    heatmapInstance.setData(data); //数据绑定还可以使用
+
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let light = new THREE.DirectionalLight(0xffffff);
+    scene.add(light);
+
+    let texture = new THREE.CanvasTexture(document.querySelector('#box2').children[0]);
+
+    let material = new THREE.MeshLambertMaterial({
+      map: texture,
+      transparent: true,
+      side: THREE.DoubleSide
+    })
+
+    let mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(10, 25),
+      material
+    )
+    scene.add(mesh);
+    mesh.rotateX(Math.PI * 0.5);
+    mesh.position.y = 6.5
+    mesh.position.x = -9
+
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load(
+      "/tashan.glb",
+      function (gltf) {
+        scene.add(gltf.scene);
+
+        scene.getObjectByName('屋顶1').visible = false;
+        scene.getObjectByName('屋顶2').visible = false;
+
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+    }
+
+    render();
   }
 
   computedWater(renderer, paramsOption){
@@ -76,12 +173,31 @@ export default class ShaderStudy extends React.Component {
     camera.position.set(0,4,15)
     controls.update();
 
+    let obj = this.createWater();
+    // scene.add(obj.plane);
+
+    scene.add(obj.group);
+    
+    obj.start();
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+
+    render();
+  }
+
+  createWater(paramsOption){
     const defOption = {
       length: 8,  // 水柱的长度
+      height: 7,  // 水柱的高度
       width: 3,   // 底部矩形的宽
-      height: 4,  // 底部矩形的高
+      depth: 4,  // 底部矩形的高
       widthSegment: 5,  // 底部矩形的宽度分段数
-      heightSegment: 5, // 底部矩形的高度分段数
+      depthSegment: 5, // 底部矩形的高度分段数
       color: 0xffffff,  // 水柱颜色
       opacity: 0.8,     // 水柱的透明度
       dashSize: 0.2,    // 每段虚线的长度
@@ -92,14 +208,14 @@ export default class ShaderStudy extends React.Component {
     const option = Object.assign(defOption, paramsOption || {})
 
     let plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(option.width, option.height, option.widthSegment,option.heightSegment), 
+      new THREE.PlaneGeometry(option.width, option.depth, option.widthSegment,option.depthSegment), 
       new MeshLambertMaterial({
         color: 0x0000ff,
         wireframe: true,
       })
     ); 
     plane.rotateX(Math.PI * 0.5);
-    plane.position.x = 8;
+    plane.position.x = option.length;
     plane.updateMatrixWorld();
 
     let points = [];
@@ -109,8 +225,6 @@ export default class ShaderStudy extends React.Component {
       p.applyMatrix4(plane.matrixWorld)
       points.push(p)
     }
-
-    scene.add(plane);
 
     let material = new THREE.LineDashedMaterial({
       color: option.color, 
@@ -139,7 +253,7 @@ export default class ShaderStudy extends React.Component {
 
     const group = new THREE.Group();
 
-    const start = new THREE.Vector3(0,7,0);
+    const start = new THREE.Vector3(0,option.height,0);
 
     for(let end of points){
 
@@ -158,115 +272,10 @@ export default class ShaderStudy extends React.Component {
       curveObject.computeLineDistances();
       group.add(curveObject)
     }
-    scene.add(group);
-
-    function render() {
-      requestAnimationFrame(render);
-
-      renderer.render(scene, camera);
-
-      if(_shader)
-        _shader.uniforms.time.value -= option.speed;
-    }
-
-    render();
-  }
-
-  water(){
-
-    // let { scene, camera, controls } = this.loadBasic(renderer);
-
-    let material = new THREE.LineDashedMaterial({color: 0xffffff, dashSize: 0.2, gapSize: 0.1, transparent: true, opacity: 0.5});
-    let _shader;
-    material.onBeforeCompile = shader => {
-      console.log(shader);
-      _shader = shader;
-
-      shader.uniforms.time = {
-        value: 0
-      }
-
-      const vertex = `
-        uniform float time;
-        void main() {
-      `
-      const vertexShader = `
-        vLineDistance = scale * lineDistance + time;
-      `
-
-      shader.vertexShader = shader.vertexShader.replace('void main() {', vertex)
-      shader.vertexShader = shader.vertexShader.replace('vLineDistance = scale * lineDistance', vertexShader)
-    }
-
-    
-    const points = [
-      // 第一排
-      [0, 6, 0],
-      [1, 6, 0],
-      [2, 5, 0],
-      [2, 4, 0],
-
-      [0, 6, 0],
-      [2, 6, 0],
-      [3, 5, 0],
-      [3, 4, 0],
-      
-      [0, 6, 0],
-      [1, 6, 0.2],
-      [2, 5, 0.5],
-      [2, 4, 0.5],
-      // 第二排
-      [0, 6, 0],
-      [1.5, 6, 0],
-      [2.5, 5, 0],
-      [2.5, 4, 0],
-
-      [0, 6, 0],
-      [1.5, 6, 0.4],
-      [2.5, 5, 0.6],
-      [2.5, 4, 0.6],
-      
-      [0, 6, 0],
-      [1.5, 6, 0.8],
-      [2.5, 5, 1],
-      [2.5, 4, 1],
-      // 第三排
-      [0, 6, 0],
-      [2, 6, 0.3],
-      [3, 5, 0.6],
-      [3, 4, 0.6],
-
-      [0, 6, 0],
-      [1, 6, 0.8],
-      [2, 5, 1],
-      [2, 4, 1],
-      
-      [0, 6, 0],
-      [2, 6, 1],
-      [3, 5, 1.2],
-      [3, 4, 1.2],
-    ]
-
-    let group = new THREE.Group();
-    for(let i=0; i< points.length; i+=4){
-
-      let p1 = new THREE.Vector3(points[i][0], points[i][1], points[i][2]);
-      let p2 = new THREE.Vector3(points[i+1][0], points[i+1][1], points[i+1][2]);
-      let p3 = new THREE.Vector3(points[i+2][0], points[i+2][1], points[i+2][2]);
-      let p4 = new THREE.Vector3(points[i+3][0], points[i+3][1], points[i+3][2]);
-      const spline = new THREE.CubicBezierCurve3( p1, p2, p3, p4);
-  
-      const samples = spline.getPoints( 50 );
-      const geometrySpline = new THREE.BufferGeometry().setFromPoints( samples );
-  
-      let mesh = new THREE.Line(geometrySpline, material)
-      mesh.computeLineDistances();
-
-      group.add(mesh)
-    }
 
     const obj = {
       group,
+      plane,
       isStarted: false,
       start(){
         this.isStarted = true;
@@ -278,9 +287,9 @@ export default class ShaderStudy extends React.Component {
     }
     function render() {
       obj.isStarted && requestAnimationFrame(render);
-
+  
       if(_shader)
-        _shader.uniforms.time.value -= 0.02
+        _shader.uniforms.time.value -= option.speed;
     }
     return obj;
   }
@@ -1021,92 +1030,13 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
-    const XFY_POS = {
-      "x": 13.644661973020083,
-      "y": 0.49871986205706187,
-      "z": 23.34630926767336
-    }
 
-    let _this= this;
-    let y;
-    async function addPerson(){
-      let gltf = await loader.loadAsync(
-        "/xfy/xfy.gltf",
-      )
-      y = gltf.scene;
-      scene.add(gltf.scene);
-
-      let water = _this.water()
-  
-      let topBody = scene.getObjectByName('对象001');
-
-      water.group.rotation.z = 0.3 * Math.PI;
-
-      water.group.position.z = 5.1
-      water.group.position.y = -2.4
-      water.group.position.x = 0.55
-      
-      let g = new THREE.Group();
-      g.add(topBody);
-      g.add(water.group);
-
-      window.g = g
-      scene.add(g)
-      g.name = 'g'
-      // water.start();
-      
-      topBody.rotation.y = -Math.PI * 0.3 ;
-      let action = new TWEEN.Tween(topBody.rotation).to({
-        y: -Math.PI * 0.1,
-      }, 1000).yoyo(true).repeat(Infinity).onUpdate(val => {
-        let x = val.y / Math.PI;
-
-        // topBody.rotation.y在-Math.PI * 0.3到-Math.PI * 0.1之间，水的z位置要在4.8到5.1之间
-        water.group.position.z = -1.5 * x + 4.65;
-
-      })
-
-      const obj = {
-        group: g,
-        isStarted: false,
-        start(){
-          this.isStarted = true;
-          action.start();
-          water.start();
-        },
-        stop(){
-          this.isStarted = false;
-          action.stop();
-          water.stop();
-        },
-      }
-      return obj;
-    }
-
-    let model = (await loader.loadAsync('/tashan.glb')).scene;
-
-    scene.add(model);
-
-    let xfc = (await loader.loadAsync('/xfc/xfc.gltf')).scene
-
-    // scene.add(xfc)
-
-    xfc.position.set(XFY_POS.x, XFY_POS.y, XFY_POS.z);
-
-    let xfy = (await addPerson()).group
-
-    scene.add(xfy)
-
-    xfc.position.set(XFY_POS.x, XFY_POS.y, XFY_POS.z);
-
-
-    // loader.load(
-    //   "/xfc/xfc.gltf",
-    //   async (gltf) => {
-    //     // scene.add(gltf.scene);
-       
-    //     let obj = await addPerson();
-    //     window.oo = obj
+    loader.load(
+      "/tashan.glb",
+      async (gltf) => {
+        scene.add(gltf.scene);
+        scene.getObjectByName('屋顶1').visible = false;
+        scene.getObjectByName('屋顶2').visible = false;
 
         // g.rotateY(Math.PI * 0.3);
         // let obj = gltf.scene.getObjectByName("#3主变10kv开关");
@@ -1125,23 +1055,23 @@ export default class ShaderStudy extends React.Component {
         //   }
         //   // mesh?
         // });
-    //   },
-    //   // called while loading is progressing
-    //   function (xhr) {
-    //     console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-    //   },
-    //   // called when loading has errors
-    //   function (error) {
-    //     console.log("An error happened");
-    //   }
-    // );
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
 
     
     let box = new THREE.BoxGeometry(1,1,1);
     let mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({color: 0x0000ff}));
     scene.add(mesh)
     mesh.position.set(10,10,10)
-    let meshList = [y];
+    let meshList = [mesh];
   
     
 
@@ -1863,6 +1793,8 @@ export default class ShaderStudy extends React.Component {
     return (
       <div>
         <div id="box" style={{ width: "100%", height: "100%" }} />
+        <div id="box2" style={{ width: "50%", height: "50%", position: "absolute", }} />
+
       </div>
     );
   }
