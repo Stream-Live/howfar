@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-10-25 16:42:52
+ * @LastEditTime: 2022-10-31 15:13:46
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -13,7 +13,7 @@ import { BufferGeometry, Mesh, Scene, ShaderMaterial } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
-import TWEEN from "tween.js";
+// import TWEEN from "tween.js";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
 import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
@@ -33,6 +33,9 @@ import Stats from 'three/examples/jsm/libs/stats.module.js';
 import { TeapotGeometry } from 'three/examples/jsm/geometries/TeapotGeometry.js';
 
 import { nodeFrame } from 'three/examples/jsm/renderers/webgl/nodes/WebGLNodes.js';
+import { DragControls } from "three/examples/jsm/controls/DragControls";
+import * as TWEEN from '@tweenjs/tween.js';
+import { mode } from "d3";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -54,10 +57,10 @@ export default class ShaderStudy extends React.Component {
 
     // this.bloom(renderer)
     // this.technologe_sity(renderer)
-    this.rain(renderer)
+    // this.rain(renderer)
     window.THREE = THREE;
 
-    // this.temperature(renderer); // 设置设备温度
+    this.temperature(renderer); // 设置设备温度
     // this.virtual(renderer); // 虚化
     // this.mouse_bloom(renderer); // 鼠标悬浮发光
     // this.fire1(renderer); // 火1
@@ -106,9 +109,9 @@ export default class ShaderStudy extends React.Component {
     render();
   }
 
-  water(renderer){
+  water(){
 
-    let { scene, camera, controls } = this.loadBasic(renderer);
+    // let { scene, camera, controls } = this.loadBasic(renderer);
 
     let material = new THREE.LineDashedMaterial({color: 0xffffff, dashSize: 0.2, gapSize: 0.1, transparent: true, opacity: 0.5});
     let _shader;
@@ -181,6 +184,7 @@ export default class ShaderStudy extends React.Component {
       [3, 4, 1.2],
     ]
 
+    let group = new THREE.Group();
     for(let i=0; i< points.length; i+=4){
 
       let p1 = new THREE.Vector3(points[i][0], points[i][1], points[i][2]);
@@ -195,21 +199,27 @@ export default class ShaderStudy extends React.Component {
       let mesh = new THREE.Line(geometrySpline, material)
       mesh.computeLineDistances();
 
-      scene.add(mesh)
+      group.add(mesh)
     }
-   
 
-    
+    const obj = {
+      group,
+      isStarted: false,
+      start(){
+        this.isStarted = true;
+        render();
+      },
+      stop(){
+        this.isStarted = false;
+      },
+    }
     function render() {
-      requestAnimationFrame(render);
-
-      renderer.render(scene, camera);
+      obj.isStarted && requestAnimationFrame(render);
 
       if(_shader)
         _shader.uniforms.time.value -= 0.02
     }
-
-    render();
+    return obj;
   }
 
   fire1(renderer){
@@ -377,8 +387,19 @@ export default class ShaderStudy extends React.Component {
 
   mouse_bloom(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
+    let camPos = {
+      "x": 50,
+      "y": 50,
+      "z": 50,
+    }
+    let targPos = {
+      "x": -1.830296791435717,
+      "y": -0.4761583495741623,
+      "z": 3.421371834733357,
+    }
+    camera.position.set(camPos.x, camPos.y, camPos.z);
+    // controls.target.set(targPos.x, targPos.y, targPos.z);
 
-    camera.position.set(50, 50, 60);
     controls.update();
     controls.addEventListener( 'change', render );
 
@@ -393,34 +414,34 @@ export default class ShaderStudy extends React.Component {
     loader.setDRACOLoader(dracoLoader);
 
     let children = [];
-    loader.load(
-      "/tashan.glb",
-      function (gltf) {
-        scene.add(gltf.scene);
-        // 虚化
-        // gltf.scene.children.forEach(item => {
-        //   if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
-        //     children.push(item)
-        //   }
-        // });
+    // loader.load(
+    //   "/shaxi-main.glb",
+    //   function (gltf) {
+    //     scene.add(gltf.scene.getObjectByName('#1主变10kv开关'));
+    //     // 虚化
+    //     // gltf.scene.children.forEach(item => {
+    //     //   if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
+    //     //     children.push(item)
+    //     //   }
+    //     // });
 
-        // scene.getObjectByName('主体1').visible = false;
-        // scene.getObjectByName('主体2').visible = false;
-        // scene.getObjectByName('屋顶1').visible = false;
-        // scene.getObjectByName('屋顶2').visible = false;
+    //     // scene.getObjectByName('主体1').visible = false;
+    //     // scene.getObjectByName('主体2').visible = false;
+    //     // scene.getObjectByName('屋顶1').visible = false;
+    //     // scene.getObjectByName('屋顶2').visible = false;
 
-        render();
+    //     render();
 
-      },
-      // called while loading is progressing
-      function (xhr) {
-        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-      },
-      // called when loading has errors
-      function (error) {
-        console.log("An error happened");
-      }
-    );
+    //   },
+    //   // called while loading is progressing
+    //   function (xhr) {
+    //     console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+    //   },
+    //   // called when loading has errors
+    //   function (error) {
+    //     console.log("An error happened");
+    //   }
+    // );
 
     // const pmremGenerator = new THREE.PMREMGenerator(renderer);
     // pmremGenerator.compileEquirectangularShader();
@@ -920,7 +941,7 @@ export default class ShaderStudy extends React.Component {
     return obj;
   }
 
-  temperature(renderer) {
+  async temperature(renderer) {
     let { scene, camera, controls } = this.loadBasic(renderer);
 
     camera.position.set(50, 50, 60);
@@ -937,41 +958,195 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
-    loader.load(
-      "/tashan.glb",
-      function (gltf) {
-        scene.add(gltf.scene.getObjectByName("10kv\\35kv开关室"));
+    const XFY_POS = {
+      "x": 13.644661973020083,
+      "y": 0.49871986205706187,
+      "z": 23.34630926767336
+    }
 
-        scene.getObjectByName("#3主变10kv开关").traverse((mesh) => {
-          if (mesh.material) {
-            mesh.material = mesh.material.clone();
-            mesh.material.onBeforeCompile = (shader) => {
-              const fragmentColor = `
-                gl_FragColor.x = 0.3;}
-              `;
-              shader.fragmentShader = shader.fragmentShader.replace(
-                "}",
-                fragmentColor
-              );
-            };
-          }
-          // mesh?
-        });
-      },
-      // called while loading is progressing
-      function (xhr) {
-        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-      },
-      // called when loading has errors
-      function (error) {
-        console.log("An error happened");
+    let _this= this;
+    let y;
+    async function addPerson(){
+      let gltf = await loader.loadAsync(
+        "/xfy/xfy.gltf",
+      )
+      y = gltf.scene;
+      scene.add(gltf.scene);
+
+      let water = _this.water()
+  
+      let topBody = scene.getObjectByName('对象001');
+
+      water.group.rotation.z = 0.3 * Math.PI;
+
+      water.group.position.z = 5.1
+      water.group.position.y = -2.4
+      water.group.position.x = 0.55
+      
+      let g = new THREE.Group();
+      g.add(topBody);
+      g.add(water.group);
+
+      window.g = g
+      scene.add(g)
+      g.name = 'g'
+      // water.start();
+      
+      topBody.rotation.y = -Math.PI * 0.3 ;
+      let action = new TWEEN.Tween(topBody.rotation).to({
+        y: -Math.PI * 0.1,
+      }, 1000).yoyo(true).repeat(Infinity).onUpdate(val => {
+        let x = val.y / Math.PI;
+
+        // topBody.rotation.y在-Math.PI * 0.3到-Math.PI * 0.1之间，水的z位置要在4.8到5.1之间
+        water.group.position.z = -1.5 * x + 4.65;
+
+      })
+
+      const obj = {
+        group: g,
+        isStarted: false,
+        start(){
+          this.isStarted = true;
+          action.start();
+          water.start();
+        },
+        stop(){
+          this.isStarted = false;
+          action.stop();
+          water.stop();
+        },
       }
-    );
+      return obj;
+    }
+
+    let model = (await loader.loadAsync('/tashan.glb')).scene;
+
+    scene.add(model);
+
+    let xfc = (await loader.loadAsync('/xfc/xfc.gltf')).scene
+
+    // scene.add(xfc)
+
+    xfc.position.set(XFY_POS.x, XFY_POS.y, XFY_POS.z);
+
+    let xfy = (await addPerson()).group
+
+    scene.add(xfy)
+
+    xfc.position.set(XFY_POS.x, XFY_POS.y, XFY_POS.z);
+
+
+    // loader.load(
+    //   "/xfc/xfc.gltf",
+    //   async (gltf) => {
+    //     // scene.add(gltf.scene);
+       
+    //     let obj = await addPerson();
+    //     window.oo = obj
+
+        // g.rotateY(Math.PI * 0.3);
+        // let obj = gltf.scene.getObjectByName("#3主变10kv开关");
+        // obj.traverse((mesh) => {
+        //   if (mesh.material) {
+        //     mesh.material = mesh.material.clone();
+        //     mesh.material.onBeforeCompile = (shader) => {
+        //       const fragmentColor = `
+        //         gl_FragColor.x = 0.3;}
+        //       `;
+        //       shader.fragmentShader = shader.fragmentShader.replace(
+        //         "}",
+        //         fragmentColor
+        //       );
+        //     };
+        //   }
+        //   // mesh?
+        // });
+    //   },
+    //   // called while loading is progressing
+    //   function (xhr) {
+    //     console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+    //   },
+    //   // called when loading has errors
+    //   function (error) {
+    //     console.log("An error happened");
+    //   }
+    // );
+
+    
+    let box = new THREE.BoxGeometry(1,1,1);
+    let mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({color: 0x0000ff}));
+    scene.add(mesh)
+    mesh.position.set(10,10,10)
+    let meshList = [y];
+  
+    
+
+    let dragstart = (event) => {
+      controls.enabled = false;
+    };
+
+    let dragend = (event) => {
+      controls.enabled = true;
+      let pos = event.object.position;
+      console.log(event.object.name, pos);
+    };
+    let dragControls;
+
+    let Controller = {
+      startDrag: () => {
+
+        dragControls = new DragControls(
+          meshList,
+          camera,
+          renderer.domElement
+        );
+        dragControls.addEventListener("drag", () =>
+          renderer.render(scene, camera)
+        );
+
+        // 3、把OrbitControls的dom元素替换掉
+        controls.dispose();
+        controls = new OrbitControls(
+          camera,
+          renderer.domElement
+        );
+        controls.update();
+
+        // 4、避免两个控制器冲突
+        dragControls.addEventListener("dragstart", dragstart);
+
+        dragControls.addEventListener("dragend", dragend);
+      },
+      endDrag: () => {
+        // 1、开启CSS3DRenderer
+        // css2DRenderer.domElement.style.display = 'block'
+
+        let obj = {};
+
+        // 3、关闭拖拽控制器
+        dragControls.removeEventListener("dragstart", dragstart);
+        dragControls.removeEventListener("dragend", dragend);
+        dragControls.dispose();
+
+        // 4、还原OrbitControls
+        controls.dispose();
+        controls = new OrbitControls(
+          camera,
+          renderer.domElement
+        );
+        controls.update();
+      },
+    };
+
+    Object.assign(window, { Controller });
 
     function render() {
       requestAnimationFrame(render);
 
       renderer.render(scene, camera);
+
+      TWEEN.update();
     }
 
     render();
