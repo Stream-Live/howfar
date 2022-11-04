@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-11-01 17:16:32
+ * @LastEditTime: 2022-11-04 16:18:59
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -38,6 +38,7 @@ import * as TWEEN from '@tweenjs/tween.js';
 import { mode } from "d3";
 import { MeshLambertMaterial } from "three";
 import h337 from "heatmapjs";
+import gsap from "gsap";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -64,12 +65,12 @@ export default class ShaderStudy extends React.Component {
 
     // this.temperature(renderer); // 设置设备温度
     // this.virtual(renderer); // 虚化
-    // this.mouse_bloom(renderer); // 鼠标悬浮发光
+    this.mouse_bloom(renderer); // 鼠标悬浮发光
     // this.fire1(renderer); // 火1
 
     // this.water(renderer)
     // this.computedWater(renderer)
-    this.temperature2(renderer); // 设置设备温度
+    // this.temperature2(renderer); // 设置设备温度
 
   }
 
@@ -459,25 +460,24 @@ export default class ShaderStudy extends React.Component {
 
   mouse_bloom(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
-    let camPos = {
-      "x": 50,
-      "y": 50,
-      "z": 50,
-    }
-    let targPos = {
-      "x": -1.830296791435717,
-      "y": -0.4761583495741623,
-      "z": 3.421371834733357,
-    }
-    camera.position.set(camPos.x, camPos.y, camPos.z);
-    // controls.target.set(targPos.x, targPos.y, targPos.z);
-
+    const pos = {
+      "x": -7.1473706000687365,
+      "y": 16.714516428609492,
+      "z": 13.815467561803132
+  }
+  const target = {
+    "x": -6.824771217141079,
+    "y": 1.8003050411241583,
+    "z": -5.355257243029237
+}
+    camera.position.set(pos.x, pos.y, pos.z);
+    controls.target.set(target.x, target.y, target.z)
     controls.update();
     controls.addEventListener( 'change', render );
 
-    let light = new THREE.PointLight(0xffffff);
-    light.position.y = 200;
-    scene.add(light);
+    // let light = new THREE.PointLight(0xffffff);
+    // light.position.y = 200;
+    // scene.add(light);
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
 
@@ -485,35 +485,39 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
+    const ENTIRE_SCENE = 1, BLOOM_SCENE = 2;
     let children = [];
-    // loader.load(
-    //   "/shaxi-main.glb",
-    //   function (gltf) {
-    //     scene.add(gltf.scene.getObjectByName('#1主变10kv开关'));
-    //     // 虚化
-    //     // gltf.scene.children.forEach(item => {
-    //     //   if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
-    //     //     children.push(item)
-    //     //   }
-    //     // });
+    loader.load(
+      "/shaxi-main.glb",
+      function (gltf) {
+        scene.add(gltf.scene);
+        scene.getObjectByName("主楼屋顶").removeFromParent();
 
-    //     // scene.getObjectByName('主体1').visible = false;
-    //     // scene.getObjectByName('主体2').visible = false;
-    //     // scene.getObjectByName('屋顶1').visible = false;
-    //     // scene.getObjectByName('屋顶2').visible = false;
+        scene.getObjectByName('D20_2').layers.toggle(BLOOM_SCENE);
+        // 虚化
+        // gltf.scene.children.forEach(item => {
+        //   if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
+        //     children.push(item)
+        //   }
+        // });
 
-    //     render();
+        // scene.getObjectByName('主体1').visible = false;
+        // scene.getObjectByName('主体2').visible = false;
+        // scene.getObjectByName('屋顶1').visible = false;
+        // scene.getObjectByName('屋顶2').visible = false;
 
-    //   },
-    //   // called while loading is progressing
-    //   function (xhr) {
-    //     console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-    //   },
-    //   // called when loading has errors
-    //   function (error) {
-    //     console.log("An error happened");
-    //   }
-    // );
+        render();
+
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
 
     // const pmremGenerator = new THREE.PMREMGenerator(renderer);
     // pmremGenerator.compileEquirectangularShader();
@@ -534,9 +538,9 @@ export default class ShaderStudy extends React.Component {
       bloomRadius: 0.5,
       scene: 'Scene with Glow'
     };
+
     renderer.toneMappingExposure = Math.pow( params.exposure, 4.0 );
 
-    const ENTIRE_SCENE = 1, BLOOM_SCENE = 2;
     const bloomLayer = new THREE.Layers();
     bloomLayer.set(BLOOM_SCENE);
 
@@ -583,11 +587,46 @@ export default class ShaderStudy extends React.Component {
     finalComposer.addPass(renderScene)
     finalComposer.addPass(finalPass)
 
+
+    
+			const gui = new GUI();
+
+			const folder = gui.addFolder( 'Bloom Parameters' );
+
+			folder.add( params, 'exposure', 0.1, 2 ).onChange( function ( value ) {
+
+				renderer.toneMappingExposure = Math.pow( value, 4.0 );
+				render();
+
+			} );
+
+			folder.add( params, 'bloomThreshold', 0.0, 1.0 ).onChange( function ( value ) {
+
+				bloomPass.threshold = Number( value );
+				render();
+
+			} );
+
+			folder.add( params, 'bloomStrength', 0.0, 10.0 ).onChange( function ( value ) {
+
+				bloomPass.strength = Number( value );
+				render();
+
+			} );
+
+			folder.add( params, 'bloomRadius', 0.0, 1.0 ).step( 0.01 ).onChange( function ( value ) {
+
+				bloomPass.radius = Number( value );
+				render();
+
+			} );
+
+
     const raycaster = new THREE.Raycaster();
 
     const mouse = new THREE.Vector2();
 
-    // window.addEventListener('pointerdown', onPointerDown)
+    window.addEventListener('pointerdown', onPointerDown)
 
     setupScene();
 
@@ -597,12 +636,12 @@ export default class ShaderStudy extends React.Component {
       mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(children, true)
+      const intersects = raycaster.intersectObjects(scene.children, true)
       if(intersects.length > 0){
 
         const object = intersects[0].object;
-        object.layers.toggle(BLOOM_SCENE)
-        render();
+        // object.layers.toggle(BLOOM_SCENE)
+        // render();
         console.log('点击了', object);
       }
     }
@@ -1015,13 +1054,24 @@ export default class ShaderStudy extends React.Component {
 
   async temperature(renderer) {
     let { scene, camera, controls } = this.loadBasic(renderer);
-
-    camera.position.set(50, 50, 60);
+    const pos = {
+      "x": -7.1473706000687365,
+      "y": 16.714516428609492,
+      "z": 13.815467561803132
+    }
+    const target = {
+      "x": -6.824771217141079,
+      "y": 1.8003050411241583,
+      "z": -5.355257243029237
+    }
+    camera.position.set(pos.x, pos.y, pos.z);
+    controls.target.set(target.x, target.y, target.z)
     controls.update();
 
-    let light = new THREE.PointLight(0xffffff);
-    light.position.y = 200;
-    scene.add(light);
+    // let light = new THREE.PointLight(0xffffff);
+    // light.position.y = 200;
+    // scene.add(light);
+
 
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
@@ -1030,13 +1080,12 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
-
     loader.load(
-      "/tashan.glb",
+      "/shaxi-main.glb",
       async (gltf) => {
         scene.add(gltf.scene);
-        scene.getObjectByName('屋顶1').visible = false;
-        scene.getObjectByName('屋顶2').visible = false;
+        scene.getObjectByName('主楼屋顶').removeFromParent();
+        // scene.getObjectByName('屋顶2').visible = false;
 
         // g.rotateY(Math.PI * 0.3);
         // let obj = gltf.scene.getObjectByName("#3主变10kv开关");
@@ -1069,11 +1118,30 @@ export default class ShaderStudy extends React.Component {
     
     let box = new THREE.BoxGeometry(1,1,1);
     let mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({color: 0x0000ff}));
-    scene.add(mesh)
     mesh.position.set(10,10,10)
     let meshList = [mesh];
-  
-    
+    scene.add(mesh)
+
+    // let wrapper = new THREE.Object3D();
+    // wrapper.position.set(3,10,0);
+    // wrapper.add(mesh)
+    // mesh.position.set(-3,-10,0)
+
+    // scene.add(wrapper)
+
+    // let a = {
+    //   val: 0
+    // }
+    // gsap.to(a, {
+    //   val: 1,
+    //   // yoyo: true,
+    //   repeat: -1,
+    //   duration: 2,
+    //   onUpdate(v){
+    //     wrapper.rotation.y = a.val * Math.PI;
+    //   }
+    // })
+
 
     let dragstart = (event) => {
       controls.enabled = false;
