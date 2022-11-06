@@ -39,6 +39,7 @@ import { mode } from "d3";
 import { MeshLambertMaterial } from "three";
 import h337 from "heatmapjs";
 import gsap from "gsap";
+import { Content } from "antd/lib/layout/layout";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -59,20 +60,139 @@ export default class ShaderStudy extends React.Component {
     // this.transition(renderer);
 
     // this.bloom(renderer)
-    // this.technologe_sity(renderer)
+    this.technologe_sity(renderer)
     // this.rain(renderer)
     window.THREE = THREE;
 
     // this.temperature(renderer); // 设置设备温度
     // this.virtual(renderer); // 虚化
-    this.mouse_bloom(renderer); // 鼠标悬浮发光
+    // this.mouse_bloom(renderer); // 鼠标悬浮发光
     // this.fire1(renderer); // 火1
 
     // this.water(renderer)
     // this.computedWater(renderer)
     // this.temperature2(renderer); // 设置设备温度
 
+    // this.changeFog(renderer);  // js实现颜色的线性插值
+
   }
+
+  changeFog(renderer){
+    
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let pos = {
+      "x": 121.90667216988187,
+      "y": 36.41296479106111,
+      "z": -44.32224725055222
+  }
+  camera.position.set(pos.x, pos.y, pos.z)
+  controls.update()
+
+    let light = new THREE.PointLight(0xffffff)
+    light.position.set(0, 10, 0)
+    scene.add(light)
+
+    
+    var parseColor = function (hexStr) {
+      return hexStr.length === 4 ? hexStr.substr(1).split('').map(function (s) { return 0x11 * parseInt(s, 16); }) : [hexStr.substr(1, 2), hexStr.substr(3, 2), hexStr.substr(5, 2)].map(function (s) { return parseInt(s, 16); })
+  };
+  
+  // zero-pad 1 digit to 2
+  var pad = function (s) {
+      return (s.length === 1) ? '0' + s : s;
+  };
+  
+  /*
+      start 开始颜色
+      end 结束颜色
+      steps 颜色分解 次数
+      gamma 暂时理解为透明一点（伽马）
+  */
+  var gradientColors = function (start, end, steps, gamma) {
+      var i, j, ms, me, output = [], so = [];
+      gamma = gamma || 1;
+      var normalize = function (channel) {
+          return Math.pow(channel / 255, gamma);
+      };
+      start = parseColor(start).map(normalize);
+      end = parseColor(end).map(normalize);
+      for (i = 0; i < steps; i++) {
+          ms = i / (steps - 1);
+          me = 1 - ms;
+          for (j = 0; j < 3; j++) {
+          so[j] = pad(Math.round(Math.pow(start[j] * me + end[j] * ms, 1 / gamma) * 255).toString(16));
+          }
+          output.push('#' + so.join(''));
+      }
+      return output;
+  };
+  
+  let c1 = '#A4958E';
+  let c2 = '#111D3E';
+  let array = gradientColors(c1, c2, 100)
+
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load(
+      "/tashan.glb",
+      function (gltf) {
+        scene.add(gltf.scene);
+        
+        let param = {
+          delta: 0,
+        }
+        gsap.to(param, {
+          delta: 99,
+          duration: 5,
+          yoyo: true,
+          repeat: -1,
+          onUpdate(){
+            let c1 = '#A4958E';
+            let c2 = '#111D3E';
+            let i = Math.floor(param.delta);
+
+            let color = array[i];
+            // console.log(color.replace('#', ''));
+
+            scene.fog = new THREE.FogExp2(color, 0.01);
+          }
+        })
+
+        // setTimeout(function(){
+        //   scene.fog = new THREE.FogExp2(0x111D3E, 0.01);
+        //   console.log('changed!');
+        // }, 2000)
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
+
+    let fog = new THREE.FogExp2('#A4958E', 0.01);
+
+    scene.fog = fog;
+
+
+
+    function render(){
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera)
+    }
+    render();
+  }
+
 
   temperature2(renderer){
 
@@ -689,6 +809,7 @@ export default class ShaderStudy extends React.Component {
 
         materials[obj.uuid] = obj.material;
         obj.material = darkMaterial;
+        console.log(123, obj.material);
       }
     }
     function restoreMaterial(obj){
@@ -1231,7 +1352,17 @@ export default class ShaderStudy extends React.Component {
       scene.add(group);
 
       addShader();
+      addGrowAnimation();
     });
+
+    function addGrowAnimation(){
+      let city = scene.getObjectByName("CITY_UNTRIANGULATED");
+      city.scale.z = 0;
+      gsap.to(city.scale, {
+        z: 1,
+        duration: 2,
+      })
+    }
 
     function addShader() {
       let city = scene.getObjectByName("CITY_UNTRIANGULATED");
