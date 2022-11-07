@@ -2,14 +2,14 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-11-04 16:18:59
+ * @LastEditTime: 2022-11-07 17:36:26
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
  */
 import React from "react";
 import * as THREE from "three";
-import { BufferGeometry, Mesh, Scene, ShaderMaterial } from "three";
+import { BufferGeometry, Mesh, Scene, ShaderMaterial, TextureLoader } from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
@@ -35,7 +35,7 @@ import { TeapotGeometry } from 'three/examples/jsm/geometries/TeapotGeometry.js'
 import { nodeFrame } from 'three/examples/jsm/renderers/webgl/nodes/WebGLNodes.js';
 import { DragControls } from "three/examples/jsm/controls/DragControls";
 import * as TWEEN from '@tweenjs/tween.js';
-import { mode } from "d3";
+import { mode, text } from "d3";
 import { MeshLambertMaterial } from "three";
 import h337 from "heatmapjs";
 import gsap from "gsap";
@@ -60,13 +60,13 @@ export default class ShaderStudy extends React.Component {
     // this.transition(renderer);
 
     // this.bloom(renderer)
-    this.technologe_sity(renderer)
+    // this.technologe_sity(renderer)
     // this.rain(renderer)
     window.THREE = THREE;
 
     // this.temperature(renderer); // 设置设备温度
     // this.virtual(renderer); // 虚化
-    // this.mouse_bloom(renderer); // 鼠标悬浮发光
+    this.mouse_bloom(renderer); // 鼠标悬浮发光
     // this.fire1(renderer); // 火1
 
     // this.water(renderer)
@@ -595,6 +595,16 @@ export default class ShaderStudy extends React.Component {
     controls.update();
     controls.addEventListener( 'change', render );
 
+
+    
+    // controls.maxDistance = 2000; // 能够将相机向外移动多少
+    // controls.minDistance = 300; // 能够将相机向里移动多少
+    // controls.minPolarAngle = 1.4645096607652575; // 能够垂直旋转的角度的上限
+    // controls.maxPolarAngle = 1.4645096607652575; // 能够垂直旋转的角度的上限
+    // controls.minAzimuthAngle = 0; // 能够水平旋转的角度下限
+    // controls.maxAzimuthAngle = 0; // 能够水平旋转的角度上限
+    // controls.enableDamping = true; // 将其设置为true以启用阻尼（惯性），这将给控制器带来重量感
+
     // let light = new THREE.PointLight(0xffffff);
     // light.position.y = 200;
     // scene.add(light);
@@ -614,6 +624,20 @@ export default class ShaderStudy extends React.Component {
         scene.getObjectByName("主楼屋顶").removeFromParent();
 
         scene.getObjectByName('D20_2').layers.toggle(BLOOM_SCENE);
+
+        let list = scene.getObjectByName('排风扇').children.map(item => {
+          let name = item.name + '_2';
+          let mesh = scene.getObjectByName(name)
+
+         
+          new TWEEN.Tween(mesh.rotation).to({
+            y: mesh.rotation.y+0.01
+          },100).repeat(Infinity).start();
+          
+          return name
+        })
+        console.log(list);
+        
         // 虚化
         // gltf.scene.children.forEach(item => {
         //   if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
@@ -639,6 +663,7 @@ export default class ShaderStudy extends React.Component {
       }
     );
 
+
     // const pmremGenerator = new THREE.PMREMGenerator(renderer);
     // pmremGenerator.compileEquirectangularShader();
     // new RGBELoader().load(
@@ -659,20 +684,26 @@ export default class ShaderStudy extends React.Component {
       scene: 'Scene with Glow'
     };
 
-    renderer.toneMappingExposure = Math.pow( params.exposure, 4.0 );
+    // renderer.toneMappingExposure = Math.pow( params.exposure, 4.0 );
 
     const bloomLayer = new THREE.Layers();
     bloomLayer.set(BLOOM_SCENE);
+    
+    let t;
+    new TextureLoader().load('/4.jpg', texture => {
+      scene.background = texture
+      t= texture
+    })
 
     const darkMaterial = new THREE.MeshBasicMaterial({color: 'black'})
     const materials = {};
-    renderer.toneMapping = THREE.ReinhardToneMapping;
+    // renderer.toneMapping = THREE.ReinhardToneMapping;
 
     const renderScene = new RenderPass(scene, camera)
 
     const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85)
     bloomPass.threshold = params.threshold;
-    bloomPass.strength = params.strength;
+    bloomPass.strength = params.bloomStrength;
     bloomPass.radius = params.bloomRadius;
 
     const bloomComposer = new EffectComposer(renderer)
@@ -707,8 +738,6 @@ export default class ShaderStudy extends React.Component {
     finalComposer.addPass(renderScene)
     finalComposer.addPass(finalPass)
 
-
-    
 			const gui = new GUI();
 
 			const folder = gui.addFolder( 'Bloom Parameters' );
@@ -750,18 +779,21 @@ export default class ShaderStudy extends React.Component {
 
     setupScene();
 
+
     function onPointerDown(event){
 
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(scene.children, true)
+
+      let children = scene.getObjectByName('灯').children.map(item => scene.getObjectByName(item.name+'_2'))
+      const intersects = raycaster.intersectObjects(children, true)
       if(intersects.length > 0){
 
         const object = intersects[0].object;
-        // object.layers.toggle(BLOOM_SCENE)
-        // render();
+        object.layers.toggle(BLOOM_SCENE)
+        render();
         console.log('点击了', object);
       }
     }
@@ -779,6 +811,7 @@ export default class ShaderStudy extends React.Component {
       renderBloom(true);
 
       finalComposer.render();
+
     }
 
     function disposeMaterial(obj){
@@ -792,8 +825,12 @@ export default class ShaderStudy extends React.Component {
       if(mask){
 
         scene.traverse(darkenNonBloomed);
+
+        scene.background = null;
         bloomComposer.render();
         scene.traverse(restoreMaterial);
+
+        scene.background = t;
 
       }else{
 
@@ -809,7 +846,6 @@ export default class ShaderStudy extends React.Component {
 
         materials[obj.uuid] = obj.material;
         obj.material = darkMaterial;
-        console.log(123, obj.material);
       }
     }
     function restoreMaterial(obj){
