@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-11-07 17:36:26
+ * @LastEditTime: 2022-11-08 16:59:40
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -66,12 +66,12 @@ export default class ShaderStudy extends React.Component {
 
     // this.temperature(renderer); // 设置设备温度
     // this.virtual(renderer); // 虚化
-    this.mouse_bloom(renderer); // 鼠标悬浮发光
+    // this.mouse_bloom(renderer); // 鼠标悬浮发光
     // this.fire1(renderer); // 火1
 
     // this.water(renderer)
     // this.computedWater(renderer)
-    // this.temperature2(renderer); // 设置设备温度
+    this.temperature2(renderer); // 设置设备温度
 
     // this.changeFog(renderer);  // js实现颜色的线性插值
 
@@ -198,7 +198,8 @@ export default class ShaderStudy extends React.Component {
 
     
     let heatmapInstance = h337.create({
-      container: document.querySelector('#box2')
+      container: document.querySelector('#box2'),
+      radius: 100,
     })
 
     //构建一些随机数据点,网页切图价格这里替换成你的业务数据
@@ -207,21 +208,6 @@ export default class ShaderStudy extends React.Component {
         x: 100,
         y: 100,
         value: 100
-      },
-      {
-        x: 90,
-        y: 150,
-        value: 80
-      },
-      {
-        x: 200,
-        y: 200,
-        value: 40
-      },
-      {
-        x: 500,
-        y: 200,
-        value: 50
       },
     ];
     let data = {
@@ -240,12 +226,12 @@ export default class ShaderStudy extends React.Component {
 
     let material = new THREE.MeshLambertMaterial({
       map: texture,
-      transparent: true,
+      // transparent: true,
       side: THREE.DoubleSide
     })
 
     let mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(10, 25),
+      new THREE.PlaneGeometry(4.2, 25.8),
       material
     )
     scene.add(mesh);
@@ -261,7 +247,7 @@ export default class ShaderStudy extends React.Component {
     loader.setDRACOLoader(dracoLoader);
 
     loader.load(
-      "/tashan.glb",
+      "/jingling-main.glb",
       function (gltf) {
         scene.add(gltf.scene);
 
@@ -279,6 +265,70 @@ export default class ShaderStudy extends React.Component {
       }
     );
 
+    let box = new THREE.BoxGeometry(1,1,1);
+    let _mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({color: 0x0000ff}));
+    _mesh.position.set(10,10,10)
+    scene.add(_mesh)
+    let meshList = [_mesh, mesh];
+
+    let dragstart = (event) => {
+      controls.enabled = false;
+    };
+
+    let dragend = (event) => {
+      controls.enabled = true;
+      let pos = event.object.position;
+      console.log(event.object.name, pos);
+    };
+    let dragControls;
+
+    let Controller = {
+      startDrag: () => {
+
+        dragControls = new DragControls(
+          meshList,
+          camera,
+          renderer.domElement
+        );
+        dragControls.addEventListener("drag", () =>
+          renderer.render(scene, camera)
+        );
+
+        // 3、把OrbitControls的dom元素替换掉
+        controls.dispose();
+        controls = new OrbitControls(
+          camera,
+          renderer.domElement
+        );
+        controls.update();
+
+        // 4、避免两个控制器冲突
+        dragControls.addEventListener("dragstart", dragstart);
+
+        dragControls.addEventListener("dragend", dragend);
+      },
+      endDrag: () => {
+        // 1、开启CSS3DRenderer
+        // css2DRenderer.domElement.style.display = 'block'
+
+        let obj = {};
+
+        // 3、关闭拖拽控制器
+        dragControls.removeEventListener("dragstart", dragstart);
+        dragControls.removeEventListener("dragend", dragend);
+        dragControls.dispose();
+
+        // 4、还原OrbitControls
+        controls.dispose();
+        controls = new OrbitControls(
+          camera,
+          renderer.domElement
+        );
+        controls.update();
+      },
+    };
+
+    Object.assign(window, { Controller });
     function render() {
       requestAnimationFrame(render);
 
@@ -631,8 +681,10 @@ export default class ShaderStudy extends React.Component {
 
          
           new TWEEN.Tween(mesh.rotation).to({
-            y: mesh.rotation.y+0.01
-          },100).repeat(Infinity).start();
+            y: mesh.rotation.y+Math.PI
+          },1000).repeat(Infinity).start().onStart(val => {
+            mesh.rotation.y = mesh.rotation.y+Math.PI;
+          });
           
           return name
         })
@@ -2028,7 +2080,7 @@ export default class ShaderStudy extends React.Component {
     return (
       <div>
         <div id="box" style={{ width: "100%", height: "100%" }} />
-        <div id="box2" style={{ width: "50%", height: "50%", position: "absolute", }} />
+        <div id="box2" style={{ width: "200px", height: "200px", position: "absolute", }} />
 
       </div>
     );
