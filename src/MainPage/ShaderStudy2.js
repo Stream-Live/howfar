@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-11-08 16:59:40
+ * @LastEditTime: 2022-11-10 17:15:05
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -48,6 +48,8 @@ export default class ShaderStudy extends React.Component {
   draw() {
     const renderer = new THREE.WebGLRenderer({
       antialias: true, // 抗锯齿
+      
+      alpha: true
     });
     document.getElementById("box").appendChild(renderer.domElement);
 
@@ -60,7 +62,7 @@ export default class ShaderStudy extends React.Component {
     // this.transition(renderer);
 
     // this.bloom(renderer)
-    // this.technologe_sity(renderer)
+    this.technologe_sity(renderer)
     // this.rain(renderer)
     window.THREE = THREE;
 
@@ -71,7 +73,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.water(renderer)
     // this.computedWater(renderer)
-    this.temperature2(renderer); // 设置设备温度
+    // this.temperature2(renderer); // 设置设备温度
 
     // this.changeFog(renderer);  // js实现颜色的线性插值
 
@@ -200,6 +202,12 @@ export default class ShaderStudy extends React.Component {
     let heatmapInstance = h337.create({
       container: document.querySelector('#box2'),
       radius: 100,
+      gradient: {
+        '.2': '#00ffff',
+				'.6': '#00ff00',
+        '.8': '#ffff00',
+        '.95': '#ff0000',
+      }
     })
 
     //构建一些随机数据点,网页切图价格这里替换成你的业务数据
@@ -217,6 +225,8 @@ export default class ShaderStudy extends React.Component {
     //因为data是一组数据,web切图报价所以直接setData
     heatmapInstance.setData(data); //数据绑定还可以使用
 
+    console.log(heatmapInstance);
+
     let { scene, camera, controls } = this.loadBasic(renderer);
 
     let light = new THREE.DirectionalLight(0xffffff);
@@ -231,13 +241,17 @@ export default class ShaderStudy extends React.Component {
     })
 
     let mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.2, 25.8),
+      new THREE.PlaneGeometry(5.9,8.7),
       material
     )
     scene.add(mesh);
     mesh.rotateX(Math.PI * 0.5);
-    mesh.position.y = 6.5
-    mesh.position.x = -9
+    let pos = {
+      "x": -29.189956732198073,
+      "y": 39.3,
+      "z": 26.127432212584022
+    }
+    mesh.position.set(pos.x, pos.y, pos.z)
 
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
@@ -253,6 +267,13 @@ export default class ShaderStudy extends React.Component {
 
         scene.getObjectByName('屋顶1').visible = false;
         scene.getObjectByName('屋顶2').visible = false;
+
+        // scene.getObjectByName('35kv开关室').traverse(mesh => {
+        //   if(mesh?.material?.isMaterial){
+        //     mesh.material.transparent = true;
+        //     mesh.material.opacity = 0.2;
+        //   }
+        // })
 
       },
       // called while loading is progressing
@@ -1423,25 +1444,36 @@ export default class ShaderStudy extends React.Component {
   }
 
   technologe_sity(renderer) {
+    renderer.setClearColor(new THREE.Color('#32373E'), 1);
     let { scene, camera, controls } = this.loadBasic(renderer);
+    controls.enableDamping = true
 
-    camera.position.set(
-      1864.2980461117584,
-      806.6782979561754,
-      -210.71294706606588
-    );
+    camera.position.set(1200, 700, 121)
     controls.update();
 
-    let light = new THREE.PointLight(0xffffff);
-    light.position.y = 800;
-    scene.add(light);
+    // let light = new THREE.PointLight(0xffffff);
+    // light.position.y = 800;
+    // scene.add(light);
+
+    let vTime = {
+      value: 0,
+    }
 
     new FBXLoader().load("/shanghai.FBX", (group) => {
       scene.add(group);
 
       addShader();
       addGrowAnimation();
+      setFloor(group);
+
+      scene.getObjectByName('ROADS').visible = false;
     });
+
+    function setFloor(){
+      let floor = scene.getObjectByName('LANDMASS');
+      floor.material.color.setStyle('#040912');
+      scene.add(floor);
+    }
 
     function addGrowAnimation(){
       let city = scene.getObjectByName("CITY_UNTRIANGULATED");
@@ -1456,6 +1488,9 @@ export default class ShaderStudy extends React.Component {
       let city = scene.getObjectByName("CITY_UNTRIANGULATED");
 
       city.geometry.computeBoundingBox();
+      city.geometry.computeBoundingSphere();
+
+      let {radius, center} = city.geometry.boundingSphere;
 
       let { min, max } = city.geometry.boundingBox;
       let size = new THREE.Vector3(max.x - min.x, max.y - min.y, max.z - min.z);
@@ -1463,15 +1498,35 @@ export default class ShaderStudy extends React.Component {
 
       material.transparent = true;
       material.color.setStyle("#1B3045");
-      console.log(material);
+      console.log(city.geometry);
 
       material.onBeforeCompile = (shader) => {
-        shader.uniforms.uSize = {
-          value: size,
-        };
-        shader.uniforms.uTopColor = {
-          value: new THREE.Color("#FFFFDC"),
-        };
+        let uniforms = {
+          radius: {
+            value: radius,
+          },
+          center: {
+            value: center,
+          },
+          uSize: {
+            value: size,
+          },
+          uTopColor: {
+            value: new THREE.Color("#FFFFDC"),
+          },
+          vTime,
+          vBlurRadius:{
+            value: 50
+          },
+          vRingWidth: {
+            value: 100
+          },
+          vHighColor: {
+            value: new THREE.Color("#5588aa")
+          }
+        }
+        Object.assign(shader.uniforms, uniforms);
+
         const vertex = `
           varying vec3 vPosition;
           void main(){
@@ -1480,15 +1535,41 @@ export default class ShaderStudy extends React.Component {
 
         const fragment = `
             varying vec3 vPosition;
+            uniform float vRingWidth;
+            uniform float vBlurRadius;
+            uniform vec3 center;
+            uniform float radius;
             uniform vec3 uTopColor;
             uniform vec3 uSize;
+            uniform vec3 vHighColor;
+            uniform float vTime;
             void main(){
         `;
         const fragmentColor = `
             vec3 distColor = outgoingLight;
             float indexMix = vPosition.z / (uSize.z * 0.6);
             distColor = mix(distColor, uTopColor, indexMix);
-            gl_FragColor = vec4(distColor, 1.0);}
+            gl_FragColor = vec4(distColor, 1.0);
+            
+            float startR = mod(vTime, radius);
+            float endR = startR + vRingWidth;
+            float r = distance(center, vPosition);
+
+            if(r < endR && r > startR){
+
+              float edge1 = startR;
+              float edge2 = startR + vBlurRadius;
+              float edge3 = endR - vBlurRadius;
+              float edge4 = endR;
+
+              if(r > edge2 && r < edge3){
+                gl_FragColor = vec4(vHighColor, 1.0);
+              }else{
+                gl_FragColor = vec4(mix(distColor, vHighColor, smoothstep(edge1, edge2, r) - smoothstep(edge3, edge4, r)), 1.0);
+              }
+
+            }
+          }
         `;
 
         shader.fragmentShader = shader.fragmentShader.replace(
@@ -1511,7 +1592,10 @@ export default class ShaderStudy extends React.Component {
     function render() {
       requestAnimationFrame(render);
 
+      vTime.value += 4;
+
       renderer.render(scene, camera);
+      controls.update();
     }
 
     render();
