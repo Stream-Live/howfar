@@ -63,12 +63,12 @@ export default class ShaderStudy extends React.Component {
     // this.virtualize(renderer, canvas)   // 目标模型虚化
     // this.createLine2(renderer, canvas)     // 路径1  大佬的代码
 
-    // this.createPath(renderer, canvas)     // 路径2  自己写的，没写完
+    this.createPath(renderer, canvas)     // 路径2  自己写的，没写完
     // this.showFire(renderer, canvas)     // 火，搞不起来啊
 
 
     // this.light_test(renderer, canvas)     // 灯光测试
-    this.func_study(renderer, canvas)   // shader的方法学习
+    // this.func_study(renderer, canvas)   // shader的方法学习
 
     // this.simplex(renderer, canvas)
 
