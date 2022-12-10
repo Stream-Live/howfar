@@ -2,14 +2,24 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-02 17:10:43
+ * @LastEditTime: 2022-12-09 16:32:02
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
  */
 import React from "react";
 import * as THREE from "three";
-import { Box3, BufferGeometry, Mesh, MeshBasicMaterial, PlaneGeometry, Scene, ShaderMaterial, TextureLoader } from "three";
+import {
+  Box3,
+  BufferGeometry,
+  Mesh,
+  MeshBasicMaterial,
+  ObjectLoader,
+  PlaneGeometry,
+  Scene,
+  ShaderMaterial,
+  TextureLoader,
+} from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
 import { mergeBufferGeometries } from "three/examples/jsm/utils/BufferGeometryUtils";
@@ -24,26 +34,53 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
-import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader";
 
-import * as Nodes from 'three/nodes';
+import * as Nodes from "three/nodes";
 
-import Stats from 'three/examples/jsm/libs/stats.module.js';
+import Stats from "three/examples/jsm/libs/stats.module.js";
 
-import { TeapotGeometry } from 'three/examples/jsm/geometries/TeapotGeometry.js';
+import { TeapotGeometry } from "three/examples/jsm/geometries/TeapotGeometry.js";
 
-import { nodeFrame } from 'three/examples/jsm/renderers/webgl/nodes/WebGLNodes.js';
+import { nodeFrame } from "three/examples/jsm/renderers/webgl/nodes/WebGLNodes.js";
 import { DragControls } from "three/examples/jsm/controls/DragControls";
-import * as TWEEN from '@tweenjs/tween.js';
+import * as TWEEN from "@tweenjs/tween.js";
 import { groupSort, mode, text } from "d3";
 import { MeshLambertMaterial } from "three";
 import h337 from "heatmapjs";
 import gsap from "gsap";
 import { Content } from "antd/lib/layout/layout";
-import { Water } from 'three/addons/objects/Water.js';
-import Geometry from '../fire-libs/Geometry'
-import Material from '../fire-libs/Material'
+import { Water } from "three/addons/objects/Water.js";
+import Geometry from "../fire-libs/Geometry";
+import Material from "../fire-libs/Material";
 import { repeat } from "lodash";
+
+// 导入hdr
+import limpopo_golf_course from "../assets/hdr/limpopo_golf_course.png";
+import limpopo_golf_course_1k from "../assets/hdr/limpopo_golf_course_1k.hdr";
+
+import rocky_ridge_puresky from "../assets/hdr/rocky_ridge_puresky.png";
+import rocky_ridge_puresky_1k from "../assets/hdr/rocky_ridge_puresky_1k.hdr";
+
+import belfast_sunset_puresky from "../assets/hdr/belfast_sunset_puresky.png";
+import belfast_sunset_puresky_1k from "../assets/hdr/belfast_sunset_puresky_1k.hdr";
+
+import kloofendal_48d_partly_cloudy_puresky from "../assets/hdr/kloofendal_48d_partly_cloudy_puresky.png";
+import kloofendal_48d_partly_cloudy_puresky_1k from "../assets/hdr/kloofendal_48d_partly_cloudy_puresky_1k.hdr";
+
+import kloppenheim_06_puresky from "../assets/hdr/kloppenheim_06_puresky.png";
+import kloppenheim_06_puresky_1k from "../assets/hdr/kloppenheim_06_puresky_1k.hdr";
+
+import scythian_tombs from "../assets/hdr/scythian_tombs.png";
+import scythian_tombs_1k from "../assets/hdr/scythian_tombs_1k.hdr";
+
+import syferfontein_0d_clear_puresky from "../assets/hdr/syferfontein_0d_clear_puresky.png";
+import syferfontein_0d_clear_puresky_1k from "../assets/hdr/syferfontein_0d_clear_puresky_1k.hdr";
+
+import table_mountain_1_puresky from "../assets/hdr/table_mountain_1_puresky.png";
+import table_mountain_1_puresky_1k from "../assets/hdr/table_mountain_1_puresky_1k.hdr";
+
+//导入hdr图像加载器
+import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader"; //rebe加载器
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -89,21 +126,332 @@ export default class ShaderStudy extends React.Component {
 
     // this.test(renderer)
 
-    this.canvas(renderer) // 地板
+    // this.canvas(renderer) // 地板
 
     // this.label_move(renderer)  // 标签撞墙自动移位
 
+    this.light(renderer);
   }
 
-  async label_move(renderer){
-    renderer.setClearColor(0xcccccc, true)
+  async light(renderer) {
+    let { scene, camera, controls } = this.loadBasic(renderer);
 
-    const d = 1;  // 移动的距离
+    // 默认光源
+    let ambientLight = new THREE.AmbientLight(0xffffff);
+    ambientLight.name = "AmbientLight";
+    // scene.add(ambientLight);
+
+    let directionalLight = new THREE.DirectionalLight("#ffffff");
+    directionalLight.name = "DirectionalLight";
+    let directionalLightTarget = new THREE.Object3D();
+    directionalLightTarget.name = "DirectionalLightTarget";
+
+    // scene.add(directionalLight);
+    // scene.add(directionalLightTarget);
+    // directionalLight.intensity = 2;
+    // directionalLight.position.set(10, 10, 0);
+    // directionalLightTarget.position.set(0, 0, -10);
+    // directionalLight.target = directionalLightTarget;
+
+    // GUI面板默认值
+    let params = {
+      hasAmbientLight: false, // 是否添加环境光
+      hasDirectionalLight: false, // 是否添加平行光
+      hasDirectionalLightTarget: false, // 是否添加平行光目标，默认是原点
+      isAddHdr: false,
+    };
+
+    let gui = new GUI();
+
+    // 1、环境光
+    let ambientLightFolder = gui.addFolder("环境光");
+    ambientLightFolder
+      .add(params, "hasAmbientLight")
+      .name("是否添加")
+      .onChange(() => {
+        let light = scene.getObjectByName(ambientLight.name);
+        if (params.hasAmbientLight && !light) {
+          scene.add(ambientLight);
+        }
+        if (!params.hasAmbientLight && light) {
+          light.removeFromParent();
+        }
+      })
+      .listen();
+    ambientLightFolder
+      .add(ambientLight, "intensity", 0, 5, 0.1)
+      .name("光照强度")
+      .listen();
+    ambientLightFolder.addColor(ambientLight, "color").listen();
+
+    // 2、平行光
+    let directionalLightFolder = gui.addFolder("平行光");
+    directionalLightFolder
+      .add(params, "hasDirectionalLight")
+      .name("是否添加")
+      .onChange(() => {
+        let light = scene.getObjectByName(directionalLight.name);
+        if (params.hasDirectionalLight && !light) {
+          scene.add(directionalLight);
+        }
+        if (!params.hasDirectionalLight && light) {
+          light.removeFromParent();
+        }
+      })
+      .listen();
+
+    directionalLightFolder
+      .add(directionalLight, "intensity", 0, 5, 0.1)
+      .name("光照强度");
+    directionalLightFolder.addColor(directionalLight, "color").listen();
+
+    let x = directionalLightFolder
+      .add(directionalLight.position, "x", -1000, 1000, 1)
+      .name("光源位置的x")
+      .listen();
+    directionalLightFolder
+      .add(directionalLight.position, "y", -1000, 1000, 1)
+      .name("光源位置的y")
+      .listen();
+    directionalLightFolder
+      .add(directionalLight.position, "z", -1000, 1000, 1)
+      .name("光源位置的z")
+      .listen();
+
+    directionalLightFolder
+      .add(params, "hasDirectionalLightTarget")
+      .name("是否添加目标")
+      .onChange(() => {
+        // 先检查有没有平行光
+        let light = scene.getObjectByName(directionalLight.name);
+        if (!light) {
+          params.hasDirectionalLightTarget = false;
+          return;
+        }
+        let target = scene.getObjectByName(directionalLightTarget.name);
+        if (!target && params.hasDirectionalLightTarget) {
+          directionalLight.target = directionalLightTarget;
+          scene.add(directionalLight.target);
+        }
+        if (target && !params.hasDirectionalLightTarget) {
+          directionalLight.target.removeFromParent();
+        }
+      })
+      .listen();
+    directionalLightFolder
+      .add(directionalLightTarget.position, "x", -1000, 1000, 1)
+      .name("目标的x")
+      .listen();
+    directionalLightFolder
+      .add(directionalLightTarget.position, "y", -1000, 1000, 1)
+      .name("目标的y")
+      .listen();
+    directionalLightFolder
+      .add(directionalLightTarget.position, "z", -1000, 1000, 1)
+      .name("目标的z")
+      .listen();
+
+    // 3、hdr贴图
+    let cur_hdr = null;
+    let img_file_obj = {
+      limpopo_golf_course,
+      rocky_ridge_puresky,
+      belfast_sunset_puresky,
+      kloofendal_48d_partly_cloudy_puresky,
+      kloppenheim_06_puresky,
+      scythian_tombs,
+      syferfontein_0d_clear_puresky,
+      table_mountain_1_puresky,
+    };
+    let hdr_file_obj = {
+      limpopo_golf_course_1k,
+      rocky_ridge_puresky_1k,
+      belfast_sunset_puresky_1k,
+      kloofendal_48d_partly_cloudy_puresky_1k,
+      kloppenheim_06_puresky_1k,
+      scythian_tombs_1k,
+      syferfontein_0d_clear_puresky_1k,
+      table_mountain_1_puresky_1k,
+    };
+    let hdr_obj = {};
+    let img_obj = {};
+
+    let hdrFolder = gui.addFolder("HDR");
+    hdrFolder
+      .add(params, "isAddHdr")
+      .name("是否添加")
+      .onChange(() => {
+        if (params.isAddHdr) {
+          scene.environment = cur_hdr;
+        } else {
+          scene.environment = null;
+        }
+      })
+      .listen();
+
+    // 添加图片容器
+    let hdr_div = document.createElement("div");
+    hdrFolder.$children.append(hdr_div);
+    hdr_div.style.display = "grid";
+    hdr_div.style["grid-template-columns"] = "repeat(2, 1fr)";
+    hdr_div.style["gap"] = "10px";
+
+    // 加载hdr环境图
+    const rgbeLoader = new RGBELoader();
+
+    for (let key in img_file_obj) {
+      let img = new Image();
+      img.src = img_file_obj[key];
+      img.style.width = "100px";
+      hdr_div.append(img);
+      img_obj[key] = img;
+      img.onclick = (event) => {
+        if (!params.isAddHdr) return;
+
+        let hdr_key = key + "_1k";
+        cur_hdr = scene.environment = scene.background = hdr_obj[hdr_key];
+
+        for (let _key in img_obj) {
+          img_obj[_key].style.border = "none";
+        }
+        event.target.style.border = "solid";
+      };
+    }
+    for (let key in hdr_file_obj) {
+      let texture = await rgbeLoader.loadAsync(hdr_file_obj[key]);
+      texture.mapping = THREE.EquirectangularReflectionMapping;
+      hdr_obj[key] = texture;
+    }
+
+    // 4、配置文件
+    let configFolder = gui.addFolder("配置文件");
+    let config_div = document.createElement("div");
+    configFolder.$children.append(config_div);
+    config_div.style.display = "grid";
+    config_div.style["grid-template-columns"] = "repeat(2, 1fr)";
+    config_div.style["gap"] = "20px";
+
+    // 导出
+    let export_btn = document.createElement("button");
+    export_btn.innerHTML = "导出";
+    config_div.append(export_btn);
+    export_btn.onclick = () => {
+      let data = getExportJson();
+      let blob = new Blob([data]); //  创建 blob 对象
+      let link = document.createElement("a");
+      link.href = URL.createObjectURL(blob); //  创建一个 URL 对象并传给 a 的 href
+      link.download = "data.json"; //  设置下载的默认文件名
+      link.click();
+    };
+    function getExportJson() {
+      let data = {};
+
+      data[directionalLight.name] = directionalLight.toJSON();
+
+      data[directionalLightTarget.name] = directionalLightTarget.toJSON();
+
+      return JSON.stringify({ data, params });
+    }
+
+    // 导入
+    let import_btn = document.createElement("button");
+    import_btn.innerHTML = "导入";
+    config_div.append(import_btn);
+    import_btn.onclick = () => {
+      let inputObj = document.createElement("input");
+      inputObj.setAttribute("type", "file");
+
+      //选中文件时触发的方法
+      inputObj.onchange = () => {
+        //支持chrome IE10
+        if (window.FileReader) {
+          var file = inputObj.files[0];
+          var reader = new FileReader();
+          reader.onload = function (event) {
+            let json = JSON.parse(event.target.result);
+            console.log(json);
+            handleImportData(json);
+          };
+          reader.readAsText(file);
+        }
+      };
+      inputObj.click();
+    };
+    async function handleImportData(data) {
+      Object.assign(params, data.params);
+
+      let map = {
+        AmbientLight: (obj) => {
+          ambientLight.color.copy(obj.color);
+          ambientLight.intensity = obj.intensity;
+        },
+        DirectionalLight: (obj) => {
+          directionalLight.position.copy(obj.position);
+          directionalLight.color.copy(obj.color);
+          directionalLight.intensity = obj.intensity;
+        },
+        DirectionalLightTarget: (obj) => {
+          directionalLightTarget.position.copy(obj.position);
+          if (params.hasDirectionalLightTarget) {
+            directionalLight.target = directionalLightTarget;
+          }
+        },
+      };
+
+      let lightObj = {};
+      for (let key in data.data) {
+        let objJson = data.data[key];
+
+        let obj = await new THREE.ObjectLoader().parseAsync(objJson);
+        if (params["has" + key]) {
+          scene.add(obj);
+        }
+        lightObj[key] = obj;
+      }
+      for (let key in lightObj) {
+        map[key] && map[key](lightObj[key]);
+      }
+    }
+
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load(
+      "/shaxi-main.glb",
+      async function (gltf) {
+        await scene.add(gltf.scene);
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+    }
+    render();
+  }
+
+  async label_move(renderer) {
+    renderer.setClearColor(0xcccccc, true);
+
+    const d = 1; // 移动的距离
 
     let { scene, camera, controls } = this.loadBasic(renderer);
 
     // 模拟几个标签
-    let labelList = []
+    let labelList = [];
     // await addLabel({x: -10, y: 0, z: -5})
     // await addLabel({x: 0, y: 0, z: 9.8})
     // await addLabel({x: 20, y: 0, z: 0})
@@ -117,57 +465,57 @@ export default class ShaderStudy extends React.Component {
     //   { x: 20, z: 0},
     //   { x: 10, z: -10},
     // ]
-    
-    await addLabel({x: -10.5, y: 0, z: -20})
-    await addLabel({x: -10.5, y: 0, z: -16.4})
-    await addLabel({x: -3, y: 0, z: -16.4})
-    await addLabel({x: -6, y: 0, z: -16.4})
-    await addLabel({x: -10.801242753098482, y: 0, z: -22.943847152567958})
-    await addLabel({x: -6, y: 0, z: -20})
 
-    let arr =[
+    await addLabel({ x: -10.5, y: 0, z: -20 });
+    await addLabel({ x: -10.5, y: 0, z: -16.4 });
+    await addLabel({ x: -3, y: 0, z: -16.4 });
+    await addLabel({ x: -6, y: 0, z: -16.4 });
+    await addLabel({ x: -10.801242753098482, y: 0, z: -22.943847152567958 });
+    await addLabel({ x: -6, y: 0, z: -20 });
+
+    let arr = [
       {
-        "x": -10.801242753098482,
-        "z": -22.943847152567958
+        x: -10.801242753098482,
+        z: -22.943847152567958,
       },
       {
-        "x": -10.816517574359304,
-        "z": -16.225609514979485
+        x: -10.816517574359304,
+        z: -16.225609514979485,
       },
       {
-        "x": -1.8923463033593413,
-        "z": -16.163635956632483
-    },
+        x: -1.8923463033593413,
+        z: -16.163635956632483,
+      },
       {
-        "x": -1.9670061038952,
-        "z": -22.92019934776338
-      }
-    ]
-    let arrVectors = arr.map(item => new THREE.Vector2(item.x, item.z));
+        x: -1.9670061038952,
+        z: -22.92019934776338,
+      },
+    ];
+    let arrVectors = arr.map((item) => new THREE.Vector2(item.x, item.z));
 
     // 1、根据点数组创建多边形平面
-    let shape = new THREE.Shape(arrVectors)
+    let shape = new THREE.Shape(arrVectors);
     let plane = new THREE.Mesh(
       new THREE.ShapeGeometry(shape),
-      new THREE.MeshLambertMaterial({color: 0x00ffff, side: THREE.DoubleSide}),
-    )
-    plane.rotateX(Math.PI * 0.5)
+      new THREE.MeshLambertMaterial({ color: 0x00ffff, side: THREE.DoubleSide })
+    );
+    plane.rotateX(Math.PI * 0.5);
     scene.add(plane);
 
     // 2、得到中心点
     plane.geometry.computeBoundingSphere();
     plane.geometry.computeBoundingBox();
-    let {center} = plane.geometry.boundingSphere;
+    let { center } = plane.geometry.boundingSphere;
     let centerP = new THREE.Vector2(center.x, center.y);
 
     // 3、让标签沿着法线向中心点的方向移动
-    let up = new THREE.Vector3(0,1,0);
-    let sideArray = []; 
-    
-    for(let i=0; i< arr.length; i++){
-      let curP = new THREE.Vector2(arr[i].x,arr[i].z);
-      let nextIndex = (i+1) % arr.length;
-      let nextP = new THREE.Vector2(arr[nextIndex].x, arr[nextIndex].z)
+    let up = new THREE.Vector3(0, 1, 0);
+    let sideArray = [];
+
+    for (let i = 0; i < arr.length; i++) {
+      let curP = new THREE.Vector2(arr[i].x, arr[i].z);
+      let nextIndex = (i + 1) % arr.length;
+      let nextP = new THREE.Vector2(arr[nextIndex].x, arr[nextIndex].z);
 
       // 得到边的二维向量
       let side2 = new THREE.Vector2();
@@ -179,74 +527,75 @@ export default class ShaderStudy extends React.Component {
 
       // 得到边的向量
       let side = new THREE.Vector3();
-      side.subVectors(new THREE.Vector3(nextP.x, 0, nextP.y), new THREE.Vector3(curP.x, 0, curP.y));
+      side.subVectors(
+        new THREE.Vector3(nextP.x, 0, nextP.y),
+        new THREE.Vector3(curP.x, 0, curP.y)
+      );
 
       // 得到法向量
       let normal = new THREE.Vector3();
-      normal.crossVectors( up, side ).normalize().multiplyScalar(Math.abs(d) * sign);
+      normal
+        .crossVectors(up, side)
+        .normalize()
+        .multiplyScalar(Math.abs(d) * sign);
 
-      sideArray.push({curP, nextP, centerP, normal, sign});
+      sideArray.push({ curP, nextP, centerP, normal, sign });
     }
-    
-    // 4、检测标签是否撞墙，是的话自动移位
-    labelList.forEach(mesh => {
 
+    // 4、检测标签是否撞墙，是的话自动移位
+    labelList.forEach((mesh) => {
       let p = new THREE.Vector2(mesh.position.x, mesh.position.z);
 
       // 给标签构造一个最大包围矩形
       mesh.geometry.computeBoundingBox();
-      let {min, max} = mesh.geometry.boundingBox;
-      
+      let { min, max } = mesh.geometry.boundingBox;
+
       let r1 = (max.x - min.x) / 2,
-          r2 = (max.z - min.z) / 2,
-          r = r1 > r2 ? r1 : r2;
+        r2 = (max.z - min.z) / 2,
+        r = r1 > r2 ? r1 : r2;
 
       let points = [
         new THREE.Vector2(mesh.position.x - r, mesh.position.z - r),
         new THREE.Vector2(mesh.position.x - r, mesh.position.z + r),
         new THREE.Vector2(mesh.position.x + r, mesh.position.z - r),
         new THREE.Vector2(mesh.position.x + r, mesh.position.z + r),
-      ]
+      ];
 
       let booleanArr = [];
-      points.forEach(item => {
-        booleanArr.push(isPointInPolygon(item, arrVectors))
-      })
+      points.forEach((item) => {
+        booleanArr.push(isPointInPolygon(item, arrVectors));
+      });
 
       // 包围矩形的四个点 全在该多边形区域内
-      if(booleanArr.every(item => item)){
+      if (booleanArr.every((item) => item)) {
         // to do
-
-      // 包围矩形的四个点 全不在矩形内
-      }else if(booleanArr.every(item => !item)){
+        // 包围矩形的四个点 全不在矩形内
+      } else if (booleanArr.every((item) => !item)) {
         // to do
-        
-      // 包围矩形的四个点 不全在多边形区域内
-      }else{
-
-        for(let i=0;i<sideArray.length;i++){
+        // 包围矩形的四个点 不全在多边形区域内
+      } else {
+        for (let i = 0; i < sideArray.length; i++) {
           let item = sideArray[i];
-  
-          let {curP, nextP, centerP, normal} = item;
-  
+
+          let { curP, nextP, centerP, normal } = item;
+
           // 该标签属于当前的边
-          if(isPointInPolygon(p, [curP, nextP, centerP])){
+          if (isPointInPolygon(p, [curP, nextP, centerP])) {
             // 移动标签位置
-            mesh.position.add(normal)
+            mesh.position.add(normal);
           }
         }
       }
-
-    })
+    });
 
     // 判断一个点是否在多边形内
     // point: Vector2, polygonPoints: Array<Vector2>
-    function isPointInPolygon(point, polygonPoints){
-      let arr = [], len = polygonPoints.length;
-      for(let i=0;i<len;i++){
-
+    function isPointInPolygon(point, polygonPoints) {
+      let arr = [],
+        len = polygonPoints.length;
+      for (let i = 0; i < len; i++) {
         let cur = polygonPoints[i];
-        let next = polygonPoints[(i+1)%len];
+        let next = polygonPoints[(i + 1) % len];
         let line = new THREE.Vector2();
         line.subVectors(next, cur);
 
@@ -254,31 +603,31 @@ export default class ShaderStudy extends React.Component {
         pointLine.subVectors(point, cur);
 
         let is = line.cross(pointLine);
-        arr.push(is)
+        arr.push(is);
       }
 
-      return arr.every(item => item>=0) || arr.every(item => item<=0);
+      return arr.every((item) => item >= 0) || arr.every((item) => item <= 0);
     }
     window.isPointInPolygon = isPointInPolygon;
 
-
-    async function addLabel(position){
-
+    async function addLabel(position) {
       let baseWidth = 1;
 
       // 添加一个标签
-      let texture = await new THREE.TextureLoader().loadAsync('/fanControllerLabel.png');
-      let accept =  texture.image.height / texture.image.width;
+      let texture = await new THREE.TextureLoader().loadAsync(
+        "/fanControllerLabel.png"
+      );
+      let accept = texture.image.height / texture.image.width;
       let labelPlane = new THREE.Mesh(
         new PlaneGeometry(baseWidth, baseWidth * accept),
         new MeshLambertMaterial({
           map: texture,
-          side: THREE.DoubleSide
+          side: THREE.DoubleSide,
         })
-      )
+      );
       scene.add(labelPlane);
       labelPlane.position.set(position.x, position.y, position.z);
-      
+
       labelList.push(labelPlane);
     }
 
@@ -295,12 +644,12 @@ export default class ShaderStudy extends React.Component {
     //   new THREE.LineBasicMaterial({color: 0x00ffff}),
     // )
     // scene.add(line)
-    
+
     // let side = new THREE.Vector3();
     // let faxian = new THREE.Vector3();
     // let up = new THREE.Vector3(0,1,0);
-    
-		// side.subVectors( p1, p2 );
+
+    // side.subVectors( p1, p2 );
     // faxian.crossVectors( up, side ).normalize().multiplyScalar(4);
 
     // let box = new THREE.Mesh(
@@ -311,67 +660,74 @@ export default class ShaderStudy extends React.Component {
     // box.position.copy(faxian);
 
     function render() {
+      labelList.forEach((mesh) => {
+        mesh.lookAt(camera.position.x, mesh.position.y, camera.position.z);
+      });
 
-      labelList.forEach(mesh => {
-        mesh.lookAt(camera.position.x, mesh.position.y, camera.position.z)
-      })
-
-      requestAnimationFrame(render)
+      requestAnimationFrame(render);
 
       renderer.render(scene, camera);
-      
     }
     render();
   }
 
-  async canvas(renderer){
-    renderer.setClearColor(0x000000, true)
+  async canvas(renderer) {
+    renderer.setClearColor(0x000000, true);
 
     let { scene, camera, controls } = this.loadBasic(renderer);
 
-    const width = 2000,         // 正方形canvas宽度
-          gridNum = 15,          // 每一行包含的贴图数量
-          pointWidth = 3,       // 随机点的宽度
-          gridPointWidth = 2;   // 网格点的宽度
+    const width = 2000, // 正方形canvas宽度
+      gridNum = 15, // 每一行包含的贴图数量
+      pointWidth = 3, // 随机点的宽度
+      gridPointWidth = 2; // 网格点的宽度
 
-    let gridWidth = width / gridNum;  // 格子贴图的宽度
-    let d = gridWidth / 4, num = width / d; // d: 每个格子的距离，num: 每一行需要的网格点的数量
+    let gridWidth = width / gridNum; // 格子贴图的宽度
+    let d = gridWidth / 4,
+      num = width / d; // d: 每个格子的距离，num: 每一行需要的网格点的数量
 
     // 网格的canvas
-    let gridCanvas = createCanvas();  
-    let gridCtx = gridCanvas.getContext('2d');
+    let gridCanvas = createCanvas();
+    let gridCtx = gridCanvas.getContext("2d");
 
     // 随机点的canvas
     let pointCanvas = createCanvas();
-    let pointCtx = pointCanvas.getContext('2d');
-    
+    let pointCtx = pointCanvas.getContext("2d");
+
     // 网格点的canvas
     let gridPointCanvas = createCanvas();
-    let gridPointCtx = gridPointCanvas.getContext('2d');
+    let gridPointCtx = gridPointCanvas.getContext("2d");
 
     // 添加网格
-    let gridImg = await createImg('/grid.png');
-    for(let i=0;i<gridNum;i++){
-      for(let j=0;j<gridNum;j++){
-        gridCtx.drawImage(gridImg, i * gridWidth, j * gridWidth, gridWidth, gridWidth);
+    let gridImg = await createImg("/grid.png");
+    for (let i = 0; i < gridNum; i++) {
+      for (let j = 0; j < gridNum; j++) {
+        gridCtx.drawImage(
+          gridImg,
+          i * gridWidth,
+          j * gridWidth,
+          gridWidth,
+          gridWidth
+        );
       }
     }
-    
-    let pointImg = await createImg('/circle3.png');
-    
-    for(let i=0;i<num;i++){
-      for(let j=0;j<num;j++){
+
+    let pointImg = await createImg("/circle3.png");
+
+    for (let i = 0; i < num; i++) {
+      for (let j = 0; j < num; j++) {
         // 添加网格点
-        let x = i * d - (gridPointWidth/2) + (d/2);
-        let y = j * d - (gridPointWidth/2) + (d/2);
+        let x = i * d - gridPointWidth / 2 + d / 2;
+        let y = j * d - gridPointWidth / 2 + d / 2;
         gridPointCtx.drawImage(pointImg, x, y, gridPointWidth, gridPointWidth);
 
         // 添加随机点
-        let m = i * d, n = (i+1) * d;
+        let m = i * d,
+          n = (i + 1) * d;
         let x1 = Math.random() * (n - m + 1) + m;
-        let m2 = j * d, n2 = (j+1) * d;
+        let m2 = j * d,
+          n2 = (j + 1) * d;
         let y1 = Math.random() * (n2 - m2 + 1) + m2;
-        if(Math.random() > 0.7){
+        if (Math.random() > 0.7) {
           pointCtx.drawImage(pointImg, x1, y1, pointWidth, pointWidth);
         }
       }
@@ -385,51 +741,51 @@ export default class ShaderStudy extends React.Component {
     geometry.computeBoundingSphere();
 
     let { center, radius } = geometry.boundingSphere;
-    
-    let vTime = {value: 0.0};
-    let vTime1 = {value: 0.0};
+
+    let vTime = { value: 0.0 };
+    let vTime1 = { value: 0.0 };
     let shader = new THREE.ShaderMaterial({
       transparent: true,
       uniforms: {
         // 点的贴图
         pointBg: {
-          value: pointTexture
+          value: pointTexture,
         },
         // 网格贴图
         gridBg: {
-          value: gridTexture
+          value: gridTexture,
         },
         // 网格点贴图
         gridPointBg: {
-          value: gridPointTexture
+          value: gridPointTexture,
         },
         // 透明圈宽度
         vRingRadius: {
-          value: 15
+          value: 15,
         },
         // 网格圈 内环和外环的宽度
         vPointBlurRadius: {
-          value: 40
+          value: 40,
         },
         vPointInnerRadius: {
-          value: 40
+          value: 40,
         },
         // 网格圈 内环和外环的宽度
         vBlurRadius: {
-          value: 30
+          value: 30,
         },
         vInnerRadius: {
-          value: 30
+          value: 30,
         },
         // 高亮的颜色
         vHighColor: {
-          value: new THREE.Color("#00ffff")
+          value: new THREE.Color("#00ffff"),
         },
         radius: {
-          value: radius
+          value: radius,
         },
         center: {
-          value: center
+          value: center,
         },
         vTime,
         vTime1,
@@ -537,15 +893,17 @@ export default class ShaderStudy extends React.Component {
 
         // gl_FragColor = texture2D(pointBg, vUv);
       }
-      `
-    })
+      `,
+    });
     let plane = new THREE.Mesh(geometry, shader);
     plane.rotateX(-Math.PI * 0.5);
-    scene.add(plane)
+    scene.add(plane);
 
-    function createCanvas(){
-      let canvas = document.createElement('canvas');
-      canvas.setAttribute('style', `
+    function createCanvas() {
+      let canvas = document.createElement("canvas");
+      canvas.setAttribute(
+        "style",
+        `
         width:${width}px;
         height:${width}px;
         position:absolute;
@@ -553,26 +911,26 @@ export default class ShaderStudy extends React.Component {
         left:0;
         border:solid 1px #00ffff;
         background: rgb(0,7,14);
-      `)
+      `
+      );
       canvas.width = width;
       canvas.height = width;
       return canvas;
     }
-    async function  createImg(src){
+    async function createImg(src) {
       let img;
-      await new Promise(resolve => {
+      await new Promise((resolve) => {
         img = new Image();
         img.src = src;
         img.onload = () => {
           resolve();
-        }
+        };
       });
       return img;
     }
-    
-    function render() {
 
-      requestAnimationFrame(render)
+    function render() {
+      requestAnimationFrame(render);
 
       renderer.render(scene, camera);
 
@@ -580,24 +938,23 @@ export default class ShaderStudy extends React.Component {
       vTime1.value += 0.4;
     }
     render();
-
   }
   async test(renderer) {
-    renderer.setClearColor(0x000000, true)
+    renderer.setClearColor(0x000000, true);
 
     let { scene, camera, controls } = this.loadBasic(renderer);
 
     let tar = {
-      "x": -34.342292326577,
-      "y": 3.208379938865189,
-      "z": 9.692377403858826
-  }
+      x: -34.342292326577,
+      y: 3.208379938865189,
+      z: 9.692377403858826,
+    };
     controls.target.set(tar.x, tar.y, tar.z);
     let car = {
-      "x": -28.097513095683766,
-      "y": 75.7305304806959,
-      "z": 8.423887582791858
-  }
+      x: -28.097513095683766,
+      y: 75.7305304806959,
+      z: 8.423887582791858,
+    };
     camera.position.set(car.x, car.y, car.z);
     controls.update();
 
@@ -619,8 +976,8 @@ export default class ShaderStudy extends React.Component {
 
         // scene.getObjectByName('屋顶1').visible = false;
         // scene.getObjectByName('屋顶2').visible = false;
-        scene.getObjectByName('主楼屋顶').visible = false;
-        
+        scene.getObjectByName("主楼屋顶").visible = false;
+
         // [
         //   {
         //     "x": -10.801242753098482,
@@ -640,41 +997,44 @@ export default class ShaderStudy extends React.Component {
         //   }
         // ]
         let arr = [
-          {
-            "x": -10.789465363746064,
-            "z": -12.323024373496512
-          },
-          {
-            "x": -10.726746130651764,
-            "z": 5.179143818333145
-          },
-          {
-            "x": -3.419370627685763,
-            "z": 5.20886335247723
-          },
-          {
-            "x": -3.5396025946054714,
-            "z": -12.337099862154947
-          }
-        ], group = new THREE.Group();
-        arr.forEach(item => {
-          let box = new THREE.BoxGeometry(0.2,0.2,0.2);
-          let _mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x0000ff }));
-          _mesh.position.set(item.x, 8.7, item.z)
-          group.add(_mesh)
-          meshList.push(_mesh)
-        })
-        group.name = 'group'
-        scene.add(group)
+            {
+              x: -10.789465363746064,
+              z: -12.323024373496512,
+            },
+            {
+              x: -10.726746130651764,
+              z: 5.179143818333145,
+            },
+            {
+              x: -3.419370627685763,
+              z: 5.20886335247723,
+            },
+            {
+              x: -3.5396025946054714,
+              z: -12.337099862154947,
+            },
+          ],
+          group = new THREE.Group();
+        arr.forEach((item) => {
+          let box = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+          let _mesh = new THREE.Mesh(
+            box,
+            new THREE.MeshLambertMaterial({ color: 0x0000ff })
+          );
+          _mesh.position.set(item.x, 8.7, item.z);
+          group.add(_mesh);
+          meshList.push(_mesh);
+        });
+        group.name = "group";
+        scene.add(group);
 
         // let arr = [];
         // ['35kv开关室内墙_2'].forEach(async (item) => {
-          
+
         //   let l = await getXZArray(item,);
         //   arr.push(l)
         // })
         // window.arr = arr
-
       },
       // called while loading is progressing
       function (xhr) {
@@ -686,43 +1046,44 @@ export default class ShaderStudy extends React.Component {
       }
     );
 
-    function getXZArray(name){
-      let obj = scene.getObjectByName(name)
+    function getXZArray(name) {
+      let obj = scene.getObjectByName(name);
 
-      let box = new THREE.Box3()
-      box.setFromObject(obj)
-      
-      let helper = new THREE.Box3Helper(box)
-      obj.parent.add(helper)
+      let box = new THREE.Box3();
+      box.setFromObject(obj);
+
+      let helper = new THREE.Box3Helper(box);
+      obj.parent.add(helper);
 
       let rx = (box.max.x - box.min.x) / 2,
-          rz = (box.max.z - box.min.z) / 2;
+        rz = (box.max.z - box.min.z) / 2;
 
-      return new Promise(resolve => {
-      
+      return new Promise((resolve) => {
         setTimeout(() => {
           let center = new THREE.Vector3();
           helper.getWorldPosition(center);
-  
+
           let posArray = [
-            {x: center.x - rx, z: center.z - rz},
-            {x: center.x - rx, z: center.z + rz},
-            {x: center.x + rx, z: center.z + rz},
-            {x: center.x + rx, z: center.z - rz},
-          ]
-    
-          posArray.forEach(item => {
+            { x: center.x - rx, z: center.z - rz },
+            { x: center.x - rx, z: center.z + rz },
+            { x: center.x + rx, z: center.z + rz },
+            { x: center.x + rx, z: center.z - rz },
+          ];
+
+          posArray.forEach((item) => {
             let box = new THREE.BoxGeometry(1, 1, 1);
-            let _mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x0000ff }));
-            _mesh.position.set(item.x, 45, item.z)
-            scene.add(_mesh)
-            meshList.push(_mesh)
-          })
-          
+            let _mesh = new THREE.Mesh(
+              box,
+              new THREE.MeshLambertMaterial({ color: 0x0000ff })
+            );
+            _mesh.position.set(item.x, 45, item.z);
+            scene.add(_mesh);
+            meshList.push(_mesh);
+          });
+
           resolve(posArray);
-        }, 1000)
-      })
-      
+        }, 1000);
+      });
     }
 
     let light = new THREE.PointLight(0xffffff);
@@ -733,9 +1094,12 @@ export default class ShaderStudy extends React.Component {
     scene.add(hemisphereLight);
 
     let box = new THREE.BoxGeometry(1, 1, 1);
-    let _mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x0000ff }));
-    _mesh.position.set(-23.05445197242592, 39.3, 18.637556923441603)
-    scene.add(_mesh)
+    let _mesh = new THREE.Mesh(
+      box,
+      new THREE.MeshLambertMaterial({ color: 0x0000ff })
+    );
+    _mesh.position.set(-23.05445197242592, 39.3, 18.637556923441603);
+    scene.add(_mesh);
 
     let dragstart = (event) => {
       controls.enabled = false;
@@ -750,22 +1114,14 @@ export default class ShaderStudy extends React.Component {
 
     let Controller = {
       startDrag: () => {
-
-        dragControls = new DragControls(
-          meshList,
-          camera,
-          renderer.domElement
-        );
+        dragControls = new DragControls(meshList, camera, renderer.domElement);
         dragControls.addEventListener("drag", () =>
           renderer.render(scene, camera)
         );
 
         // 3、把OrbitControls的dom元素替换掉
         controls.dispose();
-        controls = new OrbitControls(
-          camera,
-          renderer.domElement
-        );
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.update();
 
         // 4、避免两个控制器冲突
@@ -786,10 +1142,7 @@ export default class ShaderStudy extends React.Component {
 
         // 4、还原OrbitControls
         controls.dispose();
-        controls = new OrbitControls(
-          camera,
-          renderer.domElement
-        );
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.update();
       },
     };
@@ -797,35 +1150,31 @@ export default class ShaderStudy extends React.Component {
     Object.assign(window, { Controller });
     Controller.startDrag();
 
-    
     const gui = new GUI();
-    gui.add(light.position, 'x', -100, 100);
-    gui.add(light.position, 'y', -100, 100);
-    gui.add(light.position, 'z', -100, 100);
-    gui.add(light, 'intensity', 0, 10);
-    gui.add(hemisphereLight, 'intensity', 0, 10);
-    gui.addColor(hemisphereLight, 'groundColor');
-    gui.addColor(hemisphereLight, 'color');
+    gui.add(light.position, "x", -100, 100);
+    gui.add(light.position, "y", -100, 100);
+    gui.add(light.position, "z", -100, 100);
+    gui.add(light, "intensity", 0, 10);
+    gui.add(hemisphereLight, "intensity", 0, 10);
+    gui.addColor(hemisphereLight, "groundColor");
+    gui.addColor(hemisphereLight, "color");
 
     function render() {
+      labelGroup.traverse((mesh) => {
+        mesh.lookAt(camera.position.clone().setY(mesh.position.y));
+      });
 
-      labelGroup.traverse(mesh => {
-        mesh.lookAt(camera.position.clone().setY(mesh.position.y))
-      })
-
-      requestAnimationFrame(render)
+      requestAnimationFrame(render);
 
       renderer.render(scene, camera);
-      
     }
     render();
   }
 
   fire(renderer) {
-    renderer.setClearColor(0x0000ff, true)
+    renderer.setClearColor(0x0000ff, true);
 
     let { scene, camera, controls } = this.loadBasic(renderer);
-
 
     var width = window.innerWidth,
       height = window.innerHeight;
@@ -838,15 +1187,14 @@ export default class ShaderStudy extends React.Component {
     var particleFireMesh0 = new THREE.Points(geometry0, material0);
     scene.add(particleFireMesh0);
 
-    let clock = new THREE.Clock()
+    let clock = new THREE.Clock();
 
     function render() {
-
       var delta = clock.getDelta();
 
       particleFireMesh0.material.update(delta * 0.75);
 
-      requestAnimationFrame(render)
+      requestAnimationFrame(render);
 
       renderer.render(scene, camera);
     }
@@ -854,7 +1202,6 @@ export default class ShaderStudy extends React.Component {
   }
 
   async love(renderer) {
-
     let { scene, camera, controls } = this.loadBasic(renderer);
 
     let array = [];
@@ -862,12 +1209,11 @@ export default class ShaderStudy extends React.Component {
     let pre = new THREE.Vector3(-2, 0, 0);
 
     for (let t = -2; t <= 2; t += 0.005) {
-
       let y = Math.acos(1 - Math.abs(t)) - 3.2;
 
       let cur = new THREE.Vector3(t, y, 0);
       let next = new THREE.Vector3();
-      next.crossVectors(cur, pre)
+      next.crossVectors(cur, pre);
 
       array.push(t);
       array.push(y);
@@ -879,7 +1225,6 @@ export default class ShaderStudy extends React.Component {
       pre = cur;
     }
     for (let t = 2; t >= -2; t -= 0.005) {
-
       let y = Math.sqrt(1 - Math.pow(Math.abs(t) - 1, 2));
       let cur = new THREE.Vector3(t, y, 0);
       let next = new THREE.Vector3();
@@ -894,24 +1239,32 @@ export default class ShaderStudy extends React.Component {
       // array.push(next.z);
       pre = cur;
     }
-    array.push(array[0])
-    array.push(array[1])
-    array.push(array[2])
+    array.push(array[0]);
+    array.push(array[1]);
+    array.push(array[2]);
 
     let geometry = new THREE.BufferGeometry();
 
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(array, 3));
+    geometry.setAttribute(
+      "position",
+      new THREE.Float32BufferAttribute(array, 3)
+    );
 
-    let img = await new THREE.TextureLoader().loadAsync('爱心.png')
+    let img = await new THREE.TextureLoader().loadAsync("爱心.png");
 
     let mesh = new THREE.Points(
       geometry,
-      new THREE.PointsMaterial({ color: 0xff0000, size: 0.2, map: img, transparent: true })
-    )
+      new THREE.PointsMaterial({
+        color: 0xff0000,
+        size: 0.2,
+        map: img,
+        transparent: true,
+      })
+    );
     scene.add(mesh);
 
     function render() {
-      requestAnimationFrame(render)
+      requestAnimationFrame(render);
 
       renderer.render(scene, camera);
     }
@@ -922,51 +1275,54 @@ export default class ShaderStudy extends React.Component {
 
     let streamPoints = [
       {
-        "x": 174.24676250869848,
-        "y": -1.4384303579241404,
-        "z": -92.34560152213483
+        x: 174.24676250869848,
+        y: -1.4384303579241404,
+        z: -92.34560152213483,
       },
       {
-        "x": 121.94277989120262,
-        "y": 0.01621134773585453,
-        "z": 3.0087496865637497
+        x: 121.94277989120262,
+        y: 0.01621134773585453,
+        z: 3.0087496865637497,
       },
       {
-        "x": 101.47828091666524,
-        "y": 0.09258305732682715,
-        "z": 1.0576039959385755
+        x: 101.47828091666524,
+        y: 0.09258305732682715,
+        z: 1.0576039959385755,
       },
       {
-        "x": 130.06752782936735,
-        "y": -0.6818734409543836,
-        "z": -49.41787393901901
+        x: 130.06752782936735,
+        y: -0.6818734409543836,
+        z: -49.41787393901901,
       },
       {
-        "x": 152.7990601035051,
-        "y": -1.3906980143931023,
-        "z": -96.9645390321471
-      }
-    ]
+        x: 152.7990601035051,
+        y: -1.3906980143931023,
+        z: -96.9645390321471,
+      },
+    ];
 
-    let streamArray = streamPoints.map(item => new THREE.Vector2(item.x, item.y));
-    let shape = new THREE.Shape(streamArray)
+    let streamArray = streamPoints.map(
+      (item) => new THREE.Vector2(item.x, item.y)
+    );
+    let shape = new THREE.Shape(streamArray);
 
     let geometry = new THREE.ShapeGeometry(shape);
-    let mesh = new THREE.Mesh(geometry, new THREE.MeshLambertMaterial({ color: 0x00ffff }))
-    scene.add(mesh)
+    let mesh = new THREE.Mesh(
+      geometry,
+      new THREE.MeshLambertMaterial({ color: 0x00ffff })
+    );
+    scene.add(mesh);
     // mesh.rotation.x = Math.PI * 0.5;
     mesh.position.y = 0;
 
     const gui = new GUI();
     const guiNode = { lerpPosition: 0 };
 
-    gui.add(guiNode, 'lerpPosition', 0, Math.PI * 2).onChange(function () {
-
+    gui.add(guiNode, "lerpPosition", 0, Math.PI * 2).onChange(function () {
       mesh.rotation.z = guiNode.lerpPosition;
-
     });
 
-    window.mesh = mesh
+    window.mesh = mesh;
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
 
@@ -974,44 +1330,41 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
-    loader.load(
-      "/shaxi-main.glb",
-      async (gltf) => {
-        scene.add(gltf.scene);
-      }
-    )
+    loader.load("/shaxi-main.glb", async (gltf) => {
+      scene.add(gltf.scene);
+    });
 
     const waterGeometry = new THREE.PlaneGeometry(500, 500);
 
-    let water = new Water(
-      waterGeometry,
-      {
-        textureWidth: 512,
-        textureHeight: 512,
-        waterNormals: new THREE.TextureLoader().load('textures/waternormals.jpg', function (texture) {
-
+    let water = new Water(waterGeometry, {
+      textureWidth: 512,
+      textureHeight: 512,
+      waterNormals: new THREE.TextureLoader().load(
+        "textures/waternormals.jpg",
+        function (texture) {
           texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-
-        }),
-        sunDirection: new THREE.Vector3(),
-        sunColor: 0xffffff,
-        waterColor: 0x001e0f,
-        distortionScale: 3.7,
-        fog: scene.fog !== undefined
-      }
-    );
+        }
+      ),
+      sunDirection: new THREE.Vector3(),
+      sunColor: 0xffffff,
+      waterColor: 0x001e0f,
+      distortionScale: 3.7,
+      fog: scene.fog !== undefined,
+    });
 
     water.rotateX(-Math.PI * 0.5);
     water.position.y = -4;
 
     // scene.add( water );
 
-
     let box = new THREE.BoxGeometry(1, 1, 1);
-    let mesh1 = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x0000ff }));
-    mesh1.position.set(10, 10, 10)
+    let mesh1 = new THREE.Mesh(
+      box,
+      new THREE.MeshLambertMaterial({ color: 0x0000ff })
+    );
+    mesh1.position.set(10, 10, 10);
     let meshList = [mesh1];
-    scene.add(mesh1)
+    scene.add(mesh1);
 
     let dragstart = (event) => {
       controls.enabled = false;
@@ -1026,22 +1379,14 @@ export default class ShaderStudy extends React.Component {
 
     let Controller = {
       startDrag: () => {
-
-        dragControls = new DragControls(
-          meshList,
-          camera,
-          renderer.domElement
-        );
+        dragControls = new DragControls(meshList, camera, renderer.domElement);
         dragControls.addEventListener("drag", () =>
           renderer.render(scene, camera)
         );
 
         // 3、把OrbitControls的dom元素替换掉
         controls.dispose();
-        controls = new OrbitControls(
-          camera,
-          renderer.domElement
-        );
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.update();
 
         // 4、避免两个控制器冲突
@@ -1062,10 +1407,7 @@ export default class ShaderStudy extends React.Component {
 
         // 4、还原OrbitControls
         controls.dispose();
-        controls = new OrbitControls(
-          camera,
-          renderer.domElement
-        );
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.update();
       },
     };
@@ -1074,47 +1416,49 @@ export default class ShaderStudy extends React.Component {
     Controller.startDrag();
 
     function render() {
-      requestAnimationFrame(render)
+      requestAnimationFrame(render);
 
       renderer.render(scene, camera);
 
       const time = performance.now() * 0.001;
 
-      water.material.uniforms['time'].value += 1.0 / 60.0;
+      water.material.uniforms["time"].value += 1.0 / 60.0;
     }
     render();
   }
   async floor(renderer) {
-    renderer.setClearColor(0x00000d, 1.0)
+    renderer.setClearColor(0x00000d, 1.0);
 
     let { scene, camera, controls } = this.loadBasic(renderer);
 
-    let light = new THREE.PointLight(0XFFFFFF);
+    let light = new THREE.PointLight(0xffffff);
     light.position.set(0, 20, 0);
     scene.add(light);
 
-    let img1 = await new THREE.TextureLoader().loadAsync('/grid.png');
+    let img1 = await new THREE.TextureLoader().loadAsync("/grid.png");
     img1.wrapS = THREE.RepeatWrapping;
     img1.wrapT = THREE.RepeatWrapping;
     img1.repeat.set(8, 8);
 
-    let img2 = await new THREE.TextureLoader().loadAsync('/光1.png');
+    let img2 = await new THREE.TextureLoader().loadAsync("/光1.png");
     img2.matrixAutoUpdate = false;
     img2.matrix.identity().scale(0.6, 0.6).translate(0.2, 0.2);
     // img2.needsUpdate = true;
     console.log(img2);
 
-    const height = 100, width = 100;
+    const height = 100,
+      width = 100;
 
     let pointGeometry = new THREE.BufferGeometry();
     let points = new THREE.Mesh(
       pointGeometry,
       new THREE.MeshLambertMaterial({ color: 0xffffff })
-    )
+    );
 
     let pArray = [];
-    for (let i = 0; i < width * height / 2; i++) {
-      let m = 0, n = 100;
+    for (let i = 0; i < (width * height) / 2; i++) {
+      let m = 0,
+        n = 100;
       pArray.push(Math.random() * (n - m + 1) - m);
       pArray.push(Math.random() * (n - m + 1) - m);
       pArray.push(Math.random() * (n - m + 1) - m);
@@ -1134,23 +1478,23 @@ export default class ShaderStudy extends React.Component {
     //   `,
     //   fragmentShader: `
     //     void main(){
-    //       gl_FragColor = 
+    //       gl_FragColor =
     //     }
     //   `
     // })
 
     let material = new MeshLambertMaterial({
       map: img1,
-    })
+    });
     let geometry = new THREE.PlaneGeometry(width, height);
-    let plane = new THREE.Mesh(
-      geometry,
-      material
-    )
-    scene.add(plane)
+    let plane = new THREE.Mesh(geometry, material);
+    scene.add(plane);
     plane.rotateX(-Math.PI * 0.5);
 
-    geometry.setAttribute('p_position', new THREE.Float32BufferAttribute(pArray, 3));
+    geometry.setAttribute(
+      "p_position",
+      new THREE.Float32BufferAttribute(pArray, 3)
+    );
     console.log(geometry);
 
     geometry.computeBoundingBox();
@@ -1163,7 +1507,7 @@ export default class ShaderStudy extends React.Component {
 
     let vTime = {
       value: 0,
-    }
+    };
     material.transparent = true;
     material.onBeforeCompile = (shader) => {
       let uniforms = {
@@ -1184,18 +1528,18 @@ export default class ShaderStudy extends React.Component {
         },
         vTime,
         vBlurRadius: {
-          value: 6
+          value: 6,
         },
         vInnerRadius: {
-          value: 6
+          value: 6,
         },
         vRingWidth: {
-          value: 12
+          value: 12,
         },
         vHighColor: {
-          value: new THREE.Color("#5588aa")
-        }
-      }
+          value: new THREE.Color("#5588aa"),
+        },
+      };
       Object.assign(shader.uniforms, uniforms);
 
       const vertex = `
@@ -1258,21 +1602,17 @@ export default class ShaderStudy extends React.Component {
         "void main() {",
         fragment
       );
-      shader.fragmentShader = shader.fragmentShader.replace(
-        "}",
-        fragmentColor
-      );
+      shader.fragmentShader = shader.fragmentShader.replace("}", fragmentColor);
       shader.vertexShader = shader.vertexShader.replace(
         "void main() {",
         vertex
       );
-
-    }
+    };
 
     let stats = new Stats();
     document.body.appendChild(stats.dom);
     function render() {
-      requestAnimationFrame(render)
+      requestAnimationFrame(render);
 
       vTime.value += 0.1;
       renderer.render(scene, camera);
@@ -1280,9 +1620,14 @@ export default class ShaderStudy extends React.Component {
     }
     render();
   }
-  createPointsPlane({ width = 10, length = 10, density = 1, position = [0, 0, 0], pointColor = 0xcc8866 }) {
-
-    const group = new THREE.Group()
+  createPointsPlane({
+    width = 10,
+    length = 10,
+    density = 1,
+    position = [0, 0, 0],
+    pointColor = 0xcc8866,
+  }) {
+    const group = new THREE.Group();
     const rot = Math.PI / 2;
 
     {
@@ -1291,83 +1636,89 @@ export default class ShaderStudy extends React.Component {
       const l = length / density + 1;
 
       for (let i = 0; i < w; i++) {
-
         for (let j = 0; j < l; j++) {
-
           const geometry = new THREE.CircleGeometry(0.05, 50);
 
           const material = new THREE.MeshPhongMaterial({
             color: pointColor,
             side: THREE.DoubleSide,
-            polygonOffset: true
+            polygonOffset: true,
           });
           const mesh = new THREE.Mesh(geometry, material);
 
-          mesh.position.set(i * density, j * density, 0)
+          mesh.position.set(i * density, j * density, 0);
 
           group.add(mesh);
-
         }
       }
     }
     {
       // 2、创建网格
-      const axis = new THREE.GridHelper(width, length)
-      const material = axis.material
+      const axis = new THREE.GridHelper(width, length);
+      const material = axis.material;
       material.transparent = true;
-      material.opacity = 0.4
-      axis.rotation.x = -Math.PI / 2
+      material.opacity = 0.4;
+      axis.rotation.x = -Math.PI / 2;
 
-      axis.position.set(width / 2, length / 2, 0)
-      group.add(axis)
+      axis.position.set(width / 2, length / 2, 0);
+      group.add(axis);
     }
     {
       // 3、创建平面
-      const planeGeometry = new THREE.PlaneGeometry(width, length)
+      const planeGeometry = new THREE.PlaneGeometry(width, length);
       const planeMaterial = new THREE.MeshPhongMaterial({
         color: 0xffffff,
         side: THREE.DoubleSide,
         transparent: true,
         opacity: 0.1,
-      })
+      });
 
-      const mesh = new THREE.Mesh(planeGeometry, planeMaterial)
-      group.add(mesh)
+      const mesh = new THREE.Mesh(planeGeometry, planeMaterial);
+      group.add(mesh);
 
-      mesh.position.set(width / 2, length / 2, 0)
+      mesh.position.set(width / 2, length / 2, 0);
     }
 
-    group.rotation.x = rot
+    group.rotation.x = rot;
 
-    group.position.set(position[0], position[1], position[2])
+    group.position.set(position[0], position[1], position[2]);
 
-    return group
+    return group;
   }
 
   changeFog(renderer) {
-
     let { scene, camera, controls } = this.loadBasic(renderer);
 
     let pos = {
-      "x": 121.90667216988187,
-      "y": 36.41296479106111,
-      "z": -44.32224725055222
-    }
-    camera.position.set(pos.x, pos.y, pos.z)
-    controls.update()
+      x: 121.90667216988187,
+      y: 36.41296479106111,
+      z: -44.32224725055222,
+    };
+    camera.position.set(pos.x, pos.y, pos.z);
+    controls.update();
 
-    let light = new THREE.PointLight(0xffffff)
-    light.position.set(0, 10, 0)
-    scene.add(light)
-
+    let light = new THREE.PointLight(0xffffff);
+    light.position.set(0, 10, 0);
+    scene.add(light);
 
     var parseColor = function (hexStr) {
-      return hexStr.length === 4 ? hexStr.substr(1).split('').map(function (s) { return 0x11 * parseInt(s, 16); }) : [hexStr.substr(1, 2), hexStr.substr(3, 2), hexStr.substr(5, 2)].map(function (s) { return parseInt(s, 16); })
+      return hexStr.length === 4
+        ? hexStr
+            .substr(1)
+            .split("")
+            .map(function (s) {
+              return 0x11 * parseInt(s, 16);
+            })
+        : [hexStr.substr(1, 2), hexStr.substr(3, 2), hexStr.substr(5, 2)].map(
+            function (s) {
+              return parseInt(s, 16);
+            }
+          );
     };
 
     // zero-pad 1 digit to 2
     var pad = function (s) {
-      return (s.length === 1) ? '0' + s : s;
+      return s.length === 1 ? "0" + s : s;
     };
 
     /*
@@ -1377,7 +1728,12 @@ export default class ShaderStudy extends React.Component {
         gamma 暂时理解为透明一点（伽马）
     */
     var gradientColors = function (start, end, steps, gamma) {
-      var i, j, ms, me, output = [], so = [];
+      var i,
+        j,
+        ms,
+        me,
+        output = [],
+        so = [];
       gamma = gamma || 1;
       var normalize = function (channel) {
         return Math.pow(channel / 255, gamma);
@@ -1388,16 +1744,20 @@ export default class ShaderStudy extends React.Component {
         ms = i / (steps - 1);
         me = 1 - ms;
         for (j = 0; j < 3; j++) {
-          so[j] = pad(Math.round(Math.pow(start[j] * me + end[j] * ms, 1 / gamma) * 255).toString(16));
+          so[j] = pad(
+            Math.round(
+              Math.pow(start[j] * me + end[j] * ms, 1 / gamma) * 255
+            ).toString(16)
+          );
         }
-        output.push('#' + so.join(''));
+        output.push("#" + so.join(""));
       }
       return output;
     };
 
-    let c1 = '#A4958E';
-    let c2 = '#111D3E';
-    let array = gradientColors(c1, c2, 100)
+    let c1 = "#A4958E";
+    let c2 = "#111D3E";
+    let array = gradientColors(c1, c2, 100);
 
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
@@ -1413,23 +1773,23 @@ export default class ShaderStudy extends React.Component {
 
         let param = {
           delta: 0,
-        }
+        };
         gsap.to(param, {
           delta: 99,
           duration: 5,
           yoyo: true,
           repeat: -1,
           onUpdate() {
-            let c1 = '#A4958E';
-            let c2 = '#111D3E';
+            let c1 = "#A4958E";
+            let c2 = "#111D3E";
             let i = Math.floor(param.delta);
 
             let color = array[i];
             // console.log(color.replace('#', ''));
 
             scene.fog = new THREE.FogExp2(color, 0.01);
-          }
-        })
+          },
+        });
 
         // setTimeout(function(){
         //   scene.fog = new THREE.FogExp2(0x111D3E, 0.01);
@@ -1446,46 +1806,41 @@ export default class ShaderStudy extends React.Component {
       }
     );
 
-    let fog = new THREE.FogExp2('#A4958E', 0.01);
+    let fog = new THREE.FogExp2("#A4958E", 0.01);
 
     scene.fog = fog;
-
-
 
     function render() {
       requestAnimationFrame(render);
 
-      renderer.render(scene, camera)
+      renderer.render(scene, camera);
     }
     render();
   }
 
-
   temperature2(renderer) {
-
-
     let heatmapInstance = h337.create({
-      container: document.querySelector('#box2'),
+      container: document.querySelector("#box2"),
       radius: 100,
       gradient: {
-        '.2': '#00ffff',
-        '.6': '#00ff00',
-        '.8': '#ffff00',
-        '.95': '#ff0000',
-      }
-    })
+        ".2": "#00ffff",
+        ".6": "#00ff00",
+        ".8": "#ffff00",
+        ".95": "#ff0000",
+      },
+    });
 
     //构建一些随机数据点,网页切图价格这里替换成你的业务数据
     let points = [
       {
         x: 50,
         y: 200,
-        value: 25
+        value: 25,
       },
     ];
     let data = {
       max: 60,
-      data: points
+      data: points,
     };
     //因为data是一组数据,web切图报价所以直接setData
     heatmapInstance.setData(data); //数据绑定还可以使用
@@ -1497,43 +1852,44 @@ export default class ShaderStudy extends React.Component {
     let light = new THREE.DirectionalLight(0xffffff);
     scene.add(light);
 
-    let texture = new THREE.CanvasTexture(document.querySelector('#box2').children[0]);
+    let texture = new THREE.CanvasTexture(
+      document.querySelector("#box2").children[0]
+    );
 
     let material = new THREE.MeshLambertMaterial({
       map: texture,
       // transparent: true,
-      side: THREE.DoubleSide
-    })
+      side: THREE.DoubleSide,
+    });
 
-    let mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(4.6,  26),
-      material
-    )
+    let mesh = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 26), material);
     scene.add(mesh);
     mesh.rotateX(Math.PI * 0.5);
     let pos = {
-      "x": -51.96995664673806,
-      "y": 39.3,
-      "z": 13.383748148979855
-    }
-    mesh.position.set(pos.x, pos.y, pos.z)
+      x: -51.96995664673806,
+      y: 39.3,
+      z: 13.383748148979855,
+    };
+    mesh.position.set(pos.x, pos.y, pos.z);
 
     let w = mesh.geometry.parameters.width / 2,
-        h = mesh.geometry.parameters.height / 2;
-    
-    let posArray = [
-      {x: pos.x - w, z: pos.z - h},
-      {x: pos.x + w, z: pos.z - h},
-      {x: pos.x + w, z: pos.z + h},
-      {x: pos.x - w, z: pos.z + h},
-    ]
+      h = mesh.geometry.parameters.height / 2;
 
-    for(let item of posArray){
-    
+    let posArray = [
+      { x: pos.x - w, z: pos.z - h },
+      { x: pos.x + w, z: pos.z - h },
+      { x: pos.x + w, z: pos.z + h },
+      { x: pos.x - w, z: pos.z + h },
+    ];
+
+    for (let item of posArray) {
       let box = new THREE.BoxGeometry(1, 1, 1);
-      let _mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x00ffff }));
-      _mesh.position.set(item.x, pos.y, item.z)
-      scene.add(_mesh)
+      let _mesh = new THREE.Mesh(
+        box,
+        new THREE.MeshLambertMaterial({ color: 0x00ffff })
+      );
+      _mesh.position.set(item.x, pos.y, item.z);
+      scene.add(_mesh);
     }
     console.log(posArray);
 
@@ -1549,8 +1905,8 @@ export default class ShaderStudy extends React.Component {
       function (gltf) {
         scene.add(gltf.scene);
 
-        scene.getObjectByName('屋顶1').visible = false;
-        scene.getObjectByName('屋顶2').visible = false;
+        scene.getObjectByName("屋顶1").visible = false;
+        scene.getObjectByName("屋顶2").visible = false;
 
         // scene.getObjectByName('35kv开关室').traverse(mesh => {
         //   if(mesh?.material?.isMaterial){
@@ -1558,7 +1914,6 @@ export default class ShaderStudy extends React.Component {
         //     mesh.material.opacity = 0.2;
         //   }
         // })
-
       },
       // called while loading is progressing
       function (xhr) {
@@ -1571,9 +1926,12 @@ export default class ShaderStudy extends React.Component {
     );
 
     let box = new THREE.BoxGeometry(1, 1, 1);
-    let _mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x0000ff }));
-    _mesh.position.set(10, 10, 10)
-    scene.add(_mesh)
+    let _mesh = new THREE.Mesh(
+      box,
+      new THREE.MeshLambertMaterial({ color: 0x0000ff })
+    );
+    _mesh.position.set(10, 10, 10);
+    scene.add(_mesh);
     let meshList = [_mesh, mesh];
 
     let dragstart = (event) => {
@@ -1589,22 +1947,14 @@ export default class ShaderStudy extends React.Component {
 
     let Controller = {
       startDrag: () => {
-
-        dragControls = new DragControls(
-          meshList,
-          camera,
-          renderer.domElement
-        );
+        dragControls = new DragControls(meshList, camera, renderer.domElement);
         dragControls.addEventListener("drag", () =>
           renderer.render(scene, camera)
         );
 
         // 3、把OrbitControls的dom元素替换掉
         controls.dispose();
-        controls = new OrbitControls(
-          camera,
-          renderer.domElement
-        );
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.update();
 
         // 4、避免两个控制器冲突
@@ -1625,10 +1975,7 @@ export default class ShaderStudy extends React.Component {
 
         // 4、还原OrbitControls
         controls.dispose();
-        controls = new OrbitControls(
-          camera,
-          renderer.domElement
-        );
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.update();
       },
     };
@@ -1644,9 +1991,8 @@ export default class ShaderStudy extends React.Component {
   }
 
   computedWater(renderer, paramsOption) {
-
     let { scene, camera, controls } = this.loadBasic(renderer);
-    camera.position.set(0, 4, 15)
+    camera.position.set(0, 4, 15);
     controls.update();
 
     let obj = this.createWater();
@@ -1660,7 +2006,6 @@ export default class ShaderStudy extends React.Component {
       requestAnimationFrame(render);
 
       renderer.render(scene, camera);
-
     }
 
     render();
@@ -1668,23 +2013,28 @@ export default class ShaderStudy extends React.Component {
 
   createWater(paramsOption) {
     const defOption = {
-      length: 8,  // 水柱的长度
-      height: 7,  // 水柱的高度
-      width: 3,   // 底部矩形的宽
-      depth: 4,  // 底部矩形的高
-      widthSegment: 5,  // 底部矩形的宽度分段数
+      length: 8, // 水柱的长度
+      height: 7, // 水柱的高度
+      width: 3, // 底部矩形的宽
+      depth: 4, // 底部矩形的高
+      widthSegment: 5, // 底部矩形的宽度分段数
       depthSegment: 5, // 底部矩形的高度分段数
-      color: 0xffffff,  // 水柱颜色
-      opacity: 0.8,     // 水柱的透明度
-      dashSize: 0.2,    // 每段虚线的长度
-      gapSize: 0.1,     // 每段虚线的间隔
-      speed: 0.02,      // 虚线移动的速度，实际意义是每一帧移动的距离
-    }
+      color: 0xffffff, // 水柱颜色
+      opacity: 0.8, // 水柱的透明度
+      dashSize: 0.2, // 每段虚线的长度
+      gapSize: 0.1, // 每段虚线的间隔
+      speed: 0.02, // 虚线移动的速度，实际意义是每一帧移动的距离
+    };
 
-    const option = Object.assign(defOption, paramsOption || {})
+    const option = Object.assign(defOption, paramsOption || {});
 
     let plane = new THREE.Mesh(
-      new THREE.PlaneGeometry(option.width, option.depth, option.widthSegment, option.depthSegment),
+      new THREE.PlaneGeometry(
+        option.width,
+        option.depth,
+        option.widthSegment,
+        option.depthSegment
+      ),
       new MeshLambertMaterial({
         color: 0x0000ff,
         wireframe: true,
@@ -1695,11 +2045,11 @@ export default class ShaderStudy extends React.Component {
     plane.updateMatrixWorld();
 
     let points = [];
-    let array = plane.geometry.getAttribute('position').array
+    let array = plane.geometry.getAttribute("position").array;
     for (let i = 0; i < array.length; i += 3) {
       let p = new THREE.Vector3(array[i], array[i + 1], array[i + 2]);
-      p.applyMatrix4(plane.matrixWorld)
-      points.push(p)
+      p.applyMatrix4(plane.matrixWorld);
+      points.push(p);
     }
 
     let material = new THREE.LineDashedMaterial({
@@ -1710,31 +2060,40 @@ export default class ShaderStudy extends React.Component {
       opacity: option.opacity,
     });
     let _shader;
-    material.onBeforeCompile = shader => {
+    material.onBeforeCompile = (shader) => {
       _shader = shader;
 
       shader.uniforms.time = {
-        value: 0
-      }
+        value: 0,
+      };
       const vertex = `
         uniform float time;
         void main() {
-      `
+      `;
       const vertexShader = `
         vLineDistance = scale * lineDistance + time;
-      `
-      shader.vertexShader = shader.vertexShader.replace('void main() {', vertex)
-      shader.vertexShader = shader.vertexShader.replace('vLineDistance = scale * lineDistance', vertexShader)
-    }
+      `;
+      shader.vertexShader = shader.vertexShader.replace(
+        "void main() {",
+        vertex
+      );
+      shader.vertexShader = shader.vertexShader.replace(
+        "vLineDistance = scale * lineDistance",
+        vertexShader
+      );
+    };
 
     const group = new THREE.Group();
 
     const start = new THREE.Vector3(0, option.height, 0);
 
     for (let end of points) {
-
       let d1 = start,
-        d2 = new THREE.Vector3((start.x + end.x) / 2, start.y, (start.z + end.z) / 2),
+        d2 = new THREE.Vector3(
+          (start.x + end.x) / 2,
+          start.y,
+          (start.z + end.z) / 2
+        ),
         d3 = new THREE.Vector3(end.x, (start.y + end.y) / 2, end.z),
         d4 = end;
 
@@ -1744,9 +2103,9 @@ export default class ShaderStudy extends React.Component {
       const curveObject = new THREE.Line(
         new THREE.BufferGeometry().setFromPoints(linePoints),
         material
-      )
+      );
       curveObject.computeLineDistances();
-      group.add(curveObject)
+      group.add(curveObject);
     }
 
     const obj = {
@@ -1760,18 +2119,16 @@ export default class ShaderStudy extends React.Component {
       stop() {
         this.isStarted = false;
       },
-    }
+    };
     function render() {
       obj.isStarted && requestAnimationFrame(render);
 
-      if (_shader)
-        _shader.uniforms.time.value -= option.speed;
+      if (_shader) _shader.uniforms.time.value -= option.speed;
     }
     return obj;
   }
 
   fire1(renderer) {
-
     let { scene, camera, controls } = this.loadBasic(renderer);
 
     let stats;
@@ -1780,11 +2137,15 @@ export default class ShaderStudy extends React.Component {
     animate();
 
     function init() {
-
-      camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 2, 2000);
+      camera = new THREE.PerspectiveCamera(
+        55,
+        window.innerWidth / window.innerHeight,
+        2,
+        2000
+      );
       camera.position.x = 0;
       camera.position.y = 100;
-      camera.position.z = - 300;
+      camera.position.z = -300;
 
       // scene = new THREE.Scene();
       // scene.fog = new THREE.FogExp2( 0x000000, 0.001 );
@@ -1802,37 +2163,52 @@ export default class ShaderStudy extends React.Component {
       const intensity = [];
       const size = [];
 
-      const positionAttribute = teapotGeometry.getAttribute('position');
+      const positionAttribute = teapotGeometry.getAttribute("position");
       const particleCount = positionAttribute.count;
 
       for (let i = 0; i < particleCount; i++) {
-
         speed.push(20 + Math.random() * 50);
 
-        intensity.push(Math.random() * .15);
+        intensity.push(Math.random() * 0.15);
 
         size.push(30 + Math.random() * 230);
-
       }
 
-      geometry.setAttribute('position', positionAttribute);
-      geometry.setAttribute('targetPosition', sphereGeometry.getAttribute('position'));
-      geometry.setAttribute('particleSpeed', new THREE.Float32BufferAttribute(speed, 1));
-      geometry.setAttribute('particleIntensity', new THREE.Float32BufferAttribute(intensity, 1));
-      geometry.setAttribute('particleSize', new THREE.Float32BufferAttribute(size, 1));
+      geometry.setAttribute("position", positionAttribute);
+      geometry.setAttribute(
+        "targetPosition",
+        sphereGeometry.getAttribute("position")
+      );
+      geometry.setAttribute(
+        "particleSpeed",
+        new THREE.Float32BufferAttribute(speed, 1)
+      );
+      geometry.setAttribute(
+        "particleIntensity",
+        new THREE.Float32BufferAttribute(intensity, 1)
+      );
+      geometry.setAttribute(
+        "particleSize",
+        new THREE.Float32BufferAttribute(size, 1)
+      );
 
       // maps
 
       // Forked from: https://answers.unrealengine.com/questions/143267/emergency-need-help-with-fire-fx-weird-loop.html
 
-      const fireMap = new THREE.TextureLoader().load('textures/sprites/firetorch_1.jpg');
+      const fireMap = new THREE.TextureLoader().load(
+        "textures/sprites/firetorch_1.jpg"
+      );
 
       // nodes
 
-      const targetPosition = new Nodes.AttributeNode('targetPosition', 'vec3');
-      const particleSpeed = new Nodes.AttributeNode('particleSpeed', 'float');
-      const particleIntensity = new Nodes.AttributeNode('particleIntensity', 'float');
-      const particleSize = new Nodes.AttributeNode('particleSize', 'float');
+      const targetPosition = new Nodes.AttributeNode("targetPosition", "vec3");
+      const particleSpeed = new Nodes.AttributeNode("particleSpeed", "float");
+      const particleIntensity = new Nodes.AttributeNode(
+        "particleIntensity",
+        "float"
+      );
+      const particleSize = new Nodes.AttributeNode("particleSize", "float");
 
       const time = new Nodes.TimerNode();
 
@@ -1841,15 +2217,20 @@ export default class ShaderStudy extends React.Component {
       const fireUV = new Nodes.SpriteSheetUVNode(
         spriteSheetCount, // count
         new Nodes.PointUVNode(), // uv
-        new Nodes.OperatorNode('*', time, particleSpeed) // current frame
+        new Nodes.OperatorNode("*", time, particleSpeed) // current frame
       );
 
       const fireSprite = new Nodes.TextureNode(fireMap, fireUV);
-      const fire = new Nodes.OperatorNode('*', fireSprite, particleIntensity);
+      const fire = new Nodes.OperatorNode("*", fireSprite, particleIntensity);
 
       const lerpPosition = new Nodes.UniformNode(0);
 
-      const positionNode = new Nodes.MathNode(Nodes.MathNode.MIX, new Nodes.PositionNode(Nodes.PositionNode.LOCAL), targetPosition, lerpPosition);
+      const positionNode = new Nodes.MathNode(
+        Nodes.MathNode.MIX,
+        new Nodes.PositionNode(Nodes.PositionNode.LOCAL),
+        targetPosition,
+        lerpPosition
+      );
 
       // material
 
@@ -1857,7 +2238,7 @@ export default class ShaderStudy extends React.Component {
         depthWrite: false,
         transparent: true,
         sizeAttenuation: true,
-        blending: THREE.AdditiveBlending
+        blending: THREE.AdditiveBlending,
       });
 
       material.colorNode = fire;
@@ -1877,16 +2258,12 @@ export default class ShaderStudy extends React.Component {
       const gui = new GUI();
       const guiNode = { lerpPosition: 0 };
 
-      gui.add(material, 'sizeAttenuation').onChange(function () {
-
+      gui.add(material, "sizeAttenuation").onChange(function () {
         material.needsUpdate = true;
-
       });
 
-      gui.add(guiNode, 'lerpPosition', 0, 1).onChange(function () {
-
+      gui.add(guiNode, "lerpPosition", 0, 1).onChange(function () {
         lerpPosition.value = guiNode.lerpPosition;
-
       });
 
       gui.open();
@@ -1899,56 +2276,48 @@ export default class ShaderStudy extends React.Component {
 
       // events
 
-      window.addEventListener('resize', onWindowResize);
-
+      window.addEventListener("resize", onWindowResize);
     }
 
     function onWindowResize() {
-
       camera.aspect = window.innerWidth / window.innerHeight;
       camera.updateProjectionMatrix();
 
       renderer.setSize(window.innerWidth, window.innerHeight);
-
     }
 
     //
 
     function animate() {
-
       requestAnimationFrame(animate);
 
       render();
       stats.update();
-
     }
 
     function render() {
-
       nodeFrame.update();
 
       renderer.render(scene, camera);
-
     }
-
   }
 
   mouse_bloom(renderer) {
     let { scene, camera, controls } = this.loadBasic(renderer);
     const pos = {
-      "x": -7.1473706000687365,
-      "y": 16.714516428609492,
-      "z": 13.815467561803132
-    }
+      x: -7.1473706000687365,
+      y: 16.714516428609492,
+      z: 13.815467561803132,
+    };
     const target = {
-      "x": -6.824771217141079,
-      "y": 1.8003050411241583,
-      "z": -5.355257243029237
-    }
+      x: -6.824771217141079,
+      y: 1.8003050411241583,
+      z: -5.355257243029237,
+    };
     camera.position.set(pos.x, pos.y, pos.z);
-    controls.target.set(target.x, target.y, target.z)
+    controls.target.set(target.x, target.y, target.z);
     controls.update();
-    controls.addEventListener('change', render);
+    controls.addEventListener("change", render);
 
     // controls.maxDistance = 2000; // 能够将相机向外移动多少
     // controls.minDistance = 300; // 能够将相机向里移动多少
@@ -1968,12 +2337,13 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
-    const ENTIRE_SCENE = 1, BLOOM_SCENE = 2;
+    const ENTIRE_SCENE = 1,
+      BLOOM_SCENE = 2;
     let children = [];
-    
+
     let isVirtual = {
-      value: 0
-    }
+      value: 0,
+    };
     loader.load(
       "/jingling-main.glb",
       async function (gltf) {
@@ -1981,7 +2351,7 @@ export default class ShaderStudy extends React.Component {
         scene.getObjectByName("屋顶1").removeFromParent();
         scene.getObjectByName("屋顶2").removeFromParent();
 
-        scene.getObjectByName('35kv内墙').layers.toggle(BLOOM_SCENE);
+        scene.getObjectByName("35kv内墙").layers.toggle(BLOOM_SCENE);
         // scene.getObjectByName('D20_2').layers.toggle(BLOOM_SCENE);
         // // scene.getObjectByName('主楼1').layers.toggle(BLOOM_SCENE);
         // scene.getObjectByName('35kv开关室').traverse(mesh => {
@@ -2010,7 +2380,6 @@ export default class ShaderStudy extends React.Component {
         // scene.getObjectByName('外场景').visible = false
         // scene.getObjectByName('水面').visible = false
 
-
         // let list = scene.getObjectByName('排风扇').children.map(item => {
         //   let name = item.name + '_2';
         //   let mesh = scene.getObjectByName(name)
@@ -2038,7 +2407,6 @@ export default class ShaderStudy extends React.Component {
         // scene.getObjectByName('屋顶2').visible = false;
 
         render();
-
       },
       // called while loading is progressing
       function (xhr) {
@@ -2051,70 +2419,69 @@ export default class ShaderStudy extends React.Component {
     );
     window.toggleVirtualMesh = toggleVirtualMesh;
 
-    function toggleVirtualMesh(nameList){
-
-      for(let name of nameList){
-        let _mesh = scene.getObjectByName(name)
+    function toggleVirtualMesh(nameList) {
+      for (let name of nameList) {
+        let _mesh = scene.getObjectByName(name);
         // 还原
-        if(_mesh.userData.isVirtual){
+        if (_mesh.userData.isVirtual) {
           _mesh.userData.isVirtual = false;
-          _mesh.children.forEach((mesh) =>{
-            if(mesh?.isMesh){
+          _mesh.children.forEach((mesh) => {
+            if (mesh?.isMesh) {
               let line = scene.getObjectByName(mesh.uuid);
               line.removeFromParent();
               mesh.visible = true;
             }
-          })
-        }else{
+          });
+        } else {
           _mesh.userData.isVirtual = true;
           // 虚化
-          _mesh.children.forEach((mesh) =>{
-            if(mesh?.isMesh){
+          _mesh.children.forEach((mesh) => {
+            if (mesh?.isMesh) {
               let lineGeometry = new THREE.EdgesGeometry(mesh.geometry);
               let line = new THREE.LineSegments(
                 lineGeometry,
-                new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 0.05, transparent: true })
-              )
+                new THREE.LineBasicMaterial({
+                  color: 0x00ffff,
+                  opacity: 0.05,
+                  transparent: true,
+                })
+              );
               line.name = mesh.uuid;
               mesh.parent.add(line);
               line.layers.toggle(BLOOM_SCENE);
               mesh.visible = false;
             }
-          })
+          });
         }
 
         render();
       }
-      
     }
 
-
     window.toggleVirtualTree = toggleVirtualTree;
-    function toggleVirtualTree(){
-      let tree = scene.getObjectByName('树');
+    function toggleVirtualTree() {
+      let tree = scene.getObjectByName("树");
 
-      if(tree.userData.isVirtual){
+      if (tree.userData.isVirtual) {
         tree.userData.isVirtual = false;
-        tree.traverse(mesh => {
+        tree.traverse((mesh) => {
           if (mesh?.material?.isMaterial) {
             mesh.material.wireframe = false;
             mesh.layers.toggle(BLOOM_SCENE);
           }
-        })
+        });
         isVirtual.value = 0;
-      }else{
+      } else {
         tree.userData.isVirtual = true;
-        tree.traverse(mesh => {
+        tree.traverse((mesh) => {
           if (mesh?.material?.isMaterial) {
             mesh.material.wireframe = true;
             mesh.layers.toggle(BLOOM_SCENE);
           }
-        })
+        });
         isVirtual.value = 1;
-
       }
       render();
-      
     }
 
     // loader.load('/shaxi-tree.glb', async (gltf) => {
@@ -2125,7 +2492,7 @@ export default class ShaderStudy extends React.Component {
     //     if (mesh?.material?.isMaterial) {
     //       mesh.material.transparent = true;
     //       mesh.material.wireframe = false;
-  
+
     //       mesh.material.onBeforeCompile = (shader) => {
     //         const uniforms = {isVirtual};
     //         Object.assign(shader.uniforms, uniforms);
@@ -2143,18 +2510,17 @@ export default class ShaderStudy extends React.Component {
     //           "void main() {",
     //           fragment
     //         )
-  
+
     //         shader.fragmentShader = shader.fragmentShader.replace(
     //           "}",
     //           fragmentColor
     //         );
     //       }
     //       // mesh.layers.toggle(BLOOM_SCENE);
-  
+
     //     }
     //   })
     // })
-
 
     // const pmremGenerator = new THREE.PMREMGenerator(renderer);
     // pmremGenerator.compileEquirectangularShader();
@@ -2173,7 +2539,7 @@ export default class ShaderStudy extends React.Component {
       bloomStrength: 5,
       bloomThreshold: 0,
       bloomRadius: 0.5,
-      scene: 'Scene with Glow'
+      scene: "Scene with Glow",
     };
 
     // renderer.toneMappingExposure = Math.pow( params.exposure, 4.0 );
@@ -2182,40 +2548,46 @@ export default class ShaderStudy extends React.Component {
     bloomLayer.set(BLOOM_SCENE);
 
     let t;
-    new TextureLoader().load('/4.jpg', texture => {
-      scene.background = texture
-      t = texture
-    })
+    new TextureLoader().load("/4.jpg", (texture) => {
+      scene.background = texture;
+      t = texture;
+    });
 
-    const darkMaterial = new THREE.MeshBasicMaterial({ color: 'black' })
+    const darkMaterial = new THREE.MeshBasicMaterial({ color: "black" });
     const materials = {};
     // renderer.toneMapping = THREE.ReinhardToneMapping;
 
-    const renderScene = new RenderPass(scene, camera)
+    const renderScene = new RenderPass(scene, camera);
 
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85)
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      1.5,
+      0.4,
+      0.85
+    );
     bloomPass.threshold = params.threshold;
     bloomPass.strength = params.bloomStrength;
     bloomPass.radius = params.bloomRadius;
 
-    const bloomComposer = new EffectComposer(renderer)
+    const bloomComposer = new EffectComposer(renderer);
     bloomComposer.renderToScreen = false;
-    bloomComposer.addPass(renderScene)
-    bloomComposer.addPass(bloomPass)
+    bloomComposer.addPass(renderScene);
+    bloomComposer.addPass(bloomPass);
 
-    const finalPass = new ShaderPass(new THREE.ShaderMaterial({
-      uniforms: {
-        baseTexture: { value: null },
-        bloomTexture: { value: bloomComposer.renderTarget2.texture }
-      },
-      vertexShader: `
+    const finalPass = new ShaderPass(
+      new THREE.ShaderMaterial({
+        uniforms: {
+          baseTexture: { value: null },
+          bloomTexture: { value: bloomComposer.renderTarget2.texture },
+        },
+        vertexShader: `
         varying vec2 vUv;
         void main(){
           vUv = uv;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
       `,
-      fragmentShader: `
+        fragmentShader: `
         uniform sampler2D baseTexture;
         uniform sampler2D bloomTexture;
         varying vec2 vUv;
@@ -2223,45 +2595,41 @@ export default class ShaderStudy extends React.Component {
           gl_FragColor = (texture2D(baseTexture, vUv) + vec4(1.0) * texture2D(bloomTexture, vUv));
         }
       `,
-    }), 'baseTexture')
+      }),
+      "baseTexture"
+    );
     finalPass.needsSwap = true;
 
-    const finalComposer = new EffectComposer(renderer)
-    finalComposer.addPass(renderScene)
-    finalComposer.addPass(finalPass)
+    const finalComposer = new EffectComposer(renderer);
+    finalComposer.addPass(renderScene);
+    finalComposer.addPass(finalPass);
 
     const gui = new GUI();
 
-    const folder = gui.addFolder('Bloom Parameters');
+    const folder = gui.addFolder("Bloom Parameters");
 
-    folder.add(params, 'exposure', 0.1, 2).onChange(function (value) {
-
+    folder.add(params, "exposure", 0.1, 2).onChange(function (value) {
       renderer.toneMappingExposure = Math.pow(value, 4.0);
       render();
-
     });
 
-    folder.add(params, 'bloomThreshold', 0.0, 1.0).onChange(function (value) {
-
+    folder.add(params, "bloomThreshold", 0.0, 1.0).onChange(function (value) {
       bloomPass.threshold = Number(value);
       render();
-
     });
 
-    folder.add(params, 'bloomStrength', 0.0, 100.0).onChange(function (value) {
-
+    folder.add(params, "bloomStrength", 0.0, 100.0).onChange(function (value) {
       bloomPass.strength = Number(value);
       render();
-
     });
 
-    folder.add(params, 'bloomRadius', 0.0, 1.0).step(0.01).onChange(function (value) {
-
-      bloomPass.radius = Number(value);
-      render();
-
-    });
-
+    folder
+      .add(params, "bloomRadius", 0.0, 1.0)
+      .step(0.01)
+      .onChange(function (value) {
+        bloomPass.radius = Number(value);
+        render();
+      });
 
     const raycaster = new THREE.Raycaster();
 
@@ -2271,39 +2639,34 @@ export default class ShaderStudy extends React.Component {
 
     setupScene();
 
-
     function onPointerDown(event) {
-
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-      mouse.y = - (event.clientY / window.innerHeight) * 2 + 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
 
-      let children = scene.getObjectByName('灯').children.map(item => scene.getObjectByName(item.name + '_2'))
-      const intersects = raycaster.intersectObjects(scene.children, true)
+      let children = scene
+        .getObjectByName("灯")
+        .children.map((item) => scene.getObjectByName(item.name + "_2"));
+      const intersects = raycaster.intersectObjects(scene.children, true);
       if (intersects.length > 0) {
-
         const object = intersects[0].object;
-        object.layers.toggle(BLOOM_SCENE)
+        object.layers.toggle(BLOOM_SCENE);
         render();
-        console.log('点击了', object);
+        console.log("点击了", object);
       }
     }
 
     function setupScene() {
-
       scene.traverse(disposeMaterial);
 
       render();
-
     }
 
     function render() {
-
       renderBloom(true);
 
       finalComposer.render();
-
     }
 
     function disposeMaterial(obj) {
@@ -2313,9 +2676,7 @@ export default class ShaderStudy extends React.Component {
     }
 
     function renderBloom(mask) {
-
       if (mask) {
-
         scene.traverse(darkenNonBloomed);
 
         scene.background = null;
@@ -2323,9 +2684,7 @@ export default class ShaderStudy extends React.Component {
         scene.traverse(restoreMaterial);
 
         scene.background = t;
-
       } else {
-
         camera.layers.set(BLOOM_SCENE);
         bloomComposer.render();
         camera.layers.set(ENTIRE_SCENE);
@@ -2333,15 +2692,12 @@ export default class ShaderStudy extends React.Component {
     }
 
     function darkenNonBloomed(obj) {
-
       if (obj.isMesh && bloomLayer.test(obj.layers) === false) {
-
         materials[obj.uuid] = obj.material;
         obj.material = darkMaterial;
       }
     }
     function restoreMaterial(obj) {
-
       if (materials[obj.uuid]) {
         obj.material = materials[obj.uuid];
         delete materials[obj.uuid];
@@ -2375,17 +2731,16 @@ export default class ShaderStudy extends React.Component {
         // scene.getObjectByName('屋顶1').visible = false;
         // scene.getObjectByName('主体1').visible = false;
 
-        scene.getObjectByName('主体1').visible = false;
-        scene.getObjectByName('主体2').visible = false;
-        scene.getObjectByName('屋顶1').visible = false;
-        scene.getObjectByName('屋顶2').visible = false;
+        scene.getObjectByName("主体1").visible = false;
+        scene.getObjectByName("主体2").visible = false;
+        scene.getObjectByName("屋顶1").visible = false;
+        scene.getObjectByName("屋顶2").visible = false;
 
-        scene.getObjectByName('10kv\\35kv开关室').traverse(mesh => {
-
+        scene.getObjectByName("10kv\\35kv开关室").traverse((mesh) => {
           if (mesh.isMesh) {
-            changeMat(mesh, true)
+            changeMat(mesh, true);
           }
-        })
+        });
       },
       // called while loading is progressing
       function (xhr) {
@@ -2426,49 +2781,47 @@ export default class ShaderStudy extends React.Component {
 
       mesh.geometry.computeBoundingBox();
 
-
       let { min, max } = mesh.geometry.boundingBox;
       let height = max.y - min.y;
 
       mesh.material.transparent = true;
 
       if (isAfter) {
-
         for (let key in matObj) {
-          matObj[key].uniforms.isVirtual.value = isVirtual
+          matObj[key].uniforms.isVirtual.value = isVirtual;
         }
         lineGroup.visible = isVirtual;
         mesh.material.needsUpdate = true;
-        return
+        return;
       }
       mesh.material = mesh.material.clone();
-      mesh.material.onBeforeCompile = shader => {
-        matObj[mesh.material.uuid] = shader
+      mesh.material.onBeforeCompile = (shader) => {
+        matObj[mesh.material.uuid] = shader;
         Object.assign(shader.uniforms, {
           uHeight: {
-            value: height
+            value: height,
           },
           uColor: {
-            value: new THREE.Color('#00ffff')
+            value: new THREE.Color("#00ffff"),
           },
           maxOpacity: {
-            value: 0.6
+            value: 0.6,
           },
           isVirtual: {
             value: true,
           },
           minY: {
-            value: min.y
+            value: min.y,
           },
           maxY: {
-            value: max.y
+            value: max.y,
           },
-        })
+        });
 
         const vertex = `
           varying vec3 vPosition;
           void main() {
-            vPosition = position;`
+            vPosition = position;`;
         const fragment = `
           uniform float uHeight;
           uniform vec3 uColor;
@@ -2477,27 +2830,35 @@ export default class ShaderStudy extends React.Component {
           uniform float maxY;
           uniform bool isVirtual;
           varying vec3 vPosition;
-          void main() {`
+          void main() {`;
         const fragmentColor = `
           float dist = 1.0 - ((vPosition.y-minY) / uHeight);
           if(isVirtual){
             gl_FragColor = vec4(uColor, dist * maxOpacity);
           }
-        }`
+        }`;
 
-        shader.vertexShader = shader.vertexShader.replace(`void main() {`, vertex)
-        shader.fragmentShader = shader.fragmentShader.replace(`void main() {`, fragment)
-        shader.fragmentShader = shader.fragmentShader.replace(`}`, fragmentColor)
-
-      }
-      if (!isVirtual) return
+        shader.vertexShader = shader.vertexShader.replace(
+          `void main() {`,
+          vertex
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+          `void main() {`,
+          fragment
+        );
+        shader.fragmentShader = shader.fragmentShader.replace(
+          `}`,
+          fragmentColor
+        );
+      };
+      if (!isVirtual) return;
       let geometry = new THREE.EdgesGeometry(mesh.geometry);
 
       let shader = new THREE.ShaderMaterial({
         uniforms: {
           vColor: {
-            value: new THREE.Color('#00ffff')
-          }
+            value: new THREE.Color("#00ffff"),
+          },
         },
         transparent: true,
         vertexShader: `
@@ -2512,8 +2873,8 @@ export default class ShaderStudy extends React.Component {
           void main(){
             gl_FragColor = vec4(vColor, 0.5);
           }
-        `
-      })
+        `,
+      });
 
       let seg = new THREE.LineSegments(geometry, shader);
 
@@ -2521,12 +2882,12 @@ export default class ShaderStudy extends React.Component {
       const worldPosition = new THREE.Vector3();
       mesh.getWorldPosition(worldPosition);
 
-      seg.position.copy(worldPosition)
+      seg.position.copy(worldPosition);
 
       lineGroup.add(seg);
     }
 
-    window.changeMat = changeMat
+    window.changeMat = changeMat;
     function render() {
       requestAnimationFrame(render);
 
@@ -2584,21 +2945,21 @@ export default class ShaderStudy extends React.Component {
     const h = new THREE.BoxHelper(group);
     scene.add(h);
 
-    group.children.forEach(_mesh => {
-
+    group.children.forEach((_mesh) => {
       let delta = Math.random() * (max.y - min.y + 1) + min.y;
       if (Math.random() > 0.5) _mesh.position.y += delta;
       else _mesh.position.y -= delta;
-    })
+    });
 
     console.log(group);
     // scene.add(group);
 
-    let maxSpeed = 1, minSpeed = 0.2
+    let maxSpeed = 1,
+      minSpeed = 0.2;
     function move() {
       group.children.forEach((_mesh, index) => {
-
-        _mesh.position.y -= Math.random() * (maxSpeed - minSpeed + 1) + minSpeed;
+        _mesh.position.y -=
+          Math.random() * (maxSpeed - minSpeed + 1) + minSpeed;
         if (_mesh.position.y < min.y) {
           _mesh.position.y = max.y;
         }
@@ -2609,7 +2970,6 @@ export default class ShaderStudy extends React.Component {
 
     scene.add(obj.group);
     obj.start();
-
 
     function render() {
       requestAnimationFrame(render);
@@ -2629,14 +2989,13 @@ export default class ShaderStudy extends React.Component {
    * @return {*}
    */
   createRain(width, height, depth, paramsOption) {
-
     const defOption = {
-      maxSpeed: 1.5,  // 雨滴下落最大速度
-      minSpeed: 0.2,  // 雨滴下落最小速度 
-      length: 1,     // 每个雨滴的长度
-    }
+      maxSpeed: 1.5, // 雨滴下落最大速度
+      minSpeed: 0.2, // 雨滴下落最小速度
+      length: 1, // 每个雨滴的长度
+    };
 
-    const option = Object.assign(defOption, paramsOption || {})
+    const option = Object.assign(defOption, paramsOption || {});
 
     let box = new THREE.Mesh(
       new THREE.BoxGeometry(width, height / 2, depth),
@@ -2668,12 +3027,11 @@ export default class ShaderStudy extends React.Component {
       group.add(mesh);
     }
 
-    group.children.forEach(_mesh => {
-
+    group.children.forEach((_mesh) => {
       let delta = Math.random() * (max.y - min.y + 1) + min.y;
       if (Math.random() > 0.5) _mesh.position.y += delta;
       else _mesh.position.y -= delta;
-    })
+    });
 
     const obj = {
       group,
@@ -2685,14 +3043,15 @@ export default class ShaderStudy extends React.Component {
       stop() {
         this.isStarted = false;
       },
-    }
+    };
 
     function render() {
       obj.isStarted && requestAnimationFrame(render);
 
       group.children.forEach((_mesh, index) => {
-
-        _mesh.position.y -= Math.random() * (option.maxSpeed - option.minSpeed + 1) + option.minSpeed;
+        _mesh.position.y -=
+          Math.random() * (option.maxSpeed - option.minSpeed + 1) +
+          option.minSpeed;
         if (_mesh.position.y < min.y) {
           _mesh.position.y = max.y;
         }
@@ -2704,23 +3063,22 @@ export default class ShaderStudy extends React.Component {
   async temperature(renderer) {
     let { scene, camera, controls } = this.loadBasic(renderer);
     const pos = {
-      "x": -7.1473706000687365,
-      "y": 16.714516428609492,
-      "z": 13.815467561803132
-    }
+      x: -7.1473706000687365,
+      y: 16.714516428609492,
+      z: 13.815467561803132,
+    };
     const target = {
-      "x": -6.824771217141079,
-      "y": 1.8003050411241583,
-      "z": -5.355257243029237
-    }
+      x: -6.824771217141079,
+      y: 1.8003050411241583,
+      z: -5.355257243029237,
+    };
     camera.position.set(pos.x, pos.y, pos.z);
-    controls.target.set(target.x, target.y, target.z)
+    controls.target.set(target.x, target.y, target.z);
     controls.update();
 
     // let light = new THREE.PointLight(0xffffff);
     // light.position.y = 200;
     // scene.add(light);
-
 
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
@@ -2764,12 +3122,14 @@ export default class ShaderStudy extends React.Component {
       }
     );
 
-
     let box = new THREE.BoxGeometry(1, 1, 1);
-    let mesh = new THREE.Mesh(box, new THREE.MeshLambertMaterial({ color: 0x0000ff }));
-    mesh.position.set(10, 10, 10)
+    let mesh = new THREE.Mesh(
+      box,
+      new THREE.MeshLambertMaterial({ color: 0x0000ff })
+    );
+    mesh.position.set(10, 10, 10);
     let meshList = [mesh];
-    scene.add(mesh)
+    scene.add(mesh);
 
     // let wrapper = new THREE.Object3D();
     // wrapper.position.set(3,10,0);
@@ -2791,7 +3151,6 @@ export default class ShaderStudy extends React.Component {
     //   }
     // })
 
-
     let dragstart = (event) => {
       controls.enabled = false;
     };
@@ -2805,22 +3164,14 @@ export default class ShaderStudy extends React.Component {
 
     let Controller = {
       startDrag: () => {
-
-        dragControls = new DragControls(
-          meshList,
-          camera,
-          renderer.domElement
-        );
+        dragControls = new DragControls(meshList, camera, renderer.domElement);
         dragControls.addEventListener("drag", () =>
           renderer.render(scene, camera)
         );
 
         // 3、把OrbitControls的dom元素替换掉
         controls.dispose();
-        controls = new OrbitControls(
-          camera,
-          renderer.domElement
-        );
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.update();
 
         // 4、避免两个控制器冲突
@@ -2841,10 +3192,7 @@ export default class ShaderStudy extends React.Component {
 
         // 4、还原OrbitControls
         controls.dispose();
-        controls = new OrbitControls(
-          camera,
-          renderer.domElement
-        );
+        controls = new OrbitControls(camera, renderer.domElement);
         controls.update();
       },
     };
@@ -2863,11 +3211,11 @@ export default class ShaderStudy extends React.Component {
   }
 
   technologe_sity(renderer) {
-    renderer.setClearColor(new THREE.Color('#32373E'), 1);
+    renderer.setClearColor(new THREE.Color("#32373E"), 1);
     let { scene, camera, controls } = this.loadBasic(renderer);
-    controls.enableDamping = true
+    controls.enableDamping = true;
 
-    camera.position.set(1200, 700, 121)
+    camera.position.set(1200, 700, 121);
     controls.update();
 
     // let light = new THREE.PointLight(0xffffff);
@@ -2876,7 +3224,7 @@ export default class ShaderStudy extends React.Component {
 
     let vTime = {
       value: 0,
-    }
+    };
 
     new FBXLoader().load("/shanghai.FBX", (group) => {
       scene.add(group);
@@ -2885,12 +3233,12 @@ export default class ShaderStudy extends React.Component {
       addGrowAnimation();
       setFloor(group);
 
-      scene.getObjectByName('ROADS').visible = false;
+      scene.getObjectByName("ROADS").visible = false;
     });
 
     function setFloor() {
-      let floor = scene.getObjectByName('LANDMASS');
-      floor.material.color.setStyle('#040912');
+      let floor = scene.getObjectByName("LANDMASS");
+      floor.material.color.setStyle("#040912");
       scene.add(floor);
     }
 
@@ -2900,7 +3248,7 @@ export default class ShaderStudy extends React.Component {
       gsap.to(city.scale, {
         z: 1,
         duration: 2,
-      })
+      });
     }
 
     function addShader() {
@@ -2935,15 +3283,15 @@ export default class ShaderStudy extends React.Component {
           },
           vTime,
           vBlurRadius: {
-            value: 50
+            value: 50,
           },
           vRingWidth: {
-            value: 100
+            value: 100,
           },
           vHighColor: {
-            value: new THREE.Color("#5588aa")
-          }
-        }
+            value: new THREE.Color("#5588aa"),
+          },
+        };
         Object.assign(shader.uniforms, uniforms);
 
         const vertex = `
@@ -3512,7 +3860,7 @@ export default class ShaderStudy extends React.Component {
 
     // 进度条需要下面两种一起用，先加载GLTFLoader的onProgress，再加载LoadingManager的onProgress，一半一半
     let loadManager = new THREE.LoadingManager(
-      () => { },
+      () => {},
       (url, loaded, total) => {
         console.log(loaded, total);
       }
@@ -3560,9 +3908,9 @@ export default class ShaderStudy extends React.Component {
     // 场景
     const scene = new THREE.Scene();
 
-    let ambientLight = new THREE.AmbientLight(0xffffff);
-    ambientLight.intensity = 0.5;
-    scene.add(ambientLight);
+    // let ambientLight = new THREE.AmbientLight(0xffffff);
+    // ambientLight.intensity = 0.5;
+    // scene.add(ambientLight);
 
     // 控制相机
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -3583,9 +3931,11 @@ export default class ShaderStudy extends React.Component {
   render() {
     return (
       <div>
-        <div id="box" style={{ width: "100%", height: "100%", }} />
-        <div id="box2" style={{ width: "200px", height: "200px", position: "absolute", }} />
-
+        <div id="box" style={{ width: "100%", height: "100%" }} />
+        <div
+          id="box2"
+          style={{ width: "200px", height: "200px", position: "absolute" }}
+        />
       </div>
     );
   }
