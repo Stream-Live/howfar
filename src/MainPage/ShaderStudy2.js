@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-09 16:32:02
+ * @LastEditTime: 2022-12-25 23:26:52
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -54,33 +54,11 @@ import Geometry from "../fire-libs/Geometry";
 import Material from "../fire-libs/Material";
 import { repeat } from "lodash";
 
-// 导入hdr
-import limpopo_golf_course from "../assets/hdr/limpopo_golf_course.png";
-import limpopo_golf_course_1k from "../assets/hdr/limpopo_golf_course_1k.hdr";
-
-import rocky_ridge_puresky from "../assets/hdr/rocky_ridge_puresky.png";
-import rocky_ridge_puresky_1k from "../assets/hdr/rocky_ridge_puresky_1k.hdr";
-
-import belfast_sunset_puresky from "../assets/hdr/belfast_sunset_puresky.png";
-import belfast_sunset_puresky_1k from "../assets/hdr/belfast_sunset_puresky_1k.hdr";
-
-import kloofendal_48d_partly_cloudy_puresky from "../assets/hdr/kloofendal_48d_partly_cloudy_puresky.png";
-import kloofendal_48d_partly_cloudy_puresky_1k from "../assets/hdr/kloofendal_48d_partly_cloudy_puresky_1k.hdr";
-
-import kloppenheim_06_puresky from "../assets/hdr/kloppenheim_06_puresky.png";
-import kloppenheim_06_puresky_1k from "../assets/hdr/kloppenheim_06_puresky_1k.hdr";
-
-import scythian_tombs from "../assets/hdr/scythian_tombs.png";
-import scythian_tombs_1k from "../assets/hdr/scythian_tombs_1k.hdr";
-
-import syferfontein_0d_clear_puresky from "../assets/hdr/syferfontein_0d_clear_puresky.png";
-import syferfontein_0d_clear_puresky_1k from "../assets/hdr/syferfontein_0d_clear_puresky_1k.hdr";
-
-import table_mountain_1_puresky from "../assets/hdr/table_mountain_1_puresky.png";
-import table_mountain_1_puresky_1k from "../assets/hdr/table_mountain_1_puresky_1k.hdr";
-
 //导入hdr图像加载器
 import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader"; //rebe加载器
+
+import { Flow } from "three/examples/jsm/modifiers/CurveModifier.js";
+import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -130,288 +108,204 @@ export default class ShaderStudy extends React.Component {
 
     // this.label_move(renderer)  // 标签撞墙自动移位
 
-    this.light(renderer);
+    // this.practice(renderer);
+
+    // this.new_path(renderer);
+
+    // this.vague(renderer); // 模糊效果
+
+    // this.blingbling(renderer); // 闪烁效果
+
+    // this.uv_study(renderer); // uv学习
+
+    this.final_path(renderer); // 最终自己写的道路
   }
 
-  async light(renderer) {
+  final_path(renderer) {
+    renderer.setClearColor(0x000000);
     let { scene, camera, controls } = this.loadBasic(renderer);
 
-    // 默认光源
-    let ambientLight = new THREE.AmbientLight(0xffffff);
-    ambientLight.name = "AmbientLight";
-    // scene.add(ambientLight);
-
-    let directionalLight = new THREE.DirectionalLight("#ffffff");
-    directionalLight.name = "DirectionalLight";
-    let directionalLightTarget = new THREE.Object3D();
-    directionalLightTarget.name = "DirectionalLightTarget";
-
-    // scene.add(directionalLight);
-    // scene.add(directionalLightTarget);
-    // directionalLight.intensity = 2;
-    // directionalLight.position.set(10, 10, 0);
-    // directionalLightTarget.position.set(0, 0, -10);
-    // directionalLight.target = directionalLightTarget;
-
-    // GUI面板默认值
-    let params = {
-      hasAmbientLight: false, // 是否添加环境光
-      hasDirectionalLight: false, // 是否添加平行光
-      hasDirectionalLightTarget: false, // 是否添加平行光目标，默认是原点
-      isAddHdr: false,
+    const option = {
+      isClosed: true,
+      radius: 0.5, // 范围0-1，实际意义是圆角的贝塞尔曲线控制点，贝塞尔曲线的起始终止点都是 1
     };
 
-    let gui = new GUI();
+    let points = [
+      {
+        x: 7.602154318249855,
+        y: 7.921453849076141,
+        z: 6.721410476616342,
+      },
+      {
+        x: 10.148048025924078,
+        y: 9.80519616030863,
+        z: -3.687171295945351,
+      },
+      {
+        x: 17.196987884977865,
+        y: 10.367155161070908,
+        z: -1.7331112243968336,
+      },
+      {
+        x: 21.676960221577954,
+        y: 6.7777302427081665,
+        z: 2.761755486019113,
+      },
+      {
+        x: 17.576459920642765,
+        y: 8.061689769635127,
+        z: 8.265982854571803,
+      },
+    ];
 
-    // 1、环境光
-    let ambientLightFolder = gui.addFolder("环境光");
-    ambientLightFolder
-      .add(params, "hasAmbientLight")
-      .name("是否添加")
-      .onChange(() => {
-        let light = scene.getObjectByName(ambientLight.name);
-        if (params.hasAmbientLight && !light) {
-          scene.add(ambientLight);
-        }
-        if (!params.hasAmbientLight && light) {
-          light.removeFromParent();
-        }
-      })
-      .listen();
-    ambientLightFolder
-      .add(ambientLight, "intensity", 0, 5, 0.1)
-      .name("光照强度")
-      .listen();
-    ambientLightFolder.addColor(ambientLight, "color").listen();
+    let vec3Points = points.map((item) => new THREE.Vector3().copy(item));
 
-    // 2、平行光
-    let directionalLightFolder = gui.addFolder("平行光");
-    directionalLightFolder
-      .add(params, "hasDirectionalLight")
-      .name("是否添加")
-      .onChange(() => {
-        let light = scene.getObjectByName(directionalLight.name);
-        if (params.hasDirectionalLight && !light) {
-          scene.add(directionalLight);
-        }
-        if (!params.hasDirectionalLight && light) {
-          light.removeFromParent();
-        }
-      })
-      .listen();
+    // 1、绘制三维线条
+    let curvePath1 = new THREE.CurvePath();
+    let curvePath = new THREE.CurvePath();
+    let linePoints = [];
 
-    directionalLightFolder
-      .add(directionalLight, "intensity", 0, 5, 0.1)
-      .name("光照强度");
-    directionalLightFolder.addColor(directionalLight, "color").listen();
+    for (let i = 0; i < vec3Points.length; i++) {
+      let p1 = vec3Points[i],
+        p2 = vec3Points[(i + 1) % vec3Points.length];
 
-    let x = directionalLightFolder
-      .add(directionalLight.position, "x", -1000, 1000, 1)
-      .name("光源位置的x")
-      .listen();
-    directionalLightFolder
-      .add(directionalLight.position, "y", -1000, 1000, 1)
-      .name("光源位置的y")
-      .listen();
-    directionalLightFolder
-      .add(directionalLight.position, "z", -1000, 1000, 1)
-      .name("光源位置的z")
-      .listen();
+      const lineCurve1 = new THREE.LineCurve3(p1, p2);
+      curvePath1.add(lineCurve1);
 
-    directionalLightFolder
-      .add(params, "hasDirectionalLightTarget")
-      .name("是否添加目标")
-      .onChange(() => {
-        // 先检查有没有平行光
-        let light = scene.getObjectByName(directionalLight.name);
-        if (!light) {
-          params.hasDirectionalLightTarget = false;
-          return;
-        }
-        let target = scene.getObjectByName(directionalLightTarget.name);
-        if (!target && params.hasDirectionalLightTarget) {
-          directionalLight.target = directionalLightTarget;
-          scene.add(directionalLight.target);
-        }
-        if (target && !params.hasDirectionalLightTarget) {
-          directionalLight.target.removeFromParent();
-        }
-      })
-      .listen();
-    directionalLightFolder
-      .add(directionalLightTarget.position, "x", -1000, 1000, 1)
-      .name("目标的x")
-      .listen();
-    directionalLightFolder
-      .add(directionalLightTarget.position, "y", -1000, 1000, 1)
-      .name("目标的y")
-      .listen();
-    directionalLightFolder
-      .add(directionalLightTarget.position, "z", -1000, 1000, 1)
-      .name("目标的z")
-      .listen();
+      let side = new THREE.Vector3().subVectors(p2, p1).normalize();
 
-    // 3、hdr贴图
-    let cur_hdr = null;
-    let img_file_obj = {
-      limpopo_golf_course,
-      rocky_ridge_puresky,
-      belfast_sunset_puresky,
-      kloofendal_48d_partly_cloudy_puresky,
-      kloppenheim_06_puresky,
-      scythian_tombs,
-      syferfontein_0d_clear_puresky,
-      table_mountain_1_puresky,
-    };
-    let hdr_file_obj = {
-      limpopo_golf_course_1k,
-      rocky_ridge_puresky_1k,
-      belfast_sunset_puresky_1k,
-      kloofendal_48d_partly_cloudy_puresky_1k,
-      kloppenheim_06_puresky_1k,
-      scythian_tombs_1k,
-      syferfontein_0d_clear_puresky_1k,
-      table_mountain_1_puresky_1k,
-    };
-    let hdr_obj = {};
-    let img_obj = {};
+      let p11 = new THREE.Vector3().addVectors(p1, side);
+      let p12 = new THREE.Vector3().addVectors(
+        p1,
+        new THREE.Vector3().copy(side).multiplyScalar(option.radius)
+      );
+      let p22 = new THREE.Vector3().addVectors(
+        p2,
+        new THREE.Vector3().copy(side).negate()
+      );
+      let p23 = new THREE.Vector3().addVectors(
+        p2,
+        new THREE.Vector3().copy(side).negate().multiplyScalar(option.radius)
+      );
 
-    let hdrFolder = gui.addFolder("HDR");
-    hdrFolder
-      .add(params, "isAddHdr")
-      .name("是否添加")
-      .onChange(() => {
-        if (params.isAddHdr) {
-          scene.environment = cur_hdr;
-        } else {
-          scene.environment = null;
-        }
-      })
-      .listen();
-
-    // 添加图片容器
-    let hdr_div = document.createElement("div");
-    hdrFolder.$children.append(hdr_div);
-    hdr_div.style.display = "grid";
-    hdr_div.style["grid-template-columns"] = "repeat(2, 1fr)";
-    hdr_div.style["gap"] = "10px";
-
-    // 加载hdr环境图
-    const rgbeLoader = new RGBELoader();
-
-    for (let key in img_file_obj) {
-      let img = new Image();
-      img.src = img_file_obj[key];
-      img.style.width = "100px";
-      hdr_div.append(img);
-      img_obj[key] = img;
-      img.onclick = (event) => {
-        if (!params.isAddHdr) return;
-
-        let hdr_key = key + "_1k";
-        cur_hdr = scene.environment = scene.background = hdr_obj[hdr_key];
-
-        for (let _key in img_obj) {
-          img_obj[_key].style.border = "none";
-        }
-        event.target.style.border = "solid";
-      };
+      // 顺时针
+      linePoints.push(p12);
+      linePoints.push(p11);
+      linePoints.push(p22);
+      linePoints.push(p23);
     }
-    for (let key in hdr_file_obj) {
-      let texture = await rgbeLoader.loadAsync(hdr_file_obj[key]);
-      texture.mapping = THREE.EquirectangularReflectionMapping;
-      hdr_obj[key] = texture;
+    for (let i = 0; i < linePoints.length; i += 4) {
+      // 贝塞尔曲线
+      let p1 = linePoints[(i + 1) % linePoints.length],
+        p2 = linePoints[(i + 2) % linePoints.length],
+        p3 = linePoints[(i + 3) % linePoints.length],
+        p4 = linePoints[(i + 4) % linePoints.length],
+        p5 = linePoints[(i + 5) % linePoints.length];
+
+      let straight = new THREE.LineCurve3(p1, p2);
+      curvePath.add(straight);
+
+      let beize = new THREE.CubicBezierCurve3(p2, p3, p4, p5);
+      curvePath.add(beize);
     }
 
-    // 4、配置文件
-    let configFolder = gui.addFolder("配置文件");
-    let config_div = document.createElement("div");
-    configFolder.$children.append(config_div);
-    config_div.style.display = "grid";
-    config_div.style["grid-template-columns"] = "repeat(2, 1fr)";
-    config_div.style["gap"] = "20px";
+    const line = new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(curvePath.getPoints(50)),
+      new THREE.LineBasicMaterial({ color: 0x00ffff })
+    );
+    scene.add(line);
 
-    // 导出
-    let export_btn = document.createElement("button");
-    export_btn.innerHTML = "导出";
-    config_div.append(export_btn);
-    export_btn.onclick = () => {
-      let data = getExportJson();
-      let blob = new Blob([data]); //  创建 blob 对象
-      let link = document.createElement("a");
-      link.href = URL.createObjectURL(blob); //  创建一个 URL 对象并传给 a 的 href
-      link.download = "data.json"; //  设置下载的默认文件名
-      link.click();
-    };
-    function getExportJson() {
-      let data = {};
+    const line1 = new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(curvePath1.getPoints(50)),
+      new THREE.LineBasicMaterial({ color: 0xff0000 })
+    );
+    scene.add(line1);
 
-      data[directionalLight.name] = directionalLight.toJSON();
+    function render() {
+      requestAnimationFrame(render);
 
-      data[directionalLightTarget.name] = directionalLightTarget.toJSON();
-
-      return JSON.stringify({ data, params });
+      renderer.render(scene, camera);
     }
+    render();
+  }
 
-    // 导入
-    let import_btn = document.createElement("button");
-    import_btn.innerHTML = "导入";
-    config_div.append(import_btn);
-    import_btn.onclick = () => {
-      let inputObj = document.createElement("input");
-      inputObj.setAttribute("type", "file");
+  async uv_study(renderer) {
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
 
-      //选中文件时触发的方法
-      inputObj.onchange = () => {
-        //支持chrome IE10
-        if (window.FileReader) {
-          var file = inputObj.files[0];
-          var reader = new FileReader();
-          reader.onload = function (event) {
-            let json = JSON.parse(event.target.result);
-            console.log(json);
-            handleImportData(json);
-          };
-          reader.readAsText(file);
-        }
-      };
-      inputObj.click();
-    };
-    async function handleImportData(data) {
-      Object.assign(params, data.params);
+    let arr = [
+      [-1, 0, 0],
+      [1, 0, 0],
 
-      let map = {
-        AmbientLight: (obj) => {
-          ambientLight.color.copy(obj.color);
-          ambientLight.intensity = obj.intensity;
+      [-1, 2, 0],
+      [1, 2, 0],
+
+      [-1, 4, 0],
+      [1, 4, 0],
+    ];
+
+    let geometry = new THREE.BufferGeometry().setFromPoints(
+      arr.map((item) => new THREE.Vector3(item[0], item[1], item[2]))
+    );
+
+    let uv = [0, 0, 1, 0, 0, 1, 1, 1, 0, 2, 1, 2];
+    geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
+
+    let index = [0, 1, 2, 2, 1, 3, 3, 2, 4, 4, 3, 5];
+    // geometry.index = new THREE.Uint16BufferAttribute(index, 1);
+    geometry.setIndex(index);
+
+    let bg = await new THREE.TextureLoader().loadAsync("/bali_small.jpeg");
+    bg.wrapS = bg.wrapT = THREE.RepeatWrapping;
+    bg.offset.y += 0.5;
+
+    let material = new THREE.ShaderMaterial({
+      uniforms: {
+        bg: {
+          value: bg,
         },
-        DirectionalLight: (obj) => {
-          directionalLight.position.copy(obj.position);
-          directionalLight.color.copy(obj.color);
-          directionalLight.intensity = obj.intensity;
-        },
-        DirectionalLightTarget: (obj) => {
-          directionalLightTarget.position.copy(obj.position);
-          if (params.hasDirectionalLightTarget) {
-            directionalLight.target = directionalLightTarget;
-          }
-        },
-      };
-
-      let lightObj = {};
-      for (let key in data.data) {
-        let objJson = data.data[key];
-
-        let obj = await new THREE.ObjectLoader().parseAsync(objJson);
-        if (params["has" + key]) {
-          scene.add(obj);
-        }
-        lightObj[key] = obj;
+      },
+      vertexShader: `
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
       }
-      for (let key in lightObj) {
-        map[key] && map[key](lightObj[key]);
+      `,
+      fragmentShader: `
+      uniform sampler2D bg;
+      varying vec2 vUv;
+      void main(){
+        gl_FragColor = texture2D(bg, vec2(vUv.x, vUv.y + 0.5));
       }
+      
+      `,
+      side: THREE.DoubleSide,
+    });
+    let mat = new THREE.MeshBasicMaterial({
+      map: bg,
+    });
+    mat.onBeforeCompile = (shader) => {
+      console.log(shader);
+    };
+    let mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
+    scene.add(mesh);
+    mesh.position.set(0, 7, 0);
+
+    let mesh1 = new THREE.Mesh(geometry, material);
+    scene.add(mesh1);
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
     }
+    render();
+  }
+
+  blingbling(renderer) {
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
 
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
@@ -423,7 +317,65 @@ export default class ShaderStudy extends React.Component {
     loader.load(
       "/shaxi-main.glb",
       async function (gltf) {
-        await scene.add(gltf.scene);
+        let obj = gltf.scene.getObjectByName("35kv开关室");
+        await scene.add(obj);
+        let equip = obj.getObjectByName("#1主变35kv开关");
+
+        let red = {
+          value: 0.0,
+        };
+
+        gsap.to(red, {
+          value: 0.6,
+          repeat: -1,
+          yoyo: true,
+          duration: 1,
+        });
+
+        equip.children.forEach((mesh) => {
+          let mat = (mesh.material = mesh.material.clone());
+          if (mat.isMaterial) {
+            mat.onBeforeCompile = (shader) => {
+              let uniforms = {
+                red,
+              };
+              Object.assign(shader.uniforms, uniforms);
+              const vertex = `
+    
+                void main(){
+              `;
+              const vertexShader = `
+                }
+              `;
+
+              const fragment = `
+                  uniform float red;
+                  void main(){
+              `;
+              const fragmentColor = `
+                  gl_FragColor.r = max(red, gl_FragColor.r);
+                }
+              `;
+
+              shader.fragmentShader = shader.fragmentShader.replace(
+                "void main() {",
+                fragment
+              );
+              shader.fragmentShader = shader.fragmentShader.replace(
+                "}",
+                fragmentColor
+              );
+              shader.vertexShader = shader.vertexShader.replace(
+                "}",
+                vertexShader
+              );
+              shader.vertexShader = shader.vertexShader.replace(
+                "void main() {",
+                vertex
+              );
+            };
+          }
+        });
       },
       // called while loading is progressing
       function (xhr) {
@@ -434,6 +386,234 @@ export default class ShaderStudy extends React.Component {
         console.log("An error happened");
       }
     );
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+    }
+    render();
+  }
+
+  vague(renderer) {
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let light = new THREE.PointLight(0xffffff);
+    light.position.set(10, 10, 10);
+    scene.add(light);
+
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    loader.load(
+      "/shaxi-main.glb",
+      async function (gltf) {
+        let obj = gltf.scene.getObjectByName("主楼1_4");
+        await scene.add(obj);
+        console.log(obj);
+        obj.material.onBeforeCompile = (shader) => {
+          console.log(shader);
+          const vertex = `
+             attribute float size;
+     
+             void main(){
+           `;
+          const vertexShader = `
+               
+             }
+           `;
+
+          const fragment = `
+               void main(){
+           `;
+          const fragmentColor = `
+             }
+           `;
+
+          shader.fragmentShader = shader.fragmentShader.replace(
+            "void main() {",
+            fragment
+          );
+          shader.fragmentShader = shader.fragmentShader.replace(
+            "}",
+            fragmentColor
+          );
+          shader.vertexShader = shader.vertexShader.replace("}", vertexShader);
+          shader.vertexShader = shader.vertexShader.replace(
+            "void main() {",
+            vertex
+          );
+        };
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+    }
+    render();
+  }
+
+  new_path(renderer) {
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    const initialPoints = [
+      { x: 1, y: 0, z: -1 },
+      { x: 1, y: 0, z: 1 },
+      { x: -1, y: 0, z: 1 },
+      { x: -1, y: 0, z: -1 },
+    ];
+    let curveHandles = [];
+    const boxGeometry = new THREE.BoxGeometry(0.1, 0.1, 0.1);
+    const boxMaterial = new THREE.MeshBasicMaterial({ color: 0x0000ff });
+
+    for (const handlePos of initialPoints) {
+      const handle = new THREE.Mesh(boxGeometry, boxMaterial);
+      handle.position.copy(handlePos);
+      curveHandles.push(handle);
+      scene.add(handle);
+    }
+
+    const curve = new THREE.CatmullRomCurve3(
+      curveHandles.map((handle) => handle.position)
+    );
+
+    curve.curveType = "centripetal";
+    curve.closed = true;
+
+    const points = curve.getPoints(50);
+
+    const line = new THREE.LineLoop(
+      new THREE.BufferGeometry().setFromPoints(points),
+      new THREE.LineBasicMaterial({ color: 0x00ff00 })
+    );
+    scene.add(line);
+
+    let dragstart = () => {
+      controls.enabled = false;
+    };
+
+    let dragend = (event) => {
+      controls.enabled = true;
+
+      const points = curve.getPoints(50);
+      line.geometry.setFromPoints(points);
+      console.log(123);
+    };
+
+    let dragControls = new DragControls(
+      curveHandles,
+      camera,
+      renderer.domElement
+    );
+    dragControls.addEventListener("dragstart", dragstart);
+    dragControls.addEventListener("dragend", dragend);
+
+    const light2 = new THREE.AmbientLight(0x003973);
+    light2.intensity = 1.0;
+    scene.add(light2);
+
+    let box = new THREE.Mesh(
+      new THREE.BoxGeometry(0.5, 0.5, 0.5),
+      new THREE.MeshLambertMaterial({ color: 0x0000ff })
+    );
+
+    scene.add(box);
+    box.position.set(10, 10, 10);
+
+    let controls1 = new TransformControls(camera, renderer.domElement);
+    controls1.addEventListener("mouseDown", (event) => {
+      if (!event.value) {
+        console.log("down", event);
+        controls.enabled = false;
+      }
+    });
+    controls1.addEventListener("mouseUp", (event) => {
+      if (!event.value) {
+        console.log("up", event);
+        controls.enabled = true;
+      }
+    });
+    controls1.attach(box);
+    scene.add(controls1);
+
+    const material = new THREE.LineBasicMaterial({
+      color: 0x0000ff,
+    });
+
+    const points1 = [];
+    points1.push(new THREE.Vector3(-10, 0, 0));
+    points1.push(new THREE.Vector3(0, 10, 0));
+    points1.push(new THREE.Vector3(10, 0, 0));
+
+    const geometry = new THREE.BufferGeometry().setFromPoints(points1);
+
+    const line1 = new THREE.Line(geometry, material);
+    scene.add(line1);
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+    }
+    render();
+  }
+
+  practice(renderer) {
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    camera.position.set(0, 0, 173);
+    controls.update();
+
+    const width = 100,
+      height = 100;
+
+    let material = new THREE.ShaderMaterial({
+      uniforms: {
+        uResolution: {
+          value: new THREE.Vector2(window.innerWidth, window.innerHeight),
+        },
+      },
+      vertexShader: `
+      
+      void main(){
+        
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+      `,
+      fragmentShader: `
+        uniform vec2 uResolution;
+        void main(){
+          vec2 st = gl_FragCoord.xy / uResolution;
+          st -= 0.5;
+          st.x *= uResolution.x / uResolution.y;
+          float r = length(st);
+          float d = smoothstep(.3,.3,r);
+          gl_FragColor = vec4(d,d,d, 1.0);
+        }
+      `,
+    });
+
+    let plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(width, height),
+      material
+    );
+    // plane.rotateX(Math.pI * 0.5);
+    scene.add(plane);
 
     function render() {
       requestAnimationFrame(render);
@@ -1045,46 +1225,6 @@ export default class ShaderStudy extends React.Component {
         console.log("An error happened");
       }
     );
-
-    function getXZArray(name) {
-      let obj = scene.getObjectByName(name);
-
-      let box = new THREE.Box3();
-      box.setFromObject(obj);
-
-      let helper = new THREE.Box3Helper(box);
-      obj.parent.add(helper);
-
-      let rx = (box.max.x - box.min.x) / 2,
-        rz = (box.max.z - box.min.z) / 2;
-
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          let center = new THREE.Vector3();
-          helper.getWorldPosition(center);
-
-          let posArray = [
-            { x: center.x - rx, z: center.z - rz },
-            { x: center.x - rx, z: center.z + rz },
-            { x: center.x + rx, z: center.z + rz },
-            { x: center.x + rx, z: center.z - rz },
-          ];
-
-          posArray.forEach((item) => {
-            let box = new THREE.BoxGeometry(1, 1, 1);
-            let _mesh = new THREE.Mesh(
-              box,
-              new THREE.MeshLambertMaterial({ color: 0x0000ff })
-            );
-            _mesh.position.set(item.x, 45, item.z);
-            scene.add(_mesh);
-            meshList.push(_mesh);
-          });
-
-          resolve(posArray);
-        }, 1000);
-      });
-    }
 
     let light = new THREE.PointLight(0xffffff);
     scene.add(light);
@@ -3908,9 +4048,9 @@ export default class ShaderStudy extends React.Component {
     // 场景
     const scene = new THREE.Scene();
 
-    // let ambientLight = new THREE.AmbientLight(0xffffff);
-    // ambientLight.intensity = 0.5;
-    // scene.add(ambientLight);
+    let ambientLight = new THREE.AmbientLight(0xffffff);
+    ambientLight.intensity = 1;
+    scene.add(ambientLight);
 
     // 控制相机
     const controls = new OrbitControls(camera, renderer.domElement);
