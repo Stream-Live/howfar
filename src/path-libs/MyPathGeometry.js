@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-12-25 23:27:55
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-26 13:45:45
+ * @LastEditTime: 2022-12-26 13:50:23
  * @FilePath: \howfar\src\path-libs\MyPathGeometry.js
  * @Description:
  *
@@ -64,7 +64,7 @@ class MyPathGeometry extends BufferGeometry {
       right.copy(left).negate().normalize().multiplyScalar(halfWidth);
       up.crossVectors(forward, left);
       
-      extrudeShape(i / (divisions-1));
+      extrudeShape(percent);
 
 			prevPoint.copy( point );
     }

@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-26 13:42:49
+ * @LastEditTime: 2022-12-26 13:59:59
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -228,11 +228,16 @@ export default class ShaderStudy extends React.Component {
     let bg = await new THREE.TextureLoader().loadAsync("/021-箭头.png");
     bg.wrapS = bg.wrapT = THREE.RepeatWrapping;
 
+    let transformY = {
+      value: 0
+    }
+
     let material = new THREE.ShaderMaterial({
       uniforms: {
         bg: {
           value: bg,
         },
+        transformY
       },
       vertexShader: `
       varying vec2 vUv;
@@ -244,8 +249,9 @@ export default class ShaderStudy extends React.Component {
       fragmentShader: `
       uniform sampler2D bg;
       varying vec2 vUv;
+      uniform float transformY;
       void main(){
-        gl_FragColor = texture2D(bg, vec2(vUv.x, vUv.y));
+        gl_FragColor = texture2D(bg, vec2(vUv.x, vUv.y + transformY));
       }
       
       `,
@@ -259,6 +265,8 @@ export default class ShaderStudy extends React.Component {
       requestAnimationFrame(render);
 
       renderer.render(scene, camera);
+
+      transformY.value -= 0.01;
     }
     render();
   }
@@ -310,7 +318,7 @@ export default class ShaderStudy extends React.Component {
       uniform sampler2D bg;
       varying vec2 vUv;
       void main(){
-        gl_FragColor = texture2D(bg, vec2(vUv.x, vUv.y + 0.5));
+        gl_FragColor = texture2D(bg, vec2(vUv.x, vUv.y + 0.1));
       }
       
       `,
