@@ -273,7 +273,7 @@ export default class ShaderStudy extends React.Component {
     const material = new THREE.MeshLambertMaterial({
       color: 0x0000ff,
       side: THREE.DoubleSide,
-      // wireframe: true
+      wireframe: true
     });
     const mesh = new THREE.Mesh(geometry, material);
     // material.wireframe = true;

@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-25 23:26:52
+ * @LastEditTime: 2022-12-26 13:42:49
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -59,6 +59,8 @@ import { RGBELoader } from "three/examples/jsm/loaders/RGBELoader"; //rebe加载
 
 import { Flow } from "three/examples/jsm/modifiers/CurveModifier.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
+
+import { MyPathGeometry } from '../path-libs/MyPathGeometry'
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -121,7 +123,7 @@ export default class ShaderStudy extends React.Component {
     this.final_path(renderer); // 最终自己写的道路
   }
 
-  final_path(renderer) {
+  async final_path(renderer) {
     renderer.setClearColor(0x000000);
     let { scene, camera, controls } = this.loadBasic(renderer);
 
@@ -221,6 +223,38 @@ export default class ShaderStudy extends React.Component {
     );
     scene.add(line1);
 
+    let pathGeometry = new MyPathGeometry(curvePath, 50);
+    
+    let bg = await new THREE.TextureLoader().loadAsync("/021-箭头.png");
+    bg.wrapS = bg.wrapT = THREE.RepeatWrapping;
+
+    let material = new THREE.ShaderMaterial({
+      uniforms: {
+        bg: {
+          value: bg,
+        },
+      },
+      vertexShader: `
+      varying vec2 vUv;
+      void main(){
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+      `,
+      fragmentShader: `
+      uniform sampler2D bg;
+      varying vec2 vUv;
+      void main(){
+        gl_FragColor = texture2D(bg, vec2(vUv.x, vUv.y));
+      }
+      
+      `,
+      side: THREE.DoubleSide,
+    });
+
+    let path = new THREE.Mesh(pathGeometry, material)
+    scene.add(path);
+
     function render() {
       requestAnimationFrame(render);
 
@@ -248,7 +282,7 @@ export default class ShaderStudy extends React.Component {
       arr.map((item) => new THREE.Vector3(item[0], item[1], item[2]))
     );
 
-    let uv = [0, 0, 1, 0, 0, 1, 1, 1, 0, 2, 1, 2];
+    let uv = [0, 0, 1, 0, 0, 1.5, 1, 1.5, 0, 3, 1, 3];
     geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uv, 2));
 
     let index = [0, 1, 2, 2, 1, 3, 3, 2, 4, 4, 3, 5];
