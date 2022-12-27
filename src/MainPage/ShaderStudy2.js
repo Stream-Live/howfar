@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-26 13:59:59
+ * @LastEditTime: 2022-12-27 16:27:19
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -120,7 +120,39 @@ export default class ShaderStudy extends React.Component {
 
     // this.uv_study(renderer); // uv学习
 
-    this.final_path(renderer); // 最终自己写的道路
+    // this.final_path(renderer); // 最终自己写的道路
+    this.play(renderer); 
+  }
+
+  play(renderer){
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let geometry = new THREE.SphereGeometry(30, 32, 16);
+    let material = new THREE.MeshLambertMaterial({ color: 0xffff00 });
+    let mesh = new THREE.Mesh(geometry, material);
+    scene.add(mesh);
+    let textureLoader = new THREE.TextureLoader();
+    // 加载贴图
+    let texture = textureLoader.load("/textures/shine.png");
+    // 点精灵材质
+    let spriteMaterial = new THREE.SpriteMaterial({
+      map: texture,//贴图
+      color: 0xffff00,
+      blending: THREE.AdditiveBlending,//在使用此材质显示对象时要使用何种混合。加法
+    });
+    let sprite = new THREE.Sprite(spriteMaterial);
+    // 发光范围
+    sprite.scale.set(100, 100, 1.0);
+    mesh.add(sprite);
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
   }
 
   async final_path(renderer) {
@@ -223,7 +255,7 @@ export default class ShaderStudy extends React.Component {
     );
     scene.add(line1);
 
-    let pathGeometry = new MyPathGeometry(curvePath, 50);
+    let pathGeometry = new MyPathGeometry(curvePath, 200);
     
     let bg = await new THREE.TextureLoader().loadAsync("/021-箭头.png");
     bg.wrapS = bg.wrapT = THREE.RepeatWrapping;
@@ -933,7 +965,7 @@ export default class ShaderStudy extends React.Component {
       }
     }
 
-    let pointImg = await createImg("/circle3.png");
+    let pointImg = await createImg("/circle1.png");
 
     for (let i = 0; i < num; i++) {
       for (let j = 0; j < num; j++) {
@@ -1156,8 +1188,8 @@ export default class ShaderStudy extends React.Component {
 
       renderer.render(scene, camera);
 
-      vTime.value += 0.2;
-      vTime1.value += 0.4;
+      vTime.value += 0.3;
+      vTime1.value += 0.6;
     }
     render();
   }
