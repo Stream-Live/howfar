@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-27 16:27:19
+ * @LastEditTime: 2022-12-28 13:12:35
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -61,6 +61,11 @@ import { Flow } from "three/examples/jsm/modifiers/CurveModifier.js";
 import { TransformControls } from "three/examples/jsm/controls/TransformControls.js";
 
 import { MyPathGeometry } from '../path-libs/MyPathGeometry'
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { LightningStrike } from 'three/examples/jsm/geometries/LightningStrike.js';
+import { LightningStorm } from 'three/examples/jsm/objects/LightningStorm.js';
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -121,7 +126,87 @@ export default class ShaderStudy extends React.Component {
     // this.uv_study(renderer); // uv学习
 
     // this.final_path(renderer); // 最终自己写的道路
-    this.play(renderer); 
+
+    // this.play(renderer);  // 模拟发光
+
+    this.lightning(renderer); // 闪电
+  }
+
+  lightning(renderer){
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    const conesDistance = 1000;
+    const coneHeight = 200;
+    const coneHeightHalf = coneHeight * 0.5;
+
+    let pos1 = new THREE.Vector3(0,conesDistance + coneHeight,0);
+    let pos2 = new THREE.Vector3(0,coneHeightHalf,0);
+
+    let rayParams = {
+
+      sourceOffset: new THREE.Vector3(),
+      destOffset: new THREE.Vector3(),
+      radius0: 4,
+      radius1: 4,
+      minRadius: 2.5,
+      maxIterations: 7,
+      isEternal: true,
+
+      timeScale: 0.7,
+
+      propagationTimeFactor: 0.05,
+      vanishingTimeFactor: 0.95,
+      subrayPeriod: 3.5,
+      subrayDutyCycle: 0.6,
+      maxSubrayRecursion: 3,
+      ramification: 7,
+      recursionProbability: 0.6,
+
+      roughness: 0.85,
+      straightness: 0.6
+
+    };
+    
+    
+    let lightningMaterial = new THREE.MeshBasicMaterial( { color: 0xB0FFFF } );
+    let lightningStrike = new LightningStrike( rayParams );
+    let lightningStrikeMesh = new THREE.Mesh( lightningStrike, lightningMaterial );
+
+    scene.add(lightningStrikeMesh);
+
+    let plane = new THREE.Mesh(
+      new THREE.PlaneGeometry(1000, 1000),
+      new THREE.MeshPhongMaterial( { color: 0xC0C0C0, shininess: 0 } )
+    )
+    plane.rotateX(-Math.PI * 0.5)
+    scene.add(plane)
+
+    let light = new THREE.PointLight(0x00ffff, 1, 5000, 2)
+    light.position.set(0,1,0)
+    scene.add(light)
+    
+		const clock = new THREE.Clock();
+    let currentTime = 0;
+    
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+      lightningStrike.rayParameters.sourceOffset.copy(pos1);
+      lightningStrike.rayParameters.sourceOffset.y -= coneHeightHalf;
+      lightningStrike.rayParameters.destOffset.copy(pos2);
+      lightningStrike.rayParameters.destOffset.y += coneHeightHalf;
+
+      currentTime += clock.getDelta()
+      if(currentTime<0){
+        currentTime = 0;
+      }
+      lightningStrike.update( currentTime );
+
+    }
+    render();
   }
 
   play(renderer){
@@ -4122,9 +4207,9 @@ export default class ShaderStudy extends React.Component {
     // 场景
     const scene = new THREE.Scene();
 
-    let ambientLight = new THREE.AmbientLight(0xffffff);
-    ambientLight.intensity = 1;
-    scene.add(ambientLight);
+    // let ambientLight = new THREE.AmbientLight(0xffffff);
+    // ambientLight.intensity = 1;
+    // scene.add(ambientLight);
 
     // 控制相机
     const controls = new OrbitControls(camera, renderer.domElement);
