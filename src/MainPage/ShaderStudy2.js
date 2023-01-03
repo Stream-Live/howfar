@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-28 13:12:35
+ * @LastEditTime: 2023-01-03 16:12:41
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -113,7 +113,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.canvas(renderer) // 地板
 
-    // this.label_move(renderer)  // 标签撞墙自动移位
+    this.label_move(renderer)  // 标签撞墙自动移位
 
     // this.practice(renderer);
 
@@ -129,7 +129,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.play(renderer);  // 模拟发光
 
-    this.lightning(renderer); // 闪电
+    // this.lightning(renderer); // 闪电
   }
 
   lightning(renderer){
@@ -785,7 +785,7 @@ export default class ShaderStudy extends React.Component {
   async label_move(renderer) {
     renderer.setClearColor(0xcccccc, true);
 
-    const d = 1; // 移动的距离
+    const d = 0; // 移动的距离
 
     let { scene, camera, controls } = this.loadBasic(renderer);
 
@@ -805,31 +805,35 @@ export default class ShaderStudy extends React.Component {
     //   { x: 10, z: -10},
     // ]
 
-    await addLabel({ x: -10.5, y: 0, z: -20 });
-    await addLabel({ x: -10.5, y: 0, z: -16.4 });
-    await addLabel({ x: -3, y: 0, z: -16.4 });
-    await addLabel({ x: -6, y: 0, z: -16.4 });
-    await addLabel({ x: -10.801242753098482, y: 0, z: -22.943847152567958 });
-    await addLabel({ x: -6, y: 0, z: -20 });
+    await addLabel({ x: -49.4, y: 0, z: 30 });
+    // await addLabel({ x: -10.5, y: 0, z: -16.4 });
+    // await addLabel({ x: -3, y: 0, z: -16.4 });
+    // await addLabel({ x: -6, y: 0, z: -16.4 });
+    // await addLabel({ x: -10.801242753098482, y: 0, z: -22.943847152567958 });
+    // await addLabel({ x: -6, y: 0, z: -20 });
 
     let arr = [
       {
-        x: -10.801242753098482,
-        z: -22.943847152567958,
+          "x": -49.48444880401987,
+          "y": 43.98242489821018,
+          "z": 34.11011013909022
       },
       {
-        x: -10.816517574359304,
-        z: -16.225609514979485,
+          "x": -49.511754956077176,
+          "y": 44.00201886008558,
+          "z": 28.95835427564686
       },
       {
-        x: -1.8923463033593413,
-        z: -16.163635956632483,
+          "x": -46.876185827224056,
+          "y": 44.40353857355108,
+          "z": 28.960590574045767
       },
       {
-        x: -1.9670061038952,
-        z: -22.92019934776338,
-      },
-    ];
+          "x": -46.9804992239966,
+          "y": 44.23470941348869,
+          "z": 34.03233044536572
+      }
+  ];
     let arrVectors = arr.map((item) => new THREE.Vector2(item.x, item.z));
 
     // 1、根据点数组创建多边形平面
@@ -962,6 +966,7 @@ export default class ShaderStudy extends React.Component {
         new MeshLambertMaterial({
           map: texture,
           side: THREE.DoubleSide,
+          transparent: true
         })
       );
       scene.add(labelPlane);
@@ -1171,7 +1176,7 @@ export default class ShaderStudy extends React.Component {
           if(gl_FragColor.r != 0.0){
             gl_FragColor.rgb = vec3(mix(gl_FragColor.rgb, mix(vec3(0.0), vHighColor , gl_FragColor.w), w));
           }else{
-            gl_FragColor += vec4(mix(gl_FragColor.rgb, vHighColor, w), 0.015);
+            gl_FragColor += vec4(mix(gl_FragColor.rgb, vHighColor, w), 0.03);
           }
         }
 
@@ -1283,19 +1288,19 @@ export default class ShaderStudy extends React.Component {
 
     let { scene, camera, controls } = this.loadBasic(renderer);
 
-    let tar = {
-      x: -34.342292326577,
-      y: 3.208379938865189,
-      z: 9.692377403858826,
-    };
-    controls.target.set(tar.x, tar.y, tar.z);
-    let car = {
-      x: -28.097513095683766,
-      y: 75.7305304806959,
-      z: 8.423887582791858,
-    };
-    camera.position.set(car.x, car.y, car.z);
-    controls.update();
+    // let tar = {
+    //   x: -34.342292326577,
+    //   y: 3.208379938865189,
+    //   z: 9.692377403858826,
+    // };
+    // controls.target.set(tar.x, tar.y, tar.z);
+    // let car = {
+    //   x: -28.097513095683766,
+    //   y: 75.7305304806959,
+    //   z: 8.423887582791858,
+    // };
+    // camera.position.set(car.x, car.y, car.z);
+    // controls.update();
 
     let labelGroup = new THREE.Group();
     scene.add(labelGroup);
@@ -1307,73 +1312,75 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
-    let meshList = [];
+    let _small = { value: -6.9}
+    let _big = { value: 10.1}
     loader.load(
-      "/shaxi-main.glb",
+      "/jingling-main.glb",
       async function (gltf) {
-        await scene.add(gltf.scene);
+        scene.add(gltf.scene);
 
+        // 镜岭
+        scene.getObjectByName('屋顶1').visible = false;
+        scene.getObjectByName('屋顶2').visible = false;
+
+        setTransparent('房屋1')
+        setTransparent('房屋2')
+        // let obj = {
+        //   0: {
+        //     small: -6.9,
+        //     big: 10.1
+        //   },
+        //   1: {
+        //     small: -6.9,
+        //     big: 10.1
+        //   },
+        //   2: {
+        //     small: -6.9,
+        //     big: 10.1
+        //   }
+        // }
+
+        // 沙溪
+        // scene.getObjectByName('主楼屋顶').visible = false; 
+        // let obj = {
+        //   0: {
+        //     small: 3.1,
+        //     big: 25.1
+        //   },
+        //   1: {
+        //     small: 27.1,
+        //     big: 51.1
+        //   },
+        //   2: {
+        //     small: 51.1,
+        //     big: 53.1
+        //   }
+        // }
+        // setTransparent('主楼1')
+        // setTransparent('主楼2')
+        // let baseWidth = 1;
+
+        // 塔山
         // scene.getObjectByName('屋顶1').visible = false;
         // scene.getObjectByName('屋顶2').visible = false;
-        scene.getObjectByName("主楼屋顶").visible = false;
-
-        // [
-        //   {
-        //     "x": -10.801242753098482,
-        //     "z": -22.943847152567958
-        //   },
-        //   {
-        //     "x": -10.816517574359304,
-        //     "z": -16.225609514979485
-        //   },
-        //   {
-        //     "x": -1.8923463033593413,
-        //     "z": -16.163635956632483
-        // },
-        //   {
-        //     "x": -1.9670061038952,
-        //     "z": -22.92019934776338
-        //   }
-        // ]
-        let arr = [
-            {
-              x: -10.789465363746064,
-              z: -12.323024373496512,
-            },
-            {
-              x: -10.726746130651764,
-              z: 5.179143818333145,
-            },
-            {
-              x: -3.419370627685763,
-              z: 5.20886335247723,
-            },
-            {
-              x: -3.5396025946054714,
-              z: -12.337099862154947,
-            },
-          ],
-          group = new THREE.Group();
-        arr.forEach((item) => {
-          let box = new THREE.BoxGeometry(0.2, 0.2, 0.2);
-          let _mesh = new THREE.Mesh(
-            box,
-            new THREE.MeshLambertMaterial({ color: 0x0000ff })
-          );
-          _mesh.position.set(item.x, 8.7, item.z);
-          group.add(_mesh);
-          meshList.push(_mesh);
-        });
-        group.name = "group";
-        scene.add(group);
-
-        // let arr = [];
-        // ['35kv开关室内墙_2'].forEach(async (item) => {
-
-        //   let l = await getXZArray(item,);
-        //   arr.push(l)
-        // })
-        // window.arr = arr
+        // setTransparent('主体1')
+        // setTransparent('主体2')
+        // setTransparent('主体3')
+        // let obj = {
+          // 0: {
+          //   small: -24.9,
+          //   big: -12.9
+          // },
+          // 1: {
+          //   small: -11.9,
+          //   big: 13.1
+          // },
+          // 2: {
+          //   small: 21.1,
+          //   big: 23.1
+          // }
+        // }
+        
       },
       // called while loading is progressing
       function (xhr) {
@@ -1385,84 +1392,79 @@ export default class ShaderStudy extends React.Component {
       }
     );
 
-    let light = new THREE.PointLight(0xffffff);
+
+    let light = new THREE.AmbientLight(0xffffff);
     scene.add(light);
 
-    let hemisphereLight = new THREE.HemisphereLight(0xffffff);
-    hemisphereLight.intensity = 0.5;
-    scene.add(hemisphereLight);
+    
+    // const gui = new GUI();
+    
+    // let _small = {value: 1.1}
+    // gui.add(_small, "value").name('small').listen();
+    // let _big = {value: 10.1}
+    // gui.add(_big, "value").name('big').listen();
 
-    let box = new THREE.BoxGeometry(1, 1, 1);
-    let _mesh = new THREE.Mesh(
-      box,
-      new THREE.MeshLambertMaterial({ color: 0x0000ff })
-    );
-    _mesh.position.set(-23.05445197242592, 39.3, 18.637556923441603);
-    scene.add(_mesh);
+    function setTransparent(_name){
 
-    let dragstart = (event) => {
-      controls.enabled = false;
-    };
+      let group = scene.getObjectByName(_name);
 
-    let dragend = (event) => {
-      controls.enabled = true;
-      let pos = event.object.position;
-      console.log(event.object.name, pos);
-    };
-    let dragControls;
+      group.traverse(mesh => {
+        if(mesh.material?.isMaterial){
+          mesh.material = mesh.material.clone();
+          
+          mesh.material.transparent = true;
 
-    let Controller = {
-      startDrag: () => {
-        dragControls = new DragControls(meshList, camera, renderer.domElement);
-        dragControls.addEventListener("drag", () =>
-          renderer.render(scene, camera)
-        );
+          mesh.material.onBeforeCompile = (shader) => {
 
-        // 3、把OrbitControls的dom元素替换掉
-        controls.dispose();
-        controls = new OrbitControls(camera, renderer.domElement);
-        controls.update();
+            const uniforms = { _small, _big };
+            Object.assign(shader.uniforms, uniforms);
+            const vertex = `
+              varying vec4 vPosition;
+              void main(){
+            `;
+            const vertexColor = `
+                vPosition = projectionMatrix * vec4(position, 1.0);
+              }
+            `;
+            shader.vertexShader = shader.vertexShader.replace(
+              "void main() {",
+              vertex
+            );
 
-        // 4、避免两个控制器冲突
-        dragControls.addEventListener("dragstart", dragstart);
+            shader.vertexShader = shader.vertexShader.replace(
+              "}",
+              vertexColor
+            );
+            const fragment = `
+              varying vec4 vPosition;
+              uniform float _small;
+              uniform float _big;
+              void main(){
+            `;
+            const fragmentColor = `
+              if(vPosition.y > _small && vPosition.y < _big){
+                  gl_FragColor = vec4(1.0, 1.0, 1.0, 0.2);
+                }
+              }
+            `;
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "void main() {",
+              fragment
+            );
 
-        dragControls.addEventListener("dragend", dragend);
-      },
-      endDrag: () => {
-        // 1、开启CSS3DRenderer
-        // css2DRenderer.domElement.style.display = 'block'
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "}",
+              fragmentColor
+            );
+          }
+          
+        }
 
-        let obj = {};
+      })
+    }
 
-        // 3、关闭拖拽控制器
-        dragControls.removeEventListener("dragstart", dragstart);
-        dragControls.removeEventListener("dragend", dragend);
-        dragControls.dispose();
-
-        // 4、还原OrbitControls
-        controls.dispose();
-        controls = new OrbitControls(camera, renderer.domElement);
-        controls.update();
-      },
-    };
-
-    Object.assign(window, { Controller });
-    Controller.startDrag();
-
-    const gui = new GUI();
-    gui.add(light.position, "x", -100, 100);
-    gui.add(light.position, "y", -100, 100);
-    gui.add(light.position, "z", -100, 100);
-    gui.add(light, "intensity", 0, 10);
-    gui.add(hemisphereLight, "intensity", 0, 10);
-    gui.addColor(hemisphereLight, "groundColor");
-    gui.addColor(hemisphereLight, "color");
 
     function render() {
-      labelGroup.traverse((mesh) => {
-        mesh.lookAt(camera.position.clone().setY(mesh.position.y));
-      });
-
       requestAnimationFrame(render);
 
       renderer.render(scene, camera);
@@ -4207,9 +4209,9 @@ export default class ShaderStudy extends React.Component {
     // 场景
     const scene = new THREE.Scene();
 
-    // let ambientLight = new THREE.AmbientLight(0xffffff);
-    // ambientLight.intensity = 1;
-    // scene.add(ambientLight);
+    let ambientLight = new THREE.AmbientLight(0xffffff);
+    ambientLight.intensity = 1;
+    scene.add(ambientLight);
 
     // 控制相机
     const controls = new OrbitControls(camera, renderer.domElement);
