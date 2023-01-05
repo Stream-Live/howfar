@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-05 11:47:17
+ * @LastEditTime: 2023-01-05 17:35:00
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -111,7 +111,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.test(renderer)
 
-    this.canvas(renderer) // 地板
+    // this.canvas(renderer) // 地板
 
     // this.label_move(renderer)  // 标签撞墙自动移位
 
@@ -132,6 +132,68 @@ export default class ShaderStudy extends React.Component {
     // this.lightning(renderer); // 闪电
 
     // this.upgrade_bloom(renderer)  // 升级bloom
+
+    this.shine_test(renderer) // 发光效果测试
+  }
+  shine_test(renderer){
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let geo = new THREE.PlaneGeometry(20, 20);
+
+    geo.computeBoundingBox();
+    console.log(geo);
+
+    let mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uColor: {
+          value: new THREE.Color('#00ffff')
+        },
+        uDelta: {
+          value: 5
+        },
+        uMin: {
+          value: geo.boundingBox.min,
+        },
+        uMax: {
+          value: geo.boundingBox.max,
+        },
+
+      },
+      vertexShader: `
+        varying vec3 vPosition; 
+        void main(){
+          vPosition = position;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 uColor;
+        uniform vec3 uDelta;
+        uniform vec3 uMin;
+        uniform vec3 uMax;
+        varying vec3 vPosition; 
+        void main(){
+          
+          gl_FragColor = vec4(uColor, 1.0);
+        }
+      `
+    })
+
+    let mesh = new THREE.Mesh(
+      geo,
+      mat
+    )
+    mesh.rotateX(-Math.PI * 0.5)
+    scene.add(mesh);
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
   }
   upgrade_bloom(renderer){
     
