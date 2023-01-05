@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-03 16:12:41
+ * @LastEditTime: 2023-01-05 11:47:17
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -111,9 +111,9 @@ export default class ShaderStudy extends React.Component {
 
     // this.test(renderer)
 
-    // this.canvas(renderer) // 地板
+    this.canvas(renderer) // 地板
 
-    this.label_move(renderer)  // 标签撞墙自动移位
+    // this.label_move(renderer)  // 标签撞墙自动移位
 
     // this.practice(renderer);
 
@@ -130,6 +130,130 @@ export default class ShaderStudy extends React.Component {
     // this.play(renderer);  // 模拟发光
 
     // this.lightning(renderer); // 闪电
+
+    // this.upgrade_bloom(renderer)  // 升级bloom
+  }
+  upgrade_bloom(renderer){
+    
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    const ENTIRE_SCENE = 0, BLOOM_SCENE = 1, BLOOM_SCENE_2 = 2;
+
+    const bloomLayer = new THREE.Layers();
+    bloomLayer.set( BLOOM_SCENE );
+
+    const params = {
+      exposure: 1,
+      bloomStrength: 1,
+      bloomThreshold: 0,
+      bloomRadius: 0,
+      scene: 'Scene with Glow'
+    };
+
+    let uuid;
+    const darkMaterial = new THREE.MeshBasicMaterial( { color: 'black' } );
+    const materials = {};
+
+    const renderScene = new RenderPass( scene, camera );
+
+    const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+    bloomPass.threshold = params.bloomThreshold;
+    bloomPass.strength = params.bloomStrength;
+    bloomPass.radius = params.bloomRadius;
+
+    const bloomComposer = new EffectComposer( renderer );
+    bloomComposer.renderToScreen = false;
+    bloomComposer.addPass( renderScene );
+    bloomComposer.addPass( bloomPass );
+
+    const finalPass = new ShaderPass(
+      new THREE.ShaderMaterial( {
+        uniforms: {
+          baseTexture: { value: null },
+          bloomTexture: { value: bloomComposer.renderTarget2.texture }
+        },
+        vertexShader: `varying vec2 vUv;
+
+			void main() {
+
+				vUv = uv;
+
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+			}`,
+        fragmentShader: `uniform sampler2D baseTexture;
+			uniform sampler2D bloomTexture;
+
+			varying vec2 vUv;
+
+			void main() {
+
+				gl_FragColor = ( texture2D( baseTexture, vUv ) + texture2D( bloomTexture, vUv ) );
+
+			}`,
+        defines: {}
+      } ), 'baseTexture'
+    );
+    finalPass.needsSwap = true;
+
+    const finalComposer = new EffectComposer( renderer );
+    finalComposer.addPass( renderScene );
+    finalComposer.addPass( finalPass );
+
+    // 添加物体
+    let box = new THREE.Mesh(
+      new THREE.BoxGeometry(1,1,1),
+      new THREE.MeshLambertMaterial({color: 0xffffff})
+    )
+    scene.add(box);
+    box.layers.toggle(BLOOM_SCENE)
+
+    let box1 = new THREE.Mesh(
+      new THREE.BoxGeometry(1,1,1),
+      new THREE.MeshLambertMaterial({color: 0xffffff})
+    );
+    box1.position.set(3, 0, 0)
+    scene.add(box1)
+    box1.layers.toggle(BLOOM_SCENE_2)
+    box1.name = 'box1'
+
+    function render() {
+      requestAnimationFrame(render);
+
+      scene.traverse( darkenNonBloomed );
+      
+      bloomComposer.render();
+      scene.traverse( restoreMaterial );
+
+      finalComposer.render();
+
+    }
+    render();
+
+    function darkenNonBloomed( obj ) {
+
+      if ( obj.isMesh && bloomLayer.test( obj.layers ) === false ) {
+        materials[ obj.uuid ] = obj.material;
+        obj.material = darkMaterial;
+
+        if(obj.uuid == uuid) console.log(bloomLayer, obj.layers);
+
+      }
+
+    }
+
+    function restoreMaterial( obj ) {
+
+      if ( materials[ obj.uuid ] ) {
+
+        obj.material = materials[ obj.uuid ];
+        delete materials[ obj.uuid ];
+
+        if(obj.uuid == uuid) console.log(321);
+      }
+
+    }
   }
 
   lightning(renderer){
@@ -791,49 +915,19 @@ export default class ShaderStudy extends React.Component {
 
     // 模拟几个标签
     let labelList = [];
-    // await addLabel({x: -10, y: 0, z: -5})
-    // await addLabel({x: 0, y: 0, z: 9.8})
-    // await addLabel({x: 20, y: 0, z: 0})
-    // await addLabel({x: 18, y: 0, z: 2})
-    // await addLabel({x: 0, y: 0, z: 0})
-
-    // let arr = [
-    //   { x: -10, z: -10},
-    //   { x: -10, z: 10},
-    //   { x: 10, z: 10},
-    //   { x: 20, z: 0},
-    //   { x: 10, z: -10},
-    // ]
-
-    await addLabel({ x: -49.4, y: 0, z: 30 });
-    // await addLabel({ x: -10.5, y: 0, z: -16.4 });
-    // await addLabel({ x: -3, y: 0, z: -16.4 });
-    // await addLabel({ x: -6, y: 0, z: -16.4 });
-    // await addLabel({ x: -10.801242753098482, y: 0, z: -22.943847152567958 });
-    // await addLabel({ x: -6, y: 0, z: -20 });
+    await addLabel({x: -10, y: 0, z: -5})
+    await addLabel({x: 0, y: 0, z: 9.8})
+    await addLabel({x: 20, y: 0, z: 0})
+    await addLabel({x: 18, y: 0, z: 2})
+    await addLabel({x: 0, y: 0, z: 0})
 
     let arr = [
-      {
-          "x": -49.48444880401987,
-          "y": 43.98242489821018,
-          "z": 34.11011013909022
-      },
-      {
-          "x": -49.511754956077176,
-          "y": 44.00201886008558,
-          "z": 28.95835427564686
-      },
-      {
-          "x": -46.876185827224056,
-          "y": 44.40353857355108,
-          "z": 28.960590574045767
-      },
-      {
-          "x": -46.9804992239966,
-          "y": 44.23470941348869,
-          "z": 34.03233044536572
-      }
-  ];
+      { x: -10, z: -10},
+      { x: -10, z: 10},
+      { x: 10, z: 10},
+      { x: 20, z: 0},
+      { x: 10, z: -10},
+    ]
     let arrVectors = arr.map((item) => new THREE.Vector2(item.x, item.z));
 
     // 1、根据点数组创建多边形平面
