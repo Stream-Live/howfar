@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-05 17:35:00
+ * @LastEditTime: 2023-01-09 17:03:14
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -133,59 +133,184 @@ export default class ShaderStudy extends React.Component {
 
     // this.upgrade_bloom(renderer)  // 升级bloom
 
-    this.shine_test(renderer) // 发光效果测试
+    // this.shine_test(renderer) // 发光效果测试
+
+    this.tweened_animation(renderer) // 渐变动画
+  }
+  async tweened_animation(renderer){
+
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    // 1、加载gltf文件1719.1682731434032
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    let isTransparent = { value: 1 }
+
+    let tMixTexture = {
+      value: await new TextureLoader().loadAsync('/transition/transition3.png')
+    }
+    let mixRatio = {
+      value: 0
+    }
+
+    window.isTransparent = isTransparent;
+
+    loader.load(
+      "/shaxi-main.glb",
+      async function (gltf) {
+        scene.add(gltf.scene);
+
+        scene.getObjectByName('主楼屋顶').visible = false;
+
+        setTransparent('内墙');
+        setTransparent('主楼1');
+        setTransparent('主楼2');
+
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
+    
+    const gui = new GUI();
+    
+    gui.add(mixRatio, "value", 0, 1, 0.1).listen();
+    
+    function setTransparent(_name){
+
+      let group = scene.getObjectByName(_name);
+
+      group.traverse(mesh => {
+        if(mesh.material?.isMaterial){
+          mesh.material = mesh.material.clone();
+          
+          mesh.material.transparent = true;
+
+          mesh.material.onBeforeCompile = (shader) => {
+
+            const uniforms = { isTransparent, tMixTexture, mixRatio };
+            Object.assign(shader.uniforms, uniforms);
+            const vertex = `
+            
+              varying vec2 vUv1;
+              void main(){
+            `;
+            const vertexColor = `
+                vUv1 = uv;
+              }
+            `;
+            shader.vertexShader = shader.vertexShader.replace(
+              "void main() {",
+              vertex
+            );
+
+            shader.vertexShader = shader.vertexShader.replace(
+              "}",
+              vertexColor
+            );
+            const fragment = `
+              uniform float isTransparent;
+              uniform sampler2D tMixTexture;
+              uniform float mixRatio;
+              varying vec2 vUv1;
+              void main(){
+            `;
+            const fragmentColor = `
+              
+              vec4 transparent = vec4(1.0, 1.0, 1.0, 0.2);
+              vec4 origin = gl_FragColor;
+              vec4 transitionTexel = texture2D( tMixTexture, vUv1 * 2.0 );
+              
+              float threshold = 0.3;
+              float r = mixRatio * (1.0 + threshold * 2.0) - threshold; // -1 ~ 0.5
+              float mixf=clamp((transitionTexel.r - r)*(1.0/threshold), 0.0, 1.0);
+              gl_FragColor = mix(transparent, origin, mixf);
+
+              }
+            `;
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "void main() {",
+              fragment
+            );
+
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "}",
+              fragmentColor
+            );
+          }
+          
+        }
+
+      })
+    }
+    
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
   }
   shine_test(renderer){
     renderer.setClearColor(0x000000);
     let { scene, camera, controls } = this.loadBasic(renderer);
 
-    let geo = new THREE.PlaneGeometry(20, 20);
-
-    geo.computeBoundingBox();
-    console.log(geo);
-
-    let mat = new THREE.ShaderMaterial({
-      uniforms: {
-        uColor: {
-          value: new THREE.Color('#00ffff')
-        },
-        uDelta: {
-          value: 5
-        },
-        uMin: {
-          value: geo.boundingBox.min,
-        },
-        uMax: {
-          value: geo.boundingBox.max,
-        },
-
+    let customMaterial = new THREE.ShaderMaterial({
+      uniforms: 
+      { 
+        // 外发光
+        // "s":   { type: "f", value: 1.0},
+        // "b":   { type: "f", value: 0.0},
+        // "p":   { type: "f", value: 2.0 },
+        // 内发光
+        "s":   { type: "f", value: -1.0},
+        "b":   { type: "f", value: 1.0},
+        "p":   { type: "f", value: 2.0 },
+        glowColor: { type: "c", value: new THREE.Color(0x00ffff) }
       },
-      vertexShader: `
-        varying vec3 vPosition; 
-        void main(){
-          vPosition = position;
+      vertexShader:   `
+        varying vec3 vNormal;
+        varying vec3 vPositionNormal;
+        void main() 
+        {
+          vNormal = normalize( normalMatrix * normal ); // 转换到视图空间
+          vPositionNormal = normalize(( modelViewMatrix * vec4(position, 1.0) ).xyz);
           gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
         }
-      `,
+        `,
       fragmentShader: `
-        uniform vec3 uColor;
-        uniform vec3 uDelta;
-        uniform vec3 uMin;
-        uniform vec3 uMax;
-        varying vec3 vPosition; 
-        void main(){
-          
-          gl_FragColor = vec4(uColor, 1.0);
+        uniform vec3 glowColor;
+        uniform float b;
+        uniform float p;
+        uniform float s;
+        varying vec3 vNormal;
+        varying vec3 vPositionNormal;
+        void main() 
+        {
+          float a = pow( b + s * abs(dot(vNormal, vPositionNormal)), p );
+          gl_FragColor = vec4( glowColor, a );
         }
-      `
+      `,
+      side: THREE.FrontSide,
+      blending: THREE.AdditiveBlending,
+      transparent: true
     })
-
-    let mesh = new THREE.Mesh(
-      geo,
-      mat
-    )
-    mesh.rotateX(-Math.PI * 0.5)
-    scene.add(mesh);
+    // let geometry = new THREE.BoxGeometry( 10, 10, 10 )
+    let geometry = new THREE.TorusKnotGeometry( 10, 3, 100, 32 )
+    // let geometry = new THREE.SphereGeometry( 10,50, 50 )
+    let torusKnot = new THREE.Mesh( geometry, customMaterial )
+    scene.add( torusKnot )
 
     function render() {
       requestAnimationFrame(render);
@@ -1470,17 +1595,21 @@ export default class ShaderStudy extends React.Component {
 
     let _small = { value: -6.9}
     let _big = { value: 10.1}
+    let _d = {value: 0.1}
     loader.load(
       "/jingling-main.glb",
       async function (gltf) {
-        scene.add(gltf.scene);
+        let group = gltf.scene.getObjectByName('内墙')
+        scene.add(group);
+
+        setBright(group)
 
         // 镜岭
-        scene.getObjectByName('屋顶1').visible = false;
-        scene.getObjectByName('屋顶2').visible = false;
+        // scene.getObjectByName('屋顶1').visible = false;
+        // scene.getObjectByName('屋顶2').visible = false;
 
-        setTransparent('房屋1')
-        setTransparent('房屋2')
+        // setTransparent('房屋1')
+        // setTransparent('房屋2')
         // let obj = {
         //   0: {
         //     small: -6.9,
@@ -1548,12 +1677,60 @@ export default class ShaderStudy extends React.Component {
       }
     );
 
+    function setBright(group){
 
-    let light = new THREE.AmbientLight(0xffffff);
-    scene.add(light);
+      group.traverse((mesh => {
+        if(mesh.material?.isMaterial){
+          mesh.material.onBeforeCompile = (shader) => {
+
+            const uniforms = { d: _d, };
+            Object.assign(shader.uniforms, uniforms);
+            const vertex = `
+              varying vec4 vPosition;
+              void main(){
+            `;
+            const vertexColor = `
+                vPosition = projectionMatrix * vec4(position, 1.0);
+              }
+            `;
+            shader.vertexShader = shader.vertexShader.replace(
+              "void main() {",
+              vertex
+            );
+
+            shader.vertexShader = shader.vertexShader.replace(
+              "}",
+              vertexColor
+            );
+            const fragment = `
+            uniform float d;
+              void main(){
+            `;
+            const fragmentColor = `
+                gl_FragColor = vec4(gl_FragColor.r+d, gl_FragColor.g+d, gl_FragColor.b+d, gl_FragColor.a);
+                
+              }
+            `;
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "void main() {",
+              fragment
+            );
+
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "}",
+              fragmentColor
+            );
+          }
+        }
+
+
+      }))
+    }
 
     
-    // const gui = new GUI();
+    const gui = new GUI();
+    
+    gui.add(_d, "value", 0, 1, 0.1).listen();
     
     // let _small = {value: 1.1}
     // gui.add(_small, "value").name('small').listen();
