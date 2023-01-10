@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-09 17:03:14
+ * @LastEditTime: 2023-01-10 17:33:09
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -43,7 +43,6 @@ import { TeapotGeometry } from "three/examples/jsm/geometries/TeapotGeometry.js"
 
 import { nodeFrame } from "three/examples/jsm/renderers/webgl/nodes/WebGLNodes.js";
 import { DragControls } from "three/examples/jsm/controls/DragControls";
-import * as TWEEN from "@tweenjs/tween.js";
 import { groupSort, mode, text } from "d3";
 import { MeshLambertMaterial } from "three";
 import h337 from "heatmapjs";
@@ -66,6 +65,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LightningStrike } from 'three/examples/jsm/geometries/LightningStrike.js';
 import { LightningStorm } from 'three/examples/jsm/objects/LightningStorm.js';
+import TWEEN, { Easing, Tween } from '@tweenjs/tween.js';
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -103,7 +103,6 @@ export default class ShaderStudy extends React.Component {
 
     // this.changeFog(renderer);  // js实现颜色的线性插值
 
-    // this.floor(renderer)  // 地板
     // this.ocean(renderer)  // 海洋
     // this.love(renderer)
 
@@ -111,7 +110,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.test(renderer)
 
-    // this.canvas(renderer) // 地板
+    this.canvas(renderer) // 地板
 
     // this.label_move(renderer)  // 标签撞墙自动移位
 
@@ -135,8 +134,229 @@ export default class ShaderStudy extends React.Component {
 
     // this.shine_test(renderer) // 发光效果测试
 
-    this.tweened_animation(renderer) // 渐变动画
+    // this.tweened_animation(renderer) // 渐变动画
+
+    // this.move_camera(renderer) // 渐变动画
+    
+    this.floor(renderer)  // 封装的地板
   }
+  async floor(renderer){
+
+    renderer.setClearColor(0x1f527b);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+    // let pos = {
+    //   "x": 12.582182772199193,
+    //   "y": 399.41594248256837,
+    //   "z": 360.4669449611739
+    // }
+    // camera.position.copy(pos)
+    // controls.update();
+
+    let floor = await create_floor();
+    scene.add(floor);
+
+    async function create_floor(params){
+
+      let loader = new THREE.TextureLoader();
+
+      let img1 = await loader.loadAsync('/images/1.png');
+      let img2 = await loader.loadAsync('/images/2.png');
+      let img3 = await loader.loadAsync('/images/3.png');
+      img1.wrapS = img1.wrapT = img2.wrapS = img2.wrapT = img3.wrapS = img3.wrapT = THREE.RepeatWrapping;
+
+      const option = {
+        width: 400,
+        height: 400,
+        img1,
+        img1RepeatXY: 10,
+        img2,
+        img2RepeatXY: 10,
+        img3,
+        img3RepeatXY: 10,
+      }
+      Object.assign(option, params);
+
+      let geometry = new THREE.PlaneGeometry(option.width, option.height)
+      geometry.computeBoundingSphere();
+      geometry.computeBoundingBox();
+      let { center, radius } = geometry.boundingSphere;
+      let { min, max } = geometry.boundingBox;
+      console.log(geometry.boundingBox);
+
+      let vTime = { value: 0.0 };
+
+      let mat = new THREE.ShaderMaterial({
+        uniforms: {
+          img1: {
+            value: option.img1,
+          },
+          img2: {
+            value: option.img2,
+          },
+          img3: {
+            value: option.img3,
+          },
+          img1RepeatXY: {
+            value: option.img1RepeatXY,
+          },
+          img2RepeatXY: {
+            value: option.img2RepeatXY,
+          },
+          img3RepeatXY: {
+            value: option.img3RepeatXY,
+          },
+          radius: {
+            value: radius,
+          },
+          center: {
+            value: center,
+          },
+          uResolution: {
+            value: new THREE.Vector2(max.x - min.x, max.y - min.y)
+          },
+          vTime,
+        },
+        vertexShader: `
+          varying vec2 vUv;
+          varying vec3 vPosition;
+          void main(){
+            vUv = uv;
+            vPosition = position;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          }
+        `,
+        fragmentShader: `
+          uniform sampler2D img1;
+          uniform sampler2D img2;
+          uniform sampler2D img3;
+
+          uniform float img1RepeatXY;
+          uniform float img2RepeatXY;
+          uniform float img3RepeatXY;
+
+          uniform float radius;
+          uniform vec3 center;
+          uniform float vTime;
+
+          uniform vec2 uResolution;
+
+          varying vec2 vUv;
+
+          void addRing(float offsetWidth, bool isInner){
+            float moveR = mod(vTime + offsetWidth, radius);
+
+            vec2 st = gl_FragCoord.xy / uResolution;
+            st -= 0.5;
+            float r = length(st);
+            
+          }
+          void main(){
+            vec4 texture1 = texture2D(img1, vec2(vUv.x * img1RepeatXY, vUv.y * img1RepeatXY));
+            vec4 texture2 = texture2D(img2, vec2(vUv.x * img2RepeatXY, vUv.y * img2RepeatXY));
+            vec4 texture3 = texture2D(img3, vec2(vUv.x * img3RepeatXY, vUv.y * img3RepeatXY));
+
+            texture2.rgb = vec3(0.0, 1.0, 1.0);
+
+            if(texture1.a < 0.01){
+              texture1.rgb = vec3(0.0, 0.0, 0.0);
+            }
+            if(texture2.a < 0.01){
+              texture2.rgb = vec3(0.0, 0.0, 0.0);
+            }
+
+            gl_FragColor = texture1 + texture2 + texture3;
+          }
+        `,
+        transparent: true,
+      });
+
+      let mesh = new THREE.Mesh(geometry, mat)
+      mesh.rotateX(-Math.PI * 0.5);
+      return mesh;
+    }
+    
+    function render() {
+
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
+  }
+
+  move_camera(renderer){
+
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let pos = {
+      "x": 483.1277266658629,
+      "y": 516.1509008308291,
+      "z": 1344.2366162786986
+    };
+    let targetPos = {
+      "x": 530.5256549902259,
+      "y": -103.8820878127977,
+      "z": 60.77386963747249
+    };
+
+    setTimeout(() => {
+      move(pos, targetPos, 1)
+    }, 3000)
+
+    function move(_cameraPos, _targetPos, speed=1){
+
+      let cameraPos = new THREE.Vector3().copy(_cameraPos);
+      let targetPos = new THREE.Vector3().copy(_targetPos);
+      let lengthVector = new THREE.Vector3();
+      lengthVector.subVectors(cameraPos, targetPos);
+      let length = lengthVector.length();
+      let time = length / speed;
+      
+
+      new TWEEN.Tween(camera.position)
+        .to(
+          {
+            x: cameraPos.x,
+            y: cameraPos.y,
+            z: cameraPos.z,
+          },
+          time,
+        )
+        .easing(Easing.Cubic.Out)
+        .onUpdate(() => {
+          controls.update();
+        })
+        .start();
+      new TWEEN.Tween(controls.target)
+        .to(
+          {
+            x: targetPos.x,
+            y: targetPos.y,
+            z: targetPos.z,
+          },
+          time,
+        )
+        .onUpdate(() => {
+          controls.update();
+        })
+        .start();   
+    }
+    
+
+    
+    function render() {
+      TWEEN.update();
+
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
+  }
+
   async tweened_animation(renderer){
 
     renderer.setClearColor(0x000000);
@@ -155,6 +375,9 @@ export default class ShaderStudy extends React.Component {
       value: await new TextureLoader().loadAsync('/transition/transition3.png')
     }
     let mixRatio = {
+      value: 0
+    }
+    let height = {
       value: 0
     }
 
@@ -185,6 +408,7 @@ export default class ShaderStudy extends React.Component {
     const gui = new GUI();
     
     gui.add(mixRatio, "value", 0, 1, 0.1).listen();
+    gui.add(height, "value",0, 1, 0.1 ).listen();
     
     function setTransparent(_name){
 
@@ -198,15 +422,17 @@ export default class ShaderStudy extends React.Component {
 
           mesh.material.onBeforeCompile = (shader) => {
 
-            const uniforms = { isTransparent, tMixTexture, mixRatio };
+            const uniforms = { isTransparent, tMixTexture, mixRatio, height };
             Object.assign(shader.uniforms, uniforms);
             const vertex = `
             
               varying vec2 vUv1;
+              varying vec3 vPosition;
               void main(){
             `;
             const vertexColor = `
                 vUv1 = uv;
+                vPosition = position;
               }
             `;
             shader.vertexShader = shader.vertexShader.replace(
@@ -222,7 +448,9 @@ export default class ShaderStudy extends React.Component {
               uniform float isTransparent;
               uniform sampler2D tMixTexture;
               uniform float mixRatio;
+              uniform float height;
               varying vec2 vUv1;
+              varying vec3 vPosition;
               void main(){
             `;
             const fragmentColor = `
@@ -234,7 +462,12 @@ export default class ShaderStudy extends React.Component {
               float threshold = 0.3;
               float r = mixRatio * (1.0 + threshold * 2.0) - threshold; // -1 ~ 0.5
               float mixf=clamp((transitionTexel.r - r)*(1.0/threshold), 0.0, 1.0);
-              gl_FragColor = mix(transparent, origin, mixf);
+              // gl_FragColor = mix(transparent, origin, mixf);
+              
+              float h = height * 19. - 1.0;
+              if(vPosition.y < h){
+                gl_FragColor = transparent;
+              }
 
               }
             `;
@@ -1806,7 +2039,7 @@ export default class ShaderStudy extends React.Component {
   }
 
   fire(renderer) {
-    renderer.setClearColor(0x0000ff, true);
+    renderer.setClearColor(0x000000, true);
 
     let { scene, camera, controls } = this.loadBasic(renderer);
 
@@ -1820,6 +2053,15 @@ export default class ShaderStudy extends React.Component {
     material0.setPerspective(camera.fov, height);
     var particleFireMesh0 = new THREE.Points(geometry0, material0);
     scene.add(particleFireMesh0);
+
+    let box = new THREE.Mesh(
+      new THREE.BoxGeometry(1,1,1),
+      new THREE.MeshLambertMaterial({
+        color: 0xffff00,
+      })
+    )
+    box.position.y = -0.3
+    scene.add(box)
 
     let clock = new THREE.Clock();
 
@@ -2057,200 +2299,6 @@ export default class ShaderStudy extends React.Component {
       const time = performance.now() * 0.001;
 
       water.material.uniforms["time"].value += 1.0 / 60.0;
-    }
-    render();
-  }
-  async floor(renderer) {
-    renderer.setClearColor(0x00000d, 1.0);
-
-    let { scene, camera, controls } = this.loadBasic(renderer);
-
-    let light = new THREE.PointLight(0xffffff);
-    light.position.set(0, 20, 0);
-    scene.add(light);
-
-    let img1 = await new THREE.TextureLoader().loadAsync("/grid.png");
-    img1.wrapS = THREE.RepeatWrapping;
-    img1.wrapT = THREE.RepeatWrapping;
-    img1.repeat.set(8, 8);
-
-    let img2 = await new THREE.TextureLoader().loadAsync("/光1.png");
-    img2.matrixAutoUpdate = false;
-    img2.matrix.identity().scale(0.6, 0.6).translate(0.2, 0.2);
-    // img2.needsUpdate = true;
-    console.log(img2);
-
-    const height = 100,
-      width = 100;
-
-    let pointGeometry = new THREE.BufferGeometry();
-    let points = new THREE.Mesh(
-      pointGeometry,
-      new THREE.MeshLambertMaterial({ color: 0xffffff })
-    );
-
-    let pArray = [];
-    for (let i = 0; i < (width * height) / 2; i++) {
-      let m = 0,
-        n = 100;
-      pArray.push(Math.random() * (n - m + 1) - m);
-      pArray.push(Math.random() * (n - m + 1) - m);
-      pArray.push(Math.random() * (n - m + 1) - m);
-    }
-    // let pointMat = new THREE.ShaderMaterial({
-    //   uniforms: {
-    //     uColor: {
-    //       value: new THREE.Color(0xffffff)
-    //     }
-    //   },
-    //   vertexShader: `
-    //     varying vPosition;
-    //     void main(){
-    //       vPosition = position;
-    //       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    //     }
-    //   `,
-    //   fragmentShader: `
-    //     void main(){
-    //       gl_FragColor =
-    //     }
-    //   `
-    // })
-
-    let material = new MeshLambertMaterial({
-      map: img1,
-    });
-    let geometry = new THREE.PlaneGeometry(width, height);
-    let plane = new THREE.Mesh(geometry, material);
-    scene.add(plane);
-    plane.rotateX(-Math.PI * 0.5);
-
-    geometry.setAttribute(
-      "p_position",
-      new THREE.Float32BufferAttribute(pArray, 3)
-    );
-    console.log(geometry);
-
-    geometry.computeBoundingBox();
-    geometry.computeBoundingSphere();
-
-    let { center, radius } = geometry.boundingSphere;
-    let { max, min } = geometry.boundingBox;
-
-    let size = new THREE.Vector3(max.x - min.x, max.y - min.y, max.z - min.z);
-
-    let vTime = {
-      value: 0,
-    };
-    material.transparent = true;
-    material.onBeforeCompile = (shader) => {
-      let uniforms = {
-        img2: {
-          value: img2,
-        },
-        radius: {
-          value: radius,
-        },
-        center: {
-          value: center,
-        },
-        uSize: {
-          value: size,
-        },
-        uTopColor: {
-          value: new THREE.Color("#FFFFDC"),
-        },
-        vTime,
-        vBlurRadius: {
-          value: 6,
-        },
-        vInnerRadius: {
-          value: 6,
-        },
-        vRingWidth: {
-          value: 12,
-        },
-        vHighColor: {
-          value: new THREE.Color("#5588aa"),
-        },
-      };
-      Object.assign(shader.uniforms, uniforms);
-
-      const vertex = `
-        varying vec3 vPosition;
-        varying vec3 vP_Position;
-        attribute vec3 p_position;
-        void main(){
-          vPosition = position;
-          vP_Position = p_position;
-      `;
-
-      const fragment = `
-          
-          varying vec3 vPosition;
-          varying vec3 vP_Position;
-          uniform float vRingWidth;
-          uniform float vInnerRadius;
-          uniform float vBlurRadius;
-          uniform vec3 center;
-          uniform float radius;
-          uniform vec3 uTopColor;
-          uniform vec3 uSize;
-          uniform vec3 vHighColor;
-          uniform float vTime;
-          void main(){
-      `;
-      const fragmentColor = `
-          vec3 distColor = outgoingLight;
-          float indexMix = vPosition.z / (uSize.z * 0.6);
-          distColor = mix(distColor, uTopColor, indexMix);
-          gl_FragColor.w = 0.0;
-          
-          float moveR = mod(vTime, radius);
-
-          float edge0 = moveR - vInnerRadius;
-          float edge1 = moveR;
-          float edge2 = moveR + vBlurRadius;
-
-          float curR = distance(center, vPosition);
-
-          float d1 = 1.0 - (curR - edge1) / (edge2 - edge1);
-          float d2 = (curR - edge0) / (edge1 - edge0);
-
-          if(curR < edge1 && curR > edge0){
-            gl_FragColor.w = d2 * 0.3;
-          }
-          if(curR < edge2 && curR > edge1){
-            gl_FragColor.w = d1;
-          }
-
-          gl_FragColor.w *= 1.0 - smoothstep(radius * 0.5, radius * 0.7, curR);  // 接近半径长度的时候渐变消失
-          
-          if(distance(vP_Position, vPosition)<1.0){
-            gl_FragColor = vec4(vHighColor, 1.0);
-          }
-        }
-      `;
-
-      shader.fragmentShader = shader.fragmentShader.replace(
-        "void main() {",
-        fragment
-      );
-      shader.fragmentShader = shader.fragmentShader.replace("}", fragmentColor);
-      shader.vertexShader = shader.vertexShader.replace(
-        "void main() {",
-        vertex
-      );
-    };
-
-    let stats = new Stats();
-    document.body.appendChild(stats.dom);
-    function render() {
-      requestAnimationFrame(render);
-
-      vTime.value += 0.1;
-      renderer.render(scene, camera);
-      stats.update();
     }
     render();
   }
@@ -4454,6 +4502,8 @@ export default class ShaderStudy extends React.Component {
       vertexShader: vShader,
       fragmentShader: fShader,
       transparent: true,
+      depthwrite: false,
+      depthTest: true,
     });
 
     for (let i = 0; i < cloudCount; i++) {
