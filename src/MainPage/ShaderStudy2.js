@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-11 17:20:31
+ * @LastEditTime: 2023-01-12 16:52:25
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -138,7 +138,166 @@ export default class ShaderStudy extends React.Component {
 
     // this.move_camera(renderer) // 渐变动画
     
-    this.floor(renderer)  // 封装的地板
+    // this.floor(renderer)  // 封装的地板
+
+    // this.not_light(renderer)  // 让物体不受光源的影响
+
+    // this.camera_layers(renderer)  // 设置照相机和要凸显的物体的layers
+
+    this.line_glare(renderer)  // 线条炫光
+  }
+  line_glare(renderer){
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    function render() {
+
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
+  }
+  async camera_layers(renderer){
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    const DEFAULT_LAYER = 0, SECOND_LAYER = 1;
+
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    let gltf = await loader.loadAsync('/shaxi-main.glb');
+    scene.add(gltf.scene);
+
+    let light = new THREE.DirectionalLight();
+    light.position.set(1,1,1)
+    light.intensity = 2
+    scene.add(light)
+    light.layers.enable(SECOND_LAYER);
+    light.layers.set(SECOND_LAYER);
+
+    let isToggle = false;
+
+    setInterval(() => {
+
+      let layer = isToggle ? DEFAULT_LAYER : SECOND_LAYER;
+      camera.layers.enable(layer);
+      camera.layers.set(layer);
+      
+      scene.getObjectByName('#1主变').traverse(mesh => {
+        if(mesh?.layers){
+          mesh.layers.enable(layer);
+          mesh.layers.set(layer);
+        }
+      })
+
+      isToggle = !isToggle;
+  
+    }, 3000)
+
+
+    function render() {
+
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
+  }
+  async not_light(renderer){
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    const loader = new GLTFLoader();
+
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    let gltf = await loader.loadAsync('/shaxi-main.glb');
+    scene.add(gltf.scene)
+
+    let light = new THREE.DirectionalLight();
+    scene.add(light)
+
+    scene.getObjectByName('地形').traverse(mesh => {
+      if(mesh.material?.isMeshStandardMaterial){
+        // mesh.material.emissiveIntensity = 0;
+        // mesh.material.envMapIntensity = 0;
+        // mesh.material.lightMapIntensity = 0;
+        // mesh.material.refractionRatio = 0;
+        // mesh.material.metalness = 0;
+
+        mesh.material.onBeforeCompile = (shader) => {
+
+          shader.fragmentShader = `
+          uniform vec3 diffuse;
+uniform float opacity;
+#ifndef FLAT_SHADED
+	varying vec3 vNormal;
+#endif
+#include <common>
+#include <dithering_pars_fragment>
+#include <color_pars_fragment>
+#include <uv_pars_fragment>
+#include <uv2_pars_fragment>
+#include <map_pars_fragment>
+#include <alphamap_pars_fragment>
+#include <alphatest_pars_fragment>
+#include <aomap_pars_fragment>
+#include <lightmap_pars_fragment>
+#include <envmap_common_pars_fragment>
+#include <envmap_pars_fragment>
+#include <fog_pars_fragment>
+#include <specularmap_pars_fragment>
+#include <logdepthbuf_pars_fragment>
+#include <clipping_planes_pars_fragment>
+void main() {
+	#include <clipping_planes_fragment>
+	vec4 diffuseColor = vec4( diffuse, opacity );
+	#include <logdepthbuf_fragment>
+	#include <map_fragment>
+	#include <color_fragment>
+	#include <alphamap_fragment>
+	#include <alphatest_fragment>
+	#include <specularmap_fragment>
+	ReflectedLight reflectedLight = ReflectedLight( vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ), vec3( 0.0 ) );
+	#ifdef USE_LIGHTMAP
+		vec4 lightMapTexel = texture2D( lightMap, vUv2 );
+		reflectedLight.indirectDiffuse += lightMapTexel.rgb * lightMapIntensity * RECIPROCAL_PI;
+	#else
+		reflectedLight.indirectDiffuse += vec3( 1.0 );
+	#endif
+	#include <aomap_fragment>
+	reflectedLight.indirectDiffuse *= diffuseColor.rgb;
+	vec3 outgoingLight = reflectedLight.indirectDiffuse;
+	#include <envmap_fragment>
+	#include <output_fragment>
+	#include <tonemapping_fragment>
+	#include <encodings_fragment>
+	#include <fog_fragment>
+	#include <premultiplied_alpha_fragment>
+	#include <dithering_fragment>
+}
+          `;
+        }
+      }
+    })
+    
+    function render() {
+
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
   }
   async floor(renderer){
 

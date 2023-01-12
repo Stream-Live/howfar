@@ -47,7 +47,7 @@ export default class EditPage extends React.Component {
 
     // this.perspectiveCamera(renderer, canvas)
     // this.tankMove(renderer, canvas)
-    this.shadow(renderer, canvas)
+    // this.shadow(renderer, canvas)
     // this.fog(renderer, canvas)
     // this.raycaster(renderer, canvas)
     // this.webglRenderTarget(renderer, canvas)
@@ -60,7 +60,7 @@ export default class EditPage extends React.Component {
     // this.study_raycasting_poingts(renderer, canvas)
     // this.points(renderer, canvas)
 
-    // this.draw_map(renderer, canvas)
+    this.draw_map(renderer, canvas)
     // this.shader_change_color(renderer, canvas)
     // this.shader_particle(renderer, canvas)
     // this.curve_camera(renderer, canvas)
@@ -488,6 +488,8 @@ export default class EditPage extends React.Component {
     // 控制相机
     const controls = new OrbitControls(camera, canvas)
     controls.update()
+
+    window.d3 = d3;
 
     // 场景
     const scene = new THREE.Scene()
