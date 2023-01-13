@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-12 16:52:25
+ * @LastEditTime: 2023-01-13 16:45:54
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -136,15 +136,15 @@ export default class ShaderStudy extends React.Component {
 
     // this.tweened_animation(renderer) // 渐变动画
 
-    // this.move_camera(renderer) // 渐变动画
+    // this.move_camera(renderer) // 相机移动
     
     // this.floor(renderer)  // 封装的地板
 
     // this.not_light(renderer)  // 让物体不受光源的影响
 
-    // this.camera_layers(renderer)  // 设置照相机和要凸显的物体的layers
+    this.camera_layers(renderer)  // 设置照相机和要凸显的物体的layers
 
-    this.line_glare(renderer)  // 线条炫光
+    // this.line_glare(renderer)  // 线条炫光
   }
   line_glare(renderer){
     renderer.setClearColor(0x000000);
@@ -320,24 +320,24 @@ void main() {
     scene.add(floor1);
 
     // 第二层
-    let floor2 = await create_floor({
-      img: await loader.loadAsync('/images/2.png'),
-      imgHighColor: '#00ffff',
-      initOpacity: 0.2,
-      moreLight: 3,
-    });
-    floor2.position.y -= 0.5;
-    scene.add(floor2);
+    // let floor2 = await create_floor({
+    //   img: await loader.loadAsync('/images/2.png'),
+    //   imgHighColor: '#00ffff',
+    //   initOpacity: 0.2,
+    //   moreLight: 3,
+    // });
+    // floor2.position.y -= 0.5;
+    // scene.add(floor2);
 
-    // 第三层
-    let floor3 = await create_floor({
-      img: await loader.loadAsync('/images/3.png'),
-      imgHighColor: '#ffffff',
-      initOpacity: 0,
-      moreLight: 3,
-    });
-    floor3.position.y -= 1;
-    scene.add(floor3);
+    // // 第三层
+    // let floor3 = await create_floor({
+    //   img: await loader.loadAsync('/images/3.png'),
+    //   imgHighColor: '#ffffff',
+    //   initOpacity: 0,
+    //   moreLight: 3,
+    // });
+    // floor3.position.y -= 1;
+    // scene.add(floor3);
 
     async function create_floor(params){
       let loader = new THREE.TextureLoader();
@@ -751,7 +751,7 @@ void main() {
     };
 
     setTimeout(() => {
-      move(pos, targetPos, 1)
+      move(pos, targetPos, 2)
     }, 3000)
 
     function move(_cameraPos, _targetPos, speed=1){
@@ -773,7 +773,7 @@ void main() {
           },
           time,
         )
-        .easing(Easing.Cubic.Out)
+        // .easing(Easing.Cubic.Out)
         .onUpdate(() => {
           controls.update();
         })
@@ -911,12 +911,12 @@ void main() {
               float threshold = 0.3;
               float r = mixRatio * (1.0 + threshold * 2.0) - threshold; // -1 ~ 0.5
               float mixf=clamp((transitionTexel.r - r)*(1.0/threshold), 0.0, 1.0);
-              // gl_FragColor = mix(transparent, origin, mixf);
+              gl_FragColor = mix(transparent, origin, mixf);
               
-              float h = height * 19. - 1.0;
-              if(vPosition.y < h){
-                gl_FragColor = transparent;
-              }
+              // float h = height * 19. - 1.0;
+              // if(vPosition.y < h){
+              //   gl_FragColor = transparent;
+              // }
 
               }
             `;
