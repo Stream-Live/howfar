@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-13 16:45:54
+ * @LastEditTime: 2023-01-18 15:42:12
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -97,8 +97,7 @@ export default class ShaderStudy extends React.Component {
     // this.mouse_bloom(renderer); // 鼠标悬浮发光
     // this.fire1(renderer); // 火1
 
-    // this.water(renderer)
-    // this.computedWater(renderer)
+    // this.computedWater(renderer)  // 喷水模拟
     // this.temperature2(renderer); // 设置设备温度
 
     // this.changeFog(renderer);  // js实现颜色的线性插值
@@ -142,13 +141,208 @@ export default class ShaderStudy extends React.Component {
 
     // this.not_light(renderer)  // 让物体不受光源的影响
 
-    this.camera_layers(renderer)  // 设置照相机和要凸显的物体的layers
+    // this.camera_layers(renderer)  // 设置照相机和要凸显的物体的layers
 
     // this.line_glare(renderer)  // 线条炫光
+
+    // this.shaking_snow(renderer) // 颤抖的雪
+
+    this.snow(renderer) // 下雪
   }
-  line_glare(renderer){
-    renderer.setClearColor(0x000000);
+  async snow(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let box = new THREE.Mesh(
+      new THREE.BoxGeometry(100, 100, 100),
+      new THREE.MeshLambertMaterial({ color: 0xffff00 })
+    );
+    box.geometry.computeBoundingBox();
+
+    let { min, max } = box.geometry.boundingBox;
+
+    let texture = await new THREE.TextureLoader().loadAsync('/circle.png');
+
+    let uTime = {value: 0}
+
+    const pointMat = new THREE.ShaderMaterial({
+      uniforms: {
+        img: {
+          value: texture,
+        },
+        uTime,
+        height:{
+          value: max.y - min.y
+        },
+      },
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      vertexShader: `
+      varying vec2 vUv;
+      uniform float uTime;
+      uniform float height;
+        void main(){
+          vUv = uv;
+          vec3 pos = vec3(position.x, mod(position.y+uTime, height) - (height/2.0), position.z);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+          gl_PointSize = 10.0;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D img;
+        varying vec2 vUv;
+        void main(){
+          float d = distance(gl_PointCoord, vec2(0.5, 0.5));
+          float m = 1.0 - smoothstep(0.0, 0.5, d);
+          gl_FragColor = vec4(1.0, 1.0, 1.0, m * 0.5);
+          // gl_FragColor = texture2D(img, gl_PointCoord);
+          // gl_FragColor.a *= 0.4;
+        }
+      `
+    });
+    const group = new THREE.Group();
+    const points = [];
+    for (let i = 0; i < 1000; i++) {
+      const pos = new THREE.Vector3();
+      pos.x = Math.random() * (max.x - min.x + 1) + min.x;
+      pos.y = Math.random() * (max.y - min.y + 1) + min.y;
+      pos.z = Math.random() * (max.z - min.z + 1) + min.z;
+
+      points.push(pos.x);
+      points.push(pos.y);
+      points.push(pos.z);
+    }
+    let g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(points), 3))
+    let mesh = new THREE.Points(g, pointMat);
+
+    const h = new THREE.BoxHelper(mesh);
+    scene.add(h);
+
+    scene.add(mesh);
+
+    let clock = new THREE.Clock();
+    function render() {
+      uTime.value -= (7 * clock.getDelta());
+      
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
+  }
+  async shaking_snow(renderer){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let box = new THREE.Mesh(
+      new THREE.BoxGeometry(100, 100, 100),
+      new THREE.MeshLambertMaterial({ color: 0xffff00 })
+    );
+    // scene.add(box);
+    box.geometry.computeBoundingBox();
+
+    let { min, max } = box.geometry.boundingBox;
+
+    let d = 1;
+
+    let texture = await new THREE.TextureLoader().loadAsync('/circle.png');
+
+    const pointMat = new THREE.PointsMaterial({
+      map: texture,
+      opacity: 0.7,
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+    });
+    const group = new THREE.Group();
+    const points = [];
+    for (let i = 0; i < 1000; i++) {
+      const pos = new THREE.Vector3();
+      pos.x = Math.random() * (max.x - min.x + 1) + min.x;
+      pos.y = Math.random() * (max.y - min.y + 1) + min.y;
+      pos.z = Math.random() * (max.z - min.z + 1) + min.z;
+
+      points.push(pos.x);
+      points.push(pos.y);
+      points.push(pos.z);
+    }
+    let g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(points), 3))
+    let mesh = new THREE.Points(g, pointMat);
+
+    const h = new THREE.BoxHelper(mesh);
+    scene.add(h);
+
+    scene.add(mesh);
+
+    function render() {
+      const positions = mesh.geometry.attributes.position.array;
+
+      for(let i=0, len = positions.length; i< len; i++ ){
+        let delta = 0.01;
+        if (Math.random() > 0.5) positions[i+1] += delta;
+        else positions[i+1] -= delta;
+      }
+
+      mesh.geometry.attributes.position.needsUpdate = true;
+
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+    }
+    render();
+  }
+  async line_glare(renderer){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+    renderer.setClearColor(0xcccccc);
+
+    const geometry = new THREE.BufferGeometry();
+    let positions = [
+      -10, 0, 10,
+      10, 0, 10,
+      20, 5, -10,
+      -20, 7, -10,
+      -10, 0, 10,
+    ]
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+
+    let texture = await new THREE.TextureLoader().loadAsync('/circle.png');
+
+    let mat = new THREE.ShaderMaterial({
+      uniforms: {
+        img: {
+          value: texture,
+        }
+      },
+      transparent: true,
+      depthWrite: false,
+      depthTest: true,
+      vertexShader: `
+      varying vec2 vUv;
+        void main(){
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_PointSize = 100.0;
+        }
+      `,
+      fragmentShader: `
+        uniform sampler2D img;
+        varying vec2 vUv;
+        void main(){
+          float d = distance(gl_PointCoord, vec2(0.5, 0.5));
+          gl_FragColor = texture2D(img, gl_PointCoord);
+          // if(gl_FragColor.a == 0.0) discard;
+          // float m = 1.0 - smoothstep(0.0, 0.5, d);
+          // gl_FragColor = vec4(1.0, 1.0, 0.0, m);
+        }
+      `
+    });
+
+    let mesh = new THREE.Points(geometry, mat);
+    scene.add(mesh)
+
 
     function render() {
 
@@ -3194,6 +3388,8 @@ void main() {
     material.onBeforeCompile = (shader) => {
       _shader = shader;
 
+      console.log(shader);
+
       shader.uniforms.time = {
         value: 0,
       };
@@ -4082,20 +4278,6 @@ void main() {
       else _mesh.position.y -= delta;
     });
 
-    console.log(group);
-    // scene.add(group);
-
-    let maxSpeed = 1,
-      minSpeed = 0.2;
-    function move() {
-      group.children.forEach((_mesh, index) => {
-        _mesh.position.y -=
-          Math.random() * (maxSpeed - minSpeed + 1) + minSpeed;
-        if (_mesh.position.y < min.y) {
-          _mesh.position.y = max.y;
-        }
-      });
-    }
 
     let obj = this.createRain(100, 100, 100);
 
@@ -5027,6 +5209,7 @@ void main() {
   }
 
   loadBasic(renderer) {
+    renderer.setClearColor(0x000000);
     // renderer.setClearColor(0xb9d3ff, 1); // 背景颜色
 
     const fov = 40; // 视野范围

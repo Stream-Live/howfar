@@ -60,11 +60,11 @@ export default class EditPage extends React.Component {
     // this.study_raycasting_poingts(renderer, canvas)
     // this.points(renderer, canvas)
 
-    this.draw_map(renderer, canvas)
+    // this.draw_map(renderer, canvas)
     // this.shader_change_color(renderer, canvas)
     // this.shader_particle(renderer, canvas)
     // this.curve_camera(renderer, canvas)
-    // this.shader_fly_line(renderer, canvas);
+    this.shader_fly_line(renderer, canvas);
 
   }
   shader_fly_line(renderer, canvas){
