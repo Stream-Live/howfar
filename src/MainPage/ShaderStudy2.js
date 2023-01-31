@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-18 15:42:12
+ * @LastEditTime: 2023-01-31 17:37:31
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -123,7 +123,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.uv_study(renderer); // uv学习
 
-    // this.final_path(renderer); // 最终自己写的道路
+    this.final_path(renderer); // 最终自己写的道路
 
     // this.play(renderer);  // 模拟发光
 
@@ -147,7 +147,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.shaking_snow(renderer) // 颤抖的雪
 
-    this.snow(renderer) // 下雪
+    // this.snow(renderer) // 下雪
   }
   async snow(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -495,8 +495,8 @@ void main() {
   }
   async floor(renderer){
 
-    renderer.setClearColor(0x1f527b);
     let { scene, camera, controls } = this.loadBasic(renderer);
+    renderer.setClearColor(0x1f527b);
     // let pos = {
     //   "x": 12.582182772199193,
     //   "y": 399.41594248256837,
@@ -514,24 +514,24 @@ void main() {
     scene.add(floor1);
 
     // 第二层
-    // let floor2 = await create_floor({
-    //   img: await loader.loadAsync('/images/2.png'),
-    //   imgHighColor: '#00ffff',
-    //   initOpacity: 0.2,
-    //   moreLight: 3,
-    // });
-    // floor2.position.y -= 0.5;
-    // scene.add(floor2);
+    let floor2 = await create_floor({
+      img: await loader.loadAsync('/images/2.png'),
+      imgHighColor: '#00ffff',
+      initOpacity: 0.2,
+      moreLight: 3,
+    });
+    floor2.position.y -= 0.5;
+    scene.add(floor2);
 
-    // // 第三层
-    // let floor3 = await create_floor({
-    //   img: await loader.loadAsync('/images/3.png'),
-    //   imgHighColor: '#ffffff',
-    //   initOpacity: 0,
-    //   moreLight: 3,
-    // });
-    // floor3.position.y -= 1;
-    // scene.add(floor3);
+    // 第三层
+    let floor3 = await create_floor({
+      img: await loader.loadAsync('/images/3.png'),
+      imgHighColor: '#ffffff',
+      initOpacity: 0,
+      moreLight: 3,
+    });
+    floor3.position.y -= 1;
+    scene.add(floor3);
 
     async function create_floor(params){
       let loader = new THREE.TextureLoader();
@@ -1431,10 +1431,6 @@ void main() {
     renderer.setClearColor(0x000000);
     let { scene, camera, controls } = this.loadBasic(renderer);
 
-    const option = {
-      isClosed: true,
-      radius: 0.5, // 范围0-1，实际意义是圆角的贝塞尔曲线控制点，贝塞尔曲线的起始终止点都是 1
-    };
 
     let points = [
       {
@@ -1464,7 +1460,38 @@ void main() {
       },
     ];
 
-    let vec3Points = points.map((item) => new THREE.Vector3().copy(item));
+    let obj = await this.create_path({
+      points, 
+      imgUrl:"/021-箭头.png",
+      radius: 0.5,
+      divisions: 200,
+    }, scene);
+    console.log(obj);
+    scene.add(obj.path);
+    obj.start();
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+      // transformY.value -= 0.01;
+    }
+    render();
+
+  }
+
+  async create_path(params, scene){
+    let option = {
+      points: [],
+      imgUrl: "", // 贴图路径
+      isClosed: false,
+      radius: 0.5, // 范围0-1，实际意义是圆角的贝塞尔曲线控制点，贝塞尔曲线的起始终止点都是 1
+      divisions: 200, // 默认分段数
+    };
+    Object.assign(option, params);
+    
+    let vec3Points = option.points.map((item) => new THREE.Vector3().copy(item));
 
     // 1、绘制三维线条
     let curvePath1 = new THREE.CurvePath();
@@ -1500,36 +1527,58 @@ void main() {
       linePoints.push(p22);
       linePoints.push(p23);
     }
-    for (let i = 0; i < linePoints.length; i += 4) {
-      // 贝塞尔曲线
-      let p1 = linePoints[(i + 1) % linePoints.length],
-        p2 = linePoints[(i + 2) % linePoints.length],
-        p3 = linePoints[(i + 3) % linePoints.length],
-        p4 = linePoints[(i + 4) % linePoints.length],
-        p5 = linePoints[(i + 5) % linePoints.length];
+    if(option.isClosed){
 
-      let straight = new THREE.LineCurve3(p1, p2);
+      for (let i = 0; i < linePoints.length; i += 4) {
+        // 贝塞尔曲线
+        let p1 = linePoints[(i + 1) % linePoints.length],
+          p2 = linePoints[(i + 2) % linePoints.length],
+          p3 = linePoints[(i + 3) % linePoints.length],
+          p4 = linePoints[(i + 4) % linePoints.length],
+          p5 = linePoints[(i + 5) % linePoints.length];
+  
+        let straight = new THREE.LineCurve3(p1, p2);
+        curvePath.add(straight);
+  
+        let beize = new THREE.CubicBezierCurve3(p2, p3, p4, p5);
+        curvePath.add(beize);
+      }
+    }else{
+      let p1 = vec3Points[0],
+          p2 = linePoints[1];
+      let straight1 = new THREE.LineCurve3(p1, p2);
+      curvePath.add(straight1);
+
+      for (let i = 0; i < linePoints.length - 8; i += 4) {
+        // 贝塞尔曲线
+        let p1 = linePoints[(i + 1) % linePoints.length],
+          p2 = linePoints[(i + 2) % linePoints.length],
+          p3 = linePoints[(i + 3) % linePoints.length],
+          p4 = linePoints[(i + 4) % linePoints.length],
+          p5 = linePoints[(i + 5) % linePoints.length];
+  
+        let straight = new THREE.LineCurve3(p1, p2);
+        curvePath.add(straight);
+  
+        let beize = new THREE.CubicBezierCurve3(p2, p3, p4, p5);
+        curvePath.add(beize);
+      }
+      let p3 = linePoints[linePoints.length - 7],
+          p4 = vec3Points[vec3Points.length - 1];
+      let straight = new THREE.LineCurve3(p3, p4);
       curvePath.add(straight);
 
-      let beize = new THREE.CubicBezierCurve3(p2, p3, p4, p5);
-      curvePath.add(beize);
     }
+    // const line = new THREE.Line(
+    //   new THREE.BufferGeometry().setFromPoints(curvePath.getPoints(50)),
+    //   new THREE.LineBasicMaterial({ color: 0x00ffff })
+    // );
+    // scene.add(line);
+    console.log(curvePath1);
 
-    const line = new THREE.LineLoop(
-      new THREE.BufferGeometry().setFromPoints(curvePath.getPoints(50)),
-      new THREE.LineBasicMaterial({ color: 0x00ffff })
-    );
-    scene.add(line);
-
-    const line1 = new THREE.LineLoop(
-      new THREE.BufferGeometry().setFromPoints(curvePath1.getPoints(50)),
-      new THREE.LineBasicMaterial({ color: 0xff0000 })
-    );
-    scene.add(line1);
-
-    let pathGeometry = new MyPathGeometry(curvePath, 200);
+    let pathGeometry = new MyPathGeometry(curvePath, option.divisions, option.isClosed);
     
-    let bg = await new THREE.TextureLoader().loadAsync("/021-箭头.png");
+    let bg = await new THREE.TextureLoader().loadAsync(option.imgUrl);
     bg.wrapS = bg.wrapT = THREE.RepeatWrapping;
 
     let transformY = {
@@ -1562,17 +1611,29 @@ void main() {
       side: THREE.DoubleSide,
     });
 
-    let path = new THREE.Mesh(pathGeometry, material)
-    scene.add(path);
+    let path = new THREE.Mesh(pathGeometry, material);
+
+    let clock = new THREE.Clock();
+
+    const obj = {
+      path,
+      isStarted: false,
+      start(){
+        this.isStarted = true;
+        render();
+      },
+      stop(){
+        this.isStarted = false;
+      },
+    }
 
     function render() {
-      requestAnimationFrame(render);
+      obj.isStarted && requestAnimationFrame(render);
 
-      renderer.render(scene, camera);
-
-      transformY.value -= 0.01;
+      transformY.value -= clock.getDelta();
     }
-    render();
+
+    return obj
   }
 
   async uv_study(renderer) {

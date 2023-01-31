@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-12-25 23:27:55
  * @LastEditors: Wjh
- * @LastEditTime: 2022-12-27 16:12:59
+ * @LastEditTime: 2023-01-31 17:37:17
  * @FilePath: \howfar\src\path-libs\MyPathGeometry.js
  * @Description:
  *
@@ -15,7 +15,7 @@ import {
 } from 'three'
 
 class MyPathGeometry extends BufferGeometry {
-  constructor(curve, divisions) {
+  constructor(curve, divisions, isClosed) {
     super();
 
     const vertices = [];
@@ -70,25 +70,39 @@ class MyPathGeometry extends BufferGeometry {
 			prevPoint.copy( point );
     }
 
-    // 末尾再加两个点
-    point.copy(curve.getPointAt(0.999999));
-    up.set(0, 1, 0);
-    forward.subVectors(prevPoint, point).normalize(); // 最后一个点朝向要变一下
-    left.crossVectors(up, forward).normalize().multiplyScalar(halfWidth);
-    right.copy(left).negate().normalize().multiplyScalar(halfWidth);
-    
-    extrudeShape(1);
-
-    
-    for(let i=0, len=vertices.length/3;i<len;i+=2){
-
-      let p0 = i,
-          p1 = i+1,
-          p2 = (i+2) % len,
-          p3 = (i+3) % len;
+    if(isClosed){
+      // 末尾再加两个点
+      point.copy(curve.getPointAt(0.999999));
+      up.set(0, 1, 0);
+      forward.subVectors(prevPoint, point).normalize(); // 最后一个点朝向要变一下
+      left.crossVectors(up, forward).normalize().multiplyScalar(halfWidth);
+      right.copy(left).negate().normalize().multiplyScalar(halfWidth);
       
-      index = index.concat([p0, p1, p3, p0, p3, p2]);
+      extrudeShape(1);
+
+      
+      for(let i=0, len=vertices.length/3;i<len;i+=2){
+
+        let p0 = i,
+            p1 = i+1,
+            p2 = (i+2) % len,
+            p3 = (i+3) % len;
+        
+        index = index.concat([p0, p1, p3, p0, p3, p2]);
+      }
+    }else{
+
+      for(let i=0, len=vertices.length/3;i<len-2;i+=2){
+
+        let p0 = i,
+            p1 = i+1,
+            p2 = (i+2) % len,
+            p3 = (i+3) % len;
+        
+        index = index.concat([p0, p1, p3, p0, p3, p2]);
+      }
     }
+    
 
 		this.setAttribute( 'position', new BufferAttribute( new Float32Array( vertices ), 3 ) );
 		this.setAttribute( 'uv', new BufferAttribute( new Float32Array( uv ), 2 ) );
