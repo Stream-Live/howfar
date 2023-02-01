@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-01-31 17:37:31
+ * @LastEditTime: 2023-02-01 16:20:15
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -89,7 +89,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.bloom(renderer)
     // this.technologe_sity(renderer)
-    // this.rain(renderer)
+    // this.rain(renderer)   // 下雨
     window.THREE = THREE;
 
     // this.temperature(renderer); // 设置设备温度
@@ -148,6 +148,8 @@ export default class ShaderStudy extends React.Component {
     // this.shaking_snow(renderer) // 颤抖的雪
 
     // this.snow(renderer) // 下雪
+
+    // this.new_path_animation(renderer) // 新的运动路径
   }
   async snow(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -160,15 +162,10 @@ export default class ShaderStudy extends React.Component {
 
     let { min, max } = box.geometry.boundingBox;
 
-    let texture = await new THREE.TextureLoader().loadAsync('/circle.png');
-
     let uTime = {value: 0}
 
     const pointMat = new THREE.ShaderMaterial({
       uniforms: {
-        img: {
-          value: texture,
-        },
         uTime,
         height:{
           value: max.y - min.y
@@ -189,14 +186,11 @@ export default class ShaderStudy extends React.Component {
         }
       `,
       fragmentShader: `
-        uniform sampler2D img;
         varying vec2 vUv;
         void main(){
           float d = distance(gl_PointCoord, vec2(0.5, 0.5));
           float m = 1.0 - smoothstep(0.0, 0.5, d);
           gl_FragColor = vec4(1.0, 1.0, 1.0, m * 0.5);
-          // gl_FragColor = texture2D(img, gl_PointCoord);
-          // gl_FragColor.a *= 0.4;
         }
       `
     });
@@ -219,11 +213,19 @@ export default class ShaderStudy extends React.Component {
     const h = new THREE.BoxHelper(mesh);
     scene.add(h);
 
-    scene.add(mesh);
+    let obj = create_snow({
+      width: 200,
+      speed: 10,
+      pointSize: 30
+    })
+    scene.add(obj.mesh)
+    obj.start();
+    
+
+    // scene.add(mesh);
 
     let clock = new THREE.Clock();
     function render() {
-      uTime.value -= (7 * clock.getDelta());
       
       requestAnimationFrame(render);
 
@@ -231,6 +233,102 @@ export default class ShaderStudy extends React.Component {
 
     }
     render();
+
+    function create_snow(params){
+
+      const option = {
+        width: 100, 
+        height: 100,
+        depth: 100,
+        total: 1000,  // 雪的数量
+        speed: 10,  // 下雪速度
+        pointSize: 10,  // 雪的大小
+      }
+
+      Object.assign(option, params);
+
+      let box = new THREE.Mesh(
+        new THREE.BoxGeometry(option.width, option.height, option.depth),
+        new THREE.MeshLambertMaterial({ color: 0xffff00 })
+      );
+      box.geometry.computeBoundingBox();
+  
+      let { min, max } = box.geometry.boundingBox;
+  
+      let uTime = {value: 0}
+  
+      const pointMat = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime,
+          height:{
+            value: max.y - min.y
+          },
+          pointSize: {
+            value: option.pointSize
+          }
+        },
+        transparent: true,
+        depthWrite: false,
+        depthTest: true,
+        vertexShader: `
+        varying vec2 vUv;
+        uniform float uTime;
+        uniform float height;
+        uniform float pointSize;
+          void main(){
+            vUv = uv;
+            vec3 pos = vec3(position.x, mod(position.y+uTime, height) - (height/2.0), position.z);
+            gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+            gl_PointSize = pointSize;
+          }
+        `,
+        fragmentShader: `
+          varying vec2 vUv;
+          void main(){
+            float d = distance(gl_PointCoord, vec2(0.5, 0.5));
+            float m = 1.0 - smoothstep(0.0, 0.5, d);
+            gl_FragColor = vec4(1.0, 1.0, 1.0, m * 0.5);
+          }
+        `
+      });
+      const group = new THREE.Group();
+      const points = [];
+      for (let i = 0; i < option.total; i++) {
+        const pos = new THREE.Vector3();
+        pos.x = Math.random() * (max.x - min.x + 1) + min.x;
+        pos.y = Math.random() * (max.y - min.y + 1) + min.y;
+        pos.z = Math.random() * (max.z - min.z + 1) + min.z;
+  
+        points.push(pos.x);
+        points.push(pos.y);
+        points.push(pos.z);
+      }
+      let g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(points), 3))
+      let mesh = new THREE.Points(g, pointMat);
+
+      const boxHelper = new THREE.BoxHelper(mesh);
+
+      const obj = {
+        mesh,
+        boxHelper,
+        isStarted: false,
+        start() {
+          this.isStarted = true;
+          render();
+        },
+        stop() {
+          this.isStarted = false;
+        },
+      };
+
+      let clock = new THREE.Clock();
+      function render() {
+        obj.isStarted && requestAnimationFrame(render);
+        uTime.value -= (option.speed * clock.getDelta());
+      }
+      return obj;
+    }
   }
   async shaking_snow(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -508,40 +606,42 @@ void main() {
     let loader = new THREE.TextureLoader();
 
     // 第一层(网格)
-    let floor1 = await create_floor({
-      img: await loader.loadAsync('/images/1.png'),
+    let obj1 = create_floor({
+      imgUrl: '/images/1.png',
     });
-    scene.add(floor1);
+    console.log(obj1);
+    
+    scene.add(obj1.mesh);
+    obj1.start();
 
     // 第二层
-    let floor2 = await create_floor({
-      img: await loader.loadAsync('/images/2.png'),
+    let obj2 = create_floor({
+      imgUrl: '/images/2.png',
       imgHighColor: '#00ffff',
       initOpacity: 0.2,
       moreLight: 3,
     });
-    floor2.position.y -= 0.5;
-    scene.add(floor2);
+    obj2.mesh.position.y -= 0.5;
+    scene.add(obj2.mesh);
+    obj2.start();
 
     // 第三层
-    let floor3 = await create_floor({
-      img: await loader.loadAsync('/images/3.png'),
+    let obj3 = create_floor({
+      imgUrl: '/images/3.png',
       imgHighColor: '#ffffff',
       initOpacity: 0,
       moreLight: 3,
     });
-    floor3.position.y -= 1;
-    scene.add(floor3);
+    obj3.mesh.position.y -= 1;
+    scene.add(obj3.mesh);
+    obj3.start();
 
-    async function create_floor(params){
-      let loader = new THREE.TextureLoader();
-
-      let img = await loader.loadAsync('/images/1.png');
+    function create_floor(params){
 
       const option = {
         width: 400,
         height: 400,
-        img,
+        imgUrl: '',
         // 图片重复次数
         imgRepeatXY: 10,
         // 图片高亮颜色
@@ -562,19 +662,22 @@ void main() {
         edgeColor: '#1f527b'
       }
       Object.assign(option, params);
-      option.img.wrapS = option.img.wrapT = THREE.RepeatWrapping;
 
       let geometry = new THREE.PlaneGeometry(option.width, option.height, 2, 2);
       geometry.computeBoundingSphere();
       let { radius } = geometry.boundingSphere;
 
+      let img = {value: null}
+      new THREE.TextureLoader().load(option.imgUrl, texture => {
+        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+        img.value = texture;
+      })
+
       let vTime = { value: 0.0 };
 
       let mat = new THREE.ShaderMaterial({
         uniforms: {
-          img: {
-            value: option.img,
-          },
+          img,
           imgRepeatXY: {
             value: option.imgRepeatXY,
           },
@@ -719,16 +822,26 @@ void main() {
         transparent: true,
       });
 
-      let clock = new THREE.Clock();
-      function render() {
-        vTime.value += clock.getDelta() * 20;
-        requestAnimationFrame(render);
-      }
-      render();
-
       let mesh = new THREE.Mesh(geometry, mat)
       mesh.rotateX(-Math.PI * 0.5);
-      return mesh;
+
+      const obj = {
+        mesh,
+        isStarted: false,
+        start(){
+          this.isStarted = true;
+          render();
+        },
+        stop(){
+          this.isStarted = false;
+        },
+      }
+      let clock = new THREE.Clock();
+      function render() {
+        obj.isStarted && requestAnimationFrame(render);
+        vTime.value += clock.getDelta() * 20;
+      }
+      return obj;
     }
 
     async function create_floor1(params){
@@ -1460,7 +1573,7 @@ void main() {
       },
     ];
 
-    let obj = await this.create_path({
+    let obj = this.create_path({
       points, 
       imgUrl:"/021-箭头.png",
       radius: 0.5,
@@ -1481,36 +1594,83 @@ void main() {
 
   }
 
-  async create_path(params, scene){
-    let option = {
-      points: [],
-      imgUrl: "", // 贴图路径
-      isClosed: false,
-      radius: 0.5, // 范围0-1，实际意义是圆角的贝塞尔曲线控制点，贝塞尔曲线的起始终止点都是 1
-      divisions: 200, // 默认分段数
-    };
-    Object.assign(option, params);
-    
-    let vec3Points = option.points.map((item) => new THREE.Vector3().copy(item));
+  new_path_animation(renderer){
+    renderer.setClearColor(0x000000);
+    let { scene, camera, controls } = this.loadBasic(renderer);
 
-    // 1、绘制三维线条
-    let curvePath1 = new THREE.CurvePath();
+    const box = new THREE.BoxGeometry(1, 1, 1);
+    const boxMesh = new Mesh(box, [
+      new MeshLambertMaterial({ color: 0x0000ff }),
+      new MeshLambertMaterial({ color: 0xff00ff }),
+      new MeshLambertMaterial({ color: 0xddffff }),
+      new MeshLambertMaterial({ color: 0xddeeff }),
+      new MeshLambertMaterial({ color: 0x00fdff }),
+      new MeshLambertMaterial({ color: 0xcc00ff }),
+    ]);
+    scene.add(boxMesh);
+    let points = [
+      {
+        x: 7.602154318249855,
+        y: 7.921453849076141,
+        z: 6.721410476616342,
+      },
+      {
+        x: 10.148048025924078,
+        y: 9.80519616030863,
+        z: -3.687171295945351,
+      },
+      {
+        x: 17.196987884977865,
+        y: 10.367155161070908,
+        z: -1.7331112243968336,
+      },
+      {
+        x: 21.676960221577954,
+        y: 6.7777302427081665,
+        z: 2.761755486019113,
+      },
+      {
+        x: 17.576459920642765,
+        y: 8.061689769635127,
+        z: 8.265982854571803,
+      },
+    ];
+    let animation = this.create_path_animation({
+      points,
+      mesh: boxMesh,
+      isClosed: false,
+      isRepeat: false,
+      speed: 0.3
+    })
+    animation.start();
+
+    scene.add(animation.line);
+
+    
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+    }
+    render();
+  }
+
+  getCurvePathByPoints(points, radius, isClosed){
+    let vec3Points = points.map((item) => new THREE.Vector3().copy(item));
     let curvePath = new THREE.CurvePath();
     let linePoints = [];
 
+    // 1、算出每个点对应的贝塞尔曲线需要的四个点
     for (let i = 0; i < vec3Points.length; i++) {
       let p1 = vec3Points[i],
         p2 = vec3Points[(i + 1) % vec3Points.length];
-
-      const lineCurve1 = new THREE.LineCurve3(p1, p2);
-      curvePath1.add(lineCurve1);
 
       let side = new THREE.Vector3().subVectors(p2, p1).normalize();
 
       let p11 = new THREE.Vector3().addVectors(p1, side);
       let p12 = new THREE.Vector3().addVectors(
         p1,
-        new THREE.Vector3().copy(side).multiplyScalar(option.radius)
+        new THREE.Vector3().copy(side).multiplyScalar(radius)
       );
       let p22 = new THREE.Vector3().addVectors(
         p2,
@@ -1518,7 +1678,7 @@ void main() {
       );
       let p23 = new THREE.Vector3().addVectors(
         p2,
-        new THREE.Vector3().copy(side).negate().multiplyScalar(option.radius)
+        new THREE.Vector3().copy(side).negate().multiplyScalar(radius)
       );
 
       // 顺时针
@@ -1527,7 +1687,8 @@ void main() {
       linePoints.push(p22);
       linePoints.push(p23);
     }
-    if(option.isClosed){
+    // 2、把上面算出的点连起来
+    if(isClosed){
 
       for (let i = 0; i < linePoints.length; i += 4) {
         // 贝塞尔曲线
@@ -1569,17 +1730,92 @@ void main() {
       curvePath.add(straight);
 
     }
-    // const line = new THREE.Line(
-    //   new THREE.BufferGeometry().setFromPoints(curvePath.getPoints(50)),
-    //   new THREE.LineBasicMaterial({ color: 0x00ffff })
-    // );
-    // scene.add(line);
-    console.log(curvePath1);
+    return curvePath;
+  }
+
+  create_path_animation(params){
+    const option = {
+      points: [],
+      isClosed: false,
+      radius: 0, // 圆角，范围是0-1，实际意义是利用占比radius的线条来画圆角
+      mesh: null,
+      divisions: 200,
+      speed: 0.1,
+      isRepeat: false,
+    };
+
+    Object.assign(option, params || {});
+
+    let curvePath = this.getCurvePathByPoints(option.points, option.radius, option.isClosed)
+
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(curvePath.getPoints(50)),
+      new THREE.LineBasicMaterial({ color: 0xffff00 })
+    );
+
+    const obj = {
+      line,
+      isStarted: false,
+      start(){
+        this.isStarted = true;
+        render();
+      },
+      stop(){
+        this.isStarted = false;
+      },
+    }
+    let clock = new THREE.Clock();
+    let percent = 0;
+    function render() {
+      obj.isStarted && option.mesh && requestAnimationFrame(render);
+
+      let delta = clock.getDelta() * option.speed;
+
+      percent = (percent + delta) % 1;
+
+      // 0.99就够了，剩下的0.01留给看向前方的点
+      if(!option.isRepeat && percent >= 0.99){
+        obj.isStarted = false;
+        return
+      }
+      let pos = curvePath.getPointAt(percent);
+      option.mesh.position.copy(pos)
+
+      // 看向前方
+      let prePercent = percent+0.01 > 1 ? 1 : (percent+0.01);
+      let targetPosition = curvePath.getPointAt(prePercent);
+      option.mesh.lookAt(targetPosition.x, targetPosition.y, targetPosition.z);
+
+    }
+
+    return obj
+  }
+
+  create_path(params, scene){
+    let option = {
+      points: [],
+      imgUrl: "", // 贴图路径
+      isClosed: false,
+      radius: 0.5, // 范围0-1，实际意义是圆角的贝塞尔曲线控制点，贝塞尔曲线的起始终止点都是 1
+      divisions: 200, // 默认分段数
+    };
+    Object.assign(option, params);
+    
+    let curvePath = this.getCurvePathByPoints(option.points, option.radius, option.isClosed)
+ 
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints(curvePath.getPoints(50)),
+      new THREE.LineBasicMaterial({ color: 0x00ffff })
+    );
+    scene.add(line);
 
     let pathGeometry = new MyPathGeometry(curvePath, option.divisions, option.isClosed);
     
-    let bg = await new THREE.TextureLoader().loadAsync(option.imgUrl);
-    bg.wrapS = bg.wrapT = THREE.RepeatWrapping;
+    let bg = {value: null};
+    new THREE.TextureLoader().load(option.imgUrl, (texture => {
+      texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+      bg.value = texture;
+    }))
 
     let transformY = {
       value: 0
@@ -1587,9 +1823,7 @@ void main() {
 
     let material = new THREE.ShaderMaterial({
       uniforms: {
-        bg: {
-          value: bg,
-        },
+        bg,
         transformY
       },
       vertexShader: `
@@ -4364,8 +4598,8 @@ void main() {
    */
   createRain(width, height, depth, paramsOption) {
     const defOption = {
-      maxSpeed: 1.5, // 雨滴下落最大速度
-      minSpeed: 0.2, // 雨滴下落最小速度
+      maxSpeed: 0.5, // 雨滴下落最大速度
+      minSpeed: 0.1, // 雨滴下落最小速度
       length: 1, // 每个雨滴的长度
     };
 
@@ -4419,15 +4653,19 @@ void main() {
       },
     };
 
+    let clock = new THREE.Clock();
     function render() {
       obj.isStarted && requestAnimationFrame(render);
+      let delta = clock.getDelta();
 
       group.children.forEach((_mesh, index) => {
-        _mesh.position.y -=
-          Math.random() * (option.maxSpeed - option.minSpeed + 1) +
-          option.minSpeed;
+        // let maxNum = delta * 10, minNum = delta * 5;
+        // let num = (Math.random() * (maxNum - minNum + 1) + minNum);
+        // _mesh.position.y -=  num;
+        _mesh.position.y -= Math.random() * (option.maxSpeed - option.minSpeed + 1) + option.minSpeed;
+
         if (_mesh.position.y < min.y) {
-          _mesh.position.y = max.y;
+          _mesh.position.y = max.y;                                                                                                                                                                                                                                                                                                                                                   
         }
       });
     }
