@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-01 16:20:15
+ * @LastEditTime: 2023-02-02 16:30:56
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -94,7 +94,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.temperature(renderer); // 设置设备温度
     // this.virtual(renderer); // 虚化
-    // this.mouse_bloom(renderer); // 鼠标悬浮发光
+    // this.mouse_bloom(renderer); // 发光虚化
     // this.fire1(renderer); // 火1
 
     // this.computedWater(renderer)  // 喷水模拟
@@ -123,7 +123,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.uv_study(renderer); // uv学习
 
-    this.final_path(renderer); // 最终自己写的道路
+    // this.final_path(renderer); // 最终自己写的道路
 
     // this.play(renderer);  // 模拟发光
 
@@ -150,6 +150,268 @@ export default class ShaderStudy extends React.Component {
     // this.snow(renderer) // 下雪
 
     // this.new_path_animation(renderer) // 新的运动路径
+
+    this.new_virtual_tree(renderer) // 发光虚化树
+  }
+  new_virtual_tree(renderer){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+    const loader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    const BLOOM_SCENE = 2;
+
+    // loader.load(
+    //   "/shaxi-main.glb",
+    //   async function (gltf) {
+    //     gltf.scene.name = '场景'
+    //     await scene.add(gltf.scene);
+    //     // scene.getObjectByName("屋顶1").removeFromParent();
+    //     // scene.getObjectByName("屋顶2").removeFromParent();
+
+    //     // scene.getObjectByName("35kv内墙").layers.toggle(BLOOM_SCENE);
+    //     // scene.getObjectByName('D20_2').layers.toggle(BLOOM_SCENE);
+    //     // // scene.getObjectByName('主楼1').layers.toggle(BLOOM_SCENE);
+    //     // scene.getObjectByName('35kv开关室').traverse(mesh => {
+    //     //   if(mesh.isMesh){
+    //     //     mesh.layers.toggle(BLOOM_SCENE)
+    //     //   }
+    //     // });
+
+    //     // let _mesh = scene.getObjectByName('保安室')
+    //     // _mesh.children.forEach(mesh => {
+
+    //     //   let lineGeometry = new THREE.EdgesGeometry(mesh.geometry);
+
+    //     //   let line = new THREE.LineSegments(
+    //     //     lineGeometry,
+    //     //     new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 0.15, transparent: true })
+    //     //   )
+
+    //     //   mesh.parent.add(line)
+
+    //     //   line.layers.toggle(BLOOM_SCENE);
+    //     //   mesh.visible = false;
+    //     //   // }
+    //     // })
+    //     // scene.getObjectByName('地形').visible = false
+    //     // scene.getObjectByName('外场景').visible = false
+    //     // scene.getObjectByName('水面').visible = false
+
+    //     // let list = scene.getObjectByName('排风扇').children.map(item => {
+    //     //   let name = item.name + '_2';
+    //     //   let mesh = scene.getObjectByName(name)
+
+    //     //   new TWEEN.Tween(mesh.rotation).to({
+    //     //     y: mesh.rotation.y + Math.PI
+    //     //   }, 1000).repeat(Infinity).start().onStart(val => {
+    //     //     mesh.rotation.y = mesh.rotation.y + Math.PI;
+    //     //   });
+
+    //     //   return name
+    //     // })
+    //     // console.log(list);
+
+    //     // 虚化
+    //     // gltf.scene.children.forEach(item => {
+    //     //   if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
+    //     //     children.push(item)
+    //     //   }
+    //     // });
+
+    //     // scene.getObjectByName('主体1').visible = false;
+    //     // scene.getObjectByName('主体2').visible = false;
+    //     // scene.getObjectByName('屋顶1').visible = false;
+    //     // scene.getObjectByName('屋顶2').visible = false;
+
+    //     render();
+    //   },
+    //   // called while loading is progressing
+    //   function (xhr) {
+    //     console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+    //   },
+    //   // called when loading has errors
+    //   function (error) {
+    //     console.log("An error happened");
+    //   }
+    // );
+    window.toggleVirtualMesh = toggleVirtualMesh;
+    window.toggleVirtualTree = toggleVirtualTree;
+
+    function toggleVirtualMesh(name, scene, _isVirtual) {
+      let _mesh = scene.getObjectByName(name);
+
+      // 如果有传_isVirtual
+      if(_isVirtual != undefined){
+        if(_isVirtual === true && !_mesh.userData.isVirtual){
+          virtual(_mesh)
+          return
+        }
+        if(_isVirtual === false && _mesh.userData.isVirtual){
+          restore(_mesh)
+          return
+        }
+        
+      // 如果没有传_isVirtual
+      }else{
+        if (_mesh.userData.isVirtual) {
+          restore(_mesh)
+        } else {
+          virtual(_mesh)
+        }
+      }
+      function virtual(_mesh){
+        _mesh.userData.isVirtual = true;
+        // 虚化
+        _mesh.traverse((mesh) => {
+          if (mesh?.isMesh) {
+            let lineGeometry = new THREE.EdgesGeometry(mesh.geometry);
+            let line = new THREE.LineSegments(
+              lineGeometry,
+              new THREE.LineBasicMaterial({
+                color: 0x00ffff,
+                opacity: 0.1,
+                transparent: true,
+              })
+            );
+            line.name = mesh.uuid+'线框';
+            mesh.parent.add(line);
+            mesh.visible = false;
+          }
+        });
+      }
+      function restore(_mesh){
+        _mesh.userData.isVirtual = false;
+        let list = []
+        _mesh.traverse((mesh) => {
+          if (mesh?.isMesh) {
+            let line = scene.getObjectByName(mesh.uuid+'线框');
+            list.push(line);
+            mesh.visible = true;
+          }
+        });
+        list.forEach(line => {
+          line.removeFromParent();
+        })
+      }
+
+      return _mesh.userData.isVirtual;
+
+    }
+    
+    loader.load('/shaxi-tree.glb', async (gltf) => {
+      await scene.add(gltf.scene);
+
+      
+    })
+
+    function toggleVirtualTree(name, scene, _isVirtual, params) {
+      let mesh = scene.getObjectByName(name);
+      const option = {
+        color: '#00ffff',
+        opacity: 0.05,
+      }
+      Object.assign(option, params || {})
+
+      let userData = mesh.userData;
+      if(userData.isVirtual == undefined){
+        userData.isVirtual = {value: 0};
+        mesh.traverse(_mesh => {
+          if (_mesh?.material?.isMaterial) {
+            _mesh.material.transparent = true;
+            _mesh.material.wireframe = false;
+  
+            _mesh.material.onBeforeCompile = (shader) => {
+              const uniforms = {
+                isVirtual: userData.isVirtual,
+                uOpacity: {value:option.opacity},
+                uColor: {value:new THREE.Color(option.color)}
+              };
+              Object.assign(shader.uniforms, uniforms);
+              const fragment = `
+                uniform float isVirtual;
+                uniform float uOpacity;
+                uniform vec3 uColor;
+                void main(){
+              `
+              const fragmentColor = `
+                  if(isVirtual == 1.0){
+                    gl_FragColor = vec4(uColor, uOpacity);
+                  }
+                }
+              `;
+              shader.fragmentShader = shader.fragmentShader.replace(
+                "void main() {",
+                fragment
+              )
+  
+              shader.fragmentShader = shader.fragmentShader.replace(
+                "}",
+                fragmentColor
+              );
+            }
+          }
+        })
+      }
+  
+      // 如果有传_isVirtual
+      if(_isVirtual != undefined){
+        if(_isVirtual === true && !mesh.userData.isVirtual.value){
+          virtual()
+          return
+        }
+        if(_isVirtual === false && mesh.userData.isVirtual.value){
+          restore()
+          return
+        }
+        
+      // 如果没有传_isVirtual
+      }else{
+        if (mesh.userData.isVirtual.value) {
+          restore()
+        } else {
+          virtual()
+        }
+      }
+
+      // 虚化
+      function virtual(){
+        userData.isVirtual.value = 1;
+        mesh.traverse((mesh) => {
+          if (mesh?.material?.isMaterial) {
+            mesh.material.wireframe = true;
+            mesh.material.transparent = true;
+          }
+        });
+
+      }
+      // 还原
+      function restore(){
+        userData.isVirtual.value = 0;
+        mesh.traverse((mesh) => {
+          if (mesh?.material?.isMaterial) {
+            mesh.material.wireframe = false;
+          }
+        });
+      }
+      return Boolean(userData.isVirtual.value);
+    }
+
+
+    let stats = new Stats();
+    document.body.append(stats.dom)
+
+    function render() {
+      
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+      stats.update();
+
+    }
+    render();
   }
   async snow(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -2768,12 +3030,14 @@ void main() {
     let _big = { value: 10.1}
     let _d = {value: 0.1}
     loader.load(
-      "/jingling-main.glb",
+      "/shaxi-main.glb",
       async function (gltf) {
-        let group = gltf.scene.getObjectByName('内墙')
-        scene.add(group);
+        // let group = gltf.scene.getObjectByName('内墙')
+        // scene.add(group);
 
-        setBright(group)
+        // setBright(group)
+
+        scene.add(gltf.scene)
 
         // 镜岭
         // scene.getObjectByName('屋顶1').visible = false;
@@ -2797,23 +3061,23 @@ void main() {
         // }
 
         // 沙溪
-        // scene.getObjectByName('主楼屋顶').visible = false; 
-        // let obj = {
-        //   0: {
-        //     small: 3.1,
-        //     big: 25.1
-        //   },
-        //   1: {
-        //     small: 27.1,
-        //     big: 51.1
-        //   },
-        //   2: {
-        //     small: 51.1,
-        //     big: 53.1
-        //   }
-        // }
-        // setTransparent('主楼1')
-        // setTransparent('主楼2')
+        scene.getObjectByName('主楼屋顶').visible = false; 
+        let obj = {
+          0: {
+            small: 3.1,
+            big: 25.1
+          },
+          1: {
+            small: 27.1,
+            big: 51.1
+          },
+          2: {
+            small: 51.1,
+            big: 53.1
+          }
+        }
+        setTransparent('主楼1')
+        setTransparent('主楼2')
         // let baseWidth = 1;
 
         // 塔山
@@ -2990,7 +3254,7 @@ void main() {
     var material0 = new Material({ color: 0xff2200 });
     material0.setPerspective(camera.fov, height);
     var particleFireMesh0 = new THREE.Points(geometry0, material0);
-    scene.add(particleFireMesh0);
+    // scene.add(particleFireMesh0);
 
     let box = new THREE.Mesh(
       new THREE.BoxGeometry(1,1,1),
@@ -2999,7 +3263,12 @@ void main() {
       })
     )
     box.position.y = -0.3
-    scene.add(box)
+    // scene.add(box)
+
+    let obj = create_fire({camera})
+    scene.add(obj.mesh)
+    obj.start();
+
 
     let clock = new THREE.Clock();
 
@@ -3013,6 +3282,43 @@ void main() {
       renderer.render(scene, camera);
     }
     render();
+
+    function create_fire(params){
+      const option = {
+        fireRadius: 0.5,
+        fireHeight: 3,
+        particleCount: 400,
+        color: 0xff2200,
+        camera: null,
+      }
+      Object.assign(option, params);
+
+      let height = window.innerHeight;
+      let geometry0 = new Geometry(option.fireRadius, option.fireHeight, option.particleCount);
+      let material0 = new Material({ color: 0xff2200 });
+      material0.setPerspective(camera.fov, height);
+      let mesh = new THREE.Points(geometry0, material0);
+
+      const obj = {
+        mesh,
+        isStarted: false,
+        start(){
+          this.isStarted = true;
+          render();
+        },
+        stop(){
+          this.isStarted = false;
+        },
+      }
+      let clock = new THREE.Clock();
+      function render(){
+        
+        obj.isStarted && requestAnimationFrame(render);
+
+        mesh.material.update(clock.getDelta() * 0.75);
+      }
+      return obj
+    }
   }
 
   async love(renderer) {
@@ -3967,13 +4273,13 @@ void main() {
       value: 0,
     };
     loader.load(
-      "/jingling-main.glb",
+      "/shaxi-main.glb",
       async function (gltf) {
         await scene.add(gltf.scene);
-        scene.getObjectByName("屋顶1").removeFromParent();
-        scene.getObjectByName("屋顶2").removeFromParent();
+        // scene.getObjectByName("屋顶1").removeFromParent();
+        // scene.getObjectByName("屋顶2").removeFromParent();
 
-        scene.getObjectByName("35kv内墙").layers.toggle(BLOOM_SCENE);
+        // scene.getObjectByName("35kv内墙").layers.toggle(BLOOM_SCENE);
         // scene.getObjectByName('D20_2').layers.toggle(BLOOM_SCENE);
         // // scene.getObjectByName('主楼1').layers.toggle(BLOOM_SCENE);
         // scene.getObjectByName('35kv开关室').traverse(mesh => {
@@ -4106,43 +4412,43 @@ void main() {
       render();
     }
 
-    // loader.load('/shaxi-tree.glb', async (gltf) => {
-    //   await scene.add(gltf.scene);
+    loader.load('/shaxi-tree.glb', async (gltf) => {
+      await scene.add(gltf.scene);
 
-    //   let tree = scene.getObjectByName('树');
-    //   tree.traverse(mesh => {
-    //     if (mesh?.material?.isMaterial) {
-    //       mesh.material.transparent = true;
-    //       mesh.material.wireframe = false;
+      let tree = scene.getObjectByName('树');
+      tree.traverse(mesh => {
+        if (mesh?.material?.isMaterial) {
+          mesh.material.transparent = true;
+          mesh.material.wireframe = false;
 
-    //       mesh.material.onBeforeCompile = (shader) => {
-    //         const uniforms = {isVirtual};
-    //         Object.assign(shader.uniforms, uniforms);
-    //         const fragment = `
-    //           uniform float isVirtual;
-    //           void main(){
-    //         `
-    //         const fragmentColor = `
-    //             if(isVirtual == 1.0){
-    //               gl_FragColor = vec4(0.0, 1.0, 1.0, 0.02);
-    //             }
-    //           }
-    //         `;
-    //         shader.fragmentShader = shader.fragmentShader.replace(
-    //           "void main() {",
-    //           fragment
-    //         )
+          mesh.material.onBeforeCompile = (shader) => {
+            const uniforms = {isVirtual};
+            Object.assign(shader.uniforms, uniforms);
+            const fragment = `
+              uniform float isVirtual;
+              void main(){
+            `
+            const fragmentColor = `
+                if(isVirtual == 1.0){
+                  gl_FragColor = vec4(0.0, 1.0, 1.0, 0.02);
+                }
+              }
+            `;
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "void main() {",
+              fragment
+            )
 
-    //         shader.fragmentShader = shader.fragmentShader.replace(
-    //           "}",
-    //           fragmentColor
-    //         );
-    //       }
-    //       // mesh.layers.toggle(BLOOM_SCENE);
+            shader.fragmentShader = shader.fragmentShader.replace(
+              "}",
+              fragmentColor
+            );
+          }
+          // mesh.layers.toggle(BLOOM_SCENE);
 
-    //     }
-    //   })
-    // })
+        }
+      })
+    })
 
     // const pmremGenerator = new THREE.PMREMGenerator(renderer);
     // pmremGenerator.compileEquirectangularShader();
@@ -4289,6 +4595,7 @@ void main() {
       renderBloom(true);
 
       finalComposer.render();
+
     }
 
     function disposeMaterial(obj) {
