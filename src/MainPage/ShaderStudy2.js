@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-02 16:30:56
+ * @LastEditTime: 2023-02-03 17:03:30
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -34,6 +34,7 @@ import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
 import { OutlinePass } from "three/examples/jsm/postprocessing/OutlinePass.js";
 import { FXAAShader } from "three/examples/jsm/shaders/FXAAShader.js";
 import { FBXLoader } from "three/examples/jsm/loaders/FBXLoader";
+import * as _ from "lodash";
 
 import * as Nodes from "three/nodes";
 
@@ -66,6 +67,7 @@ import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LightningStrike } from 'three/examples/jsm/geometries/LightningStrike.js';
 import { LightningStorm } from 'three/examples/jsm/objects/LightningStorm.js';
 import TWEEN, { Easing, Tween } from '@tweenjs/tween.js';
+import {FenceGeometry} from '../fence-libs/FenceGeometry'
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -151,7 +153,169 @@ export default class ShaderStudy extends React.Component {
 
     // this.new_path_animation(renderer) // 新的运动路径
 
-    this.new_virtual_tree(renderer) // 发光虚化树
+    // this.new_virtual_tree(renderer) // 发光虚化树
+
+    this.new_fence(renderer)  // 新的围栏
+
+  }
+  new_fence(renderer){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+    
+    const box = new THREE.BoxGeometry(1, 1, 1);
+    const boxMesh = new Mesh(box, new MeshLambertMaterial({ color: 0x0000ff }));
+    scene.add(boxMesh);
+
+    boxMesh.position.set(5, 5,6);
+
+    gsap.to(boxMesh.position, {
+      z: -1,
+      duration: 3,
+      repeat: -1,
+      yoyo: true,
+      onUpdate: () => {},
+    });
+
+    let obj = this.createFence({
+      points: [
+        {
+          x: 0.602154318249855,
+          y: 0.921453849076141,
+          z: 6.721410476616342,
+        },
+        {
+          x: 10.148048025924078,
+          y: 1.80519616030863,
+          z: -3.687171295945351,
+        },
+        {
+          x: 17.196987884977865,
+          y: 10.367155161070908,
+          z: -1.7331112243968336,
+        },
+        {
+          x: 21.676960221577954,
+          y: 6.7777302427081665,
+          z: 2.761755486019113,
+        },
+        {
+          x: 17.576459920642765,
+          y: 8.061689769635127,
+          z: 8.265982854571803,
+        },
+      ],
+      height: 10
+    });
+    scene.add(obj.mesh)
+    obj.start();
+
+    let clock = new THREE.Clock()
+    function render() {
+
+      // uTime.value -= clock.getDelta()
+      
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera)
+
+    }
+    render();
+  }
+  // 创建围栏 API
+  createFence(params) {
+
+    const option = {
+      points: [],
+      height: 10,
+      bgColor: '#00ff00',
+      lineColor: '#ffff00',
+      cycle: 1,
+      lineWidth: 0,
+      speed: 1
+    }
+    Object.assign(option, params);
+
+    let geometry = new FenceGeometry(option.points, option.height);
+    let uTime = {value: 0};
+    let mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uBgColor: {
+          value: new THREE.Color(option.bgColor)
+        },
+        uLineColor: {
+          value: new THREE.Color(option.lineColor)
+        },
+        uCycle: {
+          value: Math.PI * option.cycle
+        },
+        uDown: {
+          value: option.lineWidth
+        },
+        uHeight: {
+          value: option.height
+        },
+        uTime
+      },
+      vertexShader: `
+      attribute float height;
+      varying float vHeight;
+
+      void main() {
+
+        vHeight = height;
+
+        gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+
+      }`,
+      fragmentShader: `
+      #define PI 3.1415926//圆周率
+
+      varying float vHeight;
+      uniform float uCycle;
+      uniform float uHeight;
+      uniform float uDown;
+      uniform float uTime;
+      uniform vec3 uBgColor;
+      uniform vec3 uLineColor;
+
+      void main() {
+        float w = 2.0 * PI / uCycle;
+        float a = 1.0 + uDown;
+
+        float d = abs(a * sin(w * (vHeight+uTime))) - uDown;
+
+        float o = 1.0 - vHeight / uHeight;
+
+        gl_FragColor = vec4(mix(uLineColor,uBgColor, d), o);
+
+      }`,
+      side: THREE.DoubleSide,
+      transparent: true
+    })
+    let mesh = new THREE.Mesh(geometry, mat);
+
+    let obj = {
+      mesh,
+      isStarted: false,
+      start(){
+        this.isStarted = true;
+        render();
+      },
+      stop(){
+        this.isStarted = false;
+      }
+    }
+
+    let clock = new THREE.Clock()
+    function render() {
+
+      obj.isStarted && requestAnimationFrame(render);
+
+      uTime.value -= (clock.getDelta() * option.speed);
+
+    }
+
+    return obj;
+
   }
   new_virtual_tree(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -160,82 +324,116 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
-    const BLOOM_SCENE = 2;
+    const ENTIRE_SCENE = 0, BLOOM_SCENE = 1, BLOOM_SCENE_2 = 2;
 
-    // loader.load(
-    //   "/shaxi-main.glb",
-    //   async function (gltf) {
-    //     gltf.scene.name = '场景'
-    //     await scene.add(gltf.scene);
-    //     // scene.getObjectByName("屋顶1").removeFromParent();
-    //     // scene.getObjectByName("屋顶2").removeFromParent();
+    const bloomLayer = new THREE.Layers();
+    bloomLayer.set( BLOOM_SCENE );
 
-    //     // scene.getObjectByName("35kv内墙").layers.toggle(BLOOM_SCENE);
-    //     // scene.getObjectByName('D20_2').layers.toggle(BLOOM_SCENE);
-    //     // // scene.getObjectByName('主楼1').layers.toggle(BLOOM_SCENE);
-    //     // scene.getObjectByName('35kv开关室').traverse(mesh => {
-    //     //   if(mesh.isMesh){
-    //     //     mesh.layers.toggle(BLOOM_SCENE)
-    //     //   }
-    //     // });
+    const params = {
+      exposure: 1,
+      bloomStrength: 1,
+      bloomThreshold: 0,
+      bloomRadius: 0,
+      scene: 'Scene with Glow'
+    };
 
-    //     // let _mesh = scene.getObjectByName('保安室')
-    //     // _mesh.children.forEach(mesh => {
+    let uuid;
+    const darkMaterial = new THREE.MeshBasicMaterial( { color: 'black' } );
+    const materials = {};
 
-    //     //   let lineGeometry = new THREE.EdgesGeometry(mesh.geometry);
+    const renderScene = new RenderPass( scene, camera );
 
-    //     //   let line = new THREE.LineSegments(
-    //     //     lineGeometry,
-    //     //     new THREE.LineBasicMaterial({ color: 0x00ffff, opacity: 0.15, transparent: true })
-    //     //   )
+    const bloomPass = new UnrealBloomPass( new THREE.Vector2( window.innerWidth, window.innerHeight ), 1.5, 0.4, 0.85 );
+    bloomPass.threshold = params.bloomThreshold;
+    bloomPass.strength = params.bloomStrength;
+    bloomPass.radius = params.bloomRadius;
 
-    //     //   mesh.parent.add(line)
+    const bloomComposer = new EffectComposer( renderer );
+    bloomComposer.renderToScreen = false;
+    bloomComposer.addPass( renderScene );
+    bloomComposer.addPass( bloomPass );
 
-    //     //   line.layers.toggle(BLOOM_SCENE);
-    //     //   mesh.visible = false;
-    //     //   // }
-    //     // })
-    //     // scene.getObjectByName('地形').visible = false
-    //     // scene.getObjectByName('外场景').visible = false
-    //     // scene.getObjectByName('水面').visible = false
+    const finalPass = new ShaderPass(
+      new THREE.ShaderMaterial( {
+        uniforms: {
+          baseTexture: { value: null },
+          bloomTexture: { value: bloomComposer.renderTarget2.texture }
+        },
+        vertexShader: `varying vec2 vUv;
 
-    //     // let list = scene.getObjectByName('排风扇').children.map(item => {
-    //     //   let name = item.name + '_2';
-    //     //   let mesh = scene.getObjectByName(name)
+			void main() {
 
-    //     //   new TWEEN.Tween(mesh.rotation).to({
-    //     //     y: mesh.rotation.y + Math.PI
-    //     //   }, 1000).repeat(Infinity).start().onStart(val => {
-    //     //     mesh.rotation.y = mesh.rotation.y + Math.PI;
-    //     //   });
+				vUv = uv;
 
-    //     //   return name
-    //     // })
-    //     // console.log(list);
+				gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
 
-    //     // 虚化
-    //     // gltf.scene.children.forEach(item => {
-    //     //   if(!['主体1', '主体2', '屋顶1', '屋顶2'].includes(item.name)){
-    //     //     children.push(item)
-    //     //   }
-    //     // });
+			}`,
+        fragmentShader: `uniform sampler2D baseTexture;
+			uniform sampler2D bloomTexture;
 
-    //     // scene.getObjectByName('主体1').visible = false;
-    //     // scene.getObjectByName('主体2').visible = false;
-    //     // scene.getObjectByName('屋顶1').visible = false;
-    //     // scene.getObjectByName('屋顶2').visible = false;
+			varying vec2 vUv;
 
-    //     render();
-    //   },
-    //   // called while loading is progressing
-    //   function (xhr) {
-    //     console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
-    //   },
-    //   // called when loading has errors
-    //   function (error) {
-    //     console.log("An error happened");
-    //   }
-    // );
+			void main() {
+
+				gl_FragColor = ( texture2D( baseTexture, vUv ) + texture2D( bloomTexture, vUv ) );
+
+			}`,
+        defines: {}
+      } ), 'baseTexture'
+    );
+    finalPass.needsSwap = true;
+
+    const finalComposer = new EffectComposer( renderer );
+    finalComposer.addPass( renderScene );
+    finalComposer.addPass( finalPass );
+
+    {
+      
+      const gui = new GUI();
+
+      const folder = gui.addFolder("Bloom Parameters");
+
+      folder.add(params, "exposure", 0.1, 2).onChange(function (value) {
+        renderer.toneMappingExposure = Math.pow(value, 4.0);
+        render();
+      });
+
+      folder.add(params, "bloomThreshold", 0.0, 1.0).onChange(function (value) {
+        bloomPass.threshold = Number(value);
+        render();
+      });
+
+      folder.add(params, "bloomStrength", 0.0, 100.0).onChange(function (value) {
+        bloomPass.strength = Number(value);
+        render();
+      });
+
+      folder
+        .add(params, "bloomRadius", 0.0, 1.0)
+        .step(0.01)
+        .onChange(function (value) {
+          bloomPass.radius = Number(value);
+          render();
+        });
+    }
+
+    loader.load(
+      "/shaxi-main.glb",
+      async function (gltf) {
+        gltf.scene.name = '场景'
+        await scene.add(gltf.scene);
+
+        render();
+      },
+      // called while loading is progressing
+      function (xhr) {
+        console.log((xhr.loaded / xhr.total) * 100 + "% loaded");
+      },
+      // called when loading has errors
+      function (error) {
+        console.log("An error happened");
+      }
+    );
     window.toggleVirtualMesh = toggleVirtualMesh;
     window.toggleVirtualTree = toggleVirtualTree;
 
@@ -275,6 +473,7 @@ export default class ShaderStudy extends React.Component {
                 transparent: true,
               })
             );
+            line.layers.toggle(BLOOM_SCENE);
             line.name = mesh.uuid+'线框';
             mesh.parent.add(line);
             mesh.visible = false;
@@ -303,7 +502,6 @@ export default class ShaderStudy extends React.Component {
     loader.load('/shaxi-tree.glb', async (gltf) => {
       await scene.add(gltf.scene);
 
-      
     })
 
     function toggleVirtualTree(name, scene, _isVirtual, params) {
@@ -382,6 +580,7 @@ export default class ShaderStudy extends React.Component {
           if (mesh?.material?.isMaterial) {
             mesh.material.wireframe = true;
             mesh.material.transparent = true;
+            mesh.layers.toggle(BLOOM_SCENE);
           }
         });
 
@@ -392,6 +591,7 @@ export default class ShaderStudy extends React.Component {
         mesh.traverse((mesh) => {
           if (mesh?.material?.isMaterial) {
             mesh.material.wireframe = false;
+            mesh.layers.toggle(BLOOM_SCENE);
           }
         });
       }
@@ -406,12 +606,34 @@ export default class ShaderStudy extends React.Component {
       
       requestAnimationFrame(render);
 
-      renderer.render(scene, camera);
-
-      stats.update();
+      renderer.render(scene, camera)
 
     }
     render();
+
+    function darkenNonBloomed( obj ) {
+
+      if ( obj.isMesh && bloomLayer.test( obj.layers ) === false ) {
+        materials[ obj.uuid ] = obj.material;
+        obj.material = darkMaterial;
+
+        if(obj.uuid == uuid) console.log(bloomLayer, obj.layers);
+
+      }
+
+    }
+
+    function restoreMaterial( obj ) {
+
+      if ( materials[ obj.uuid ] ) {
+
+        obj.material = materials[ obj.uuid ];
+        delete materials[ obj.uuid ];
+
+        if(obj.uuid == uuid) console.log(321);
+      }
+
+    }
   }
   async snow(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
