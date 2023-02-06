@@ -55,13 +55,13 @@ export default class ShaderStudy extends React.Component {
     renderer.setPixelRatio(window.devicePixelRatio);
     renderer.setSize(window.innerWidth, window.innerHeight);
 
-    // this.shader_fly_line(renderer, canvas)
+    this.shader_fly_line(renderer, canvas)
     // this.shader_particle(renderer, canvas)
 
     // this.particle_system(renderer, canvas)
 
     // 取代木棉树的API
-    this.fence(renderer, canvas) // 创建围栏
+    // this.fence(renderer, canvas) // 创建围栏
     // this.animationPath(renderer, canvas)  // 创建动画路径
     // this.CSS2DAnd3D(renderer, canvas) // 创建dom元素标签  和镜头聚焦 和标签拖拽
     // this.axisChange(renderer, canvas) // 世界坐标转屏幕坐标

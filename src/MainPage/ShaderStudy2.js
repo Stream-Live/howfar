@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-03 17:03:30
+ * @LastEditTime: 2023-02-06 17:33:49
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -155,8 +155,15 @@ export default class ShaderStudy extends React.Component {
 
     // this.new_virtual_tree(renderer) // 发光虚化树
 
-    this.new_fence(renderer)  // 新的围栏
+    // this.new_fence(renderer)  // 新的围栏
 
+    this.add_flywire(renderer)  // 添加飞线
+
+  }
+
+  add_flywire(){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+    
   }
   new_fence(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -166,6 +173,7 @@ export default class ShaderStudy extends React.Component {
     scene.add(boxMesh);
 
     boxMesh.position.set(5, 5,6);
+    boxMesh.name = 'boxMesh'
 
     gsap.to(boxMesh.position, {
       z: -1,
@@ -203,7 +211,12 @@ export default class ShaderStudy extends React.Component {
           z: 8.265982854571803,
         },
       ],
-      height: 10
+      height: 10,
+      meshNameList: ['boxMesh'],
+      scene: scene,
+      warnCallback: (mesh) => {
+        console.log(mesh.name, '穿墙了');
+      }
     });
     scene.add(obj.mesh)
     obj.start();
@@ -225,15 +238,21 @@ export default class ShaderStudy extends React.Component {
 
     const option = {
       points: [],
+      meshNameList: [],
+      scene: null,
       height: 10,
+      warnCallback: () => {},
       bgColor: '#00ff00',
       lineColor: '#ffff00',
+      warnBgColor: '#ff0000',
+      warnLineColor: '#ffff00',
       cycle: 1,
       lineWidth: 0,
-      speed: 1
+      speed: 1,
     }
     Object.assign(option, params);
 
+    // 1、制造围墙
     let geometry = new FenceGeometry(option.points, option.height);
     let uTime = {value: 0};
     let mat = new THREE.ShaderMaterial({
@@ -293,6 +312,29 @@ export default class ShaderStudy extends React.Component {
     })
     let mesh = new THREE.Mesh(geometry, mat);
 
+    // 2、添加碰撞检测
+    let meshAndBoxList = [];
+    for(let item of option.meshNameList){
+      let mesh = option.scene.getObjectByName(item);
+      let box = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+      box.setFromObject(mesh);
+      meshAndBoxList.push({mesh, box});
+    }
+
+    let triangleList = [];
+    option.points.reduce((p1, p2) => {
+
+      let p1TopPoint = new THREE.Vector3(p1.x, p1.y + option.height, p1.z),
+          p2TopPoint = new THREE.Vector3(p2.x, p2.y + option.height, p2.z);
+
+      let triangle1 = new THREE.Triangle(p1, p2, p2TopPoint),
+          triangle2 = new THREE.Triangle(p1, p2TopPoint, p1TopPoint);
+      
+      triangleList.push(triangle1);
+      triangleList.push(triangle2);
+
+      return p2;
+    })
     let obj = {
       mesh,
       isStarted: false,
@@ -304,6 +346,21 @@ export default class ShaderStudy extends React.Component {
         this.isStarted = false;
       }
     }
+    // 告警
+    const warn = _.debounce(
+      (mesh) => {
+        
+        mat.uniforms.uBgColor.value = new THREE.Color(
+          option.warnBgColor
+        );
+        mat.uniforms.uLineColor.value = new THREE.Color(
+          option.warnLineColor
+        );
+        option.warnCallback(mesh);
+      },
+      150,
+      { leading: true, trailing: false }
+    );
 
     let clock = new THREE.Clock()
     function render() {
@@ -311,6 +368,29 @@ export default class ShaderStudy extends React.Component {
       obj.isStarted && requestAnimationFrame(render);
 
       uTime.value -= (clock.getDelta() * option.speed);
+      // 1、更新包围盒
+      for (let meshAndBox of meshAndBoxList) {
+        meshAndBox.box.setFromObject(meshAndBox.mesh);
+      }
+
+      // 2、检测三角形是否与包围盒相撞
+      for(let triangle of triangleList){
+
+        for(let meshAndBox of meshAndBoxList){
+          if (
+            triangle.intersectsBox(meshAndBox.box)
+          ) {
+            warn(mesh);
+            return;
+          } 
+        }
+      } 
+      mat.uniforms.uBgColor.value = new THREE.Color(
+        option.bgColor
+      );
+      mat.uniforms.uLineColor.value = new THREE.Color(
+        option.lineColor
+      );
 
     }
 
