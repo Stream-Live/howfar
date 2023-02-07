@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-06 17:33:49
+ * @LastEditTime: 2023-02-07 15:28:57
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -157,13 +157,154 @@ export default class ShaderStudy extends React.Component {
 
     // this.new_fence(renderer)  // 新的围栏
 
-    this.add_flywire(renderer)  // 添加飞线
+    // this.add_flywire(renderer)  // 添加飞线
 
   }
 
-  add_flywire(){
+  add_flywire(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
+
+    let start = new THREE.Vector3(0,0,0),
+        end = new THREE.Vector3(20,0,0),
+        pointY = 0,
+        height = start.distanceTo(end) / 5;
     
+    let points = [
+      {x: start.x, y: pointY, z: start.z},
+      // 三等分点
+      {x: (end.x + 2 * start.x) / 3, y: pointY + height, z: (end.z + 2 * start.z) / 3},
+      {x: (2 * end.x + start.x) / 3, y: pointY + height, z: (2 * end.z + start.z) / 3},
+      // 二等分点
+      // {x: (start.x + end.x) / 2, y: pointY + height, z: (start.z + end.z) / 2},
+      {x: end.x, y: pointY, z: end.z},
+    ];
+
+    let obj = createFlywire({
+      points
+    })
+    scene.add(obj.points);
+    obj.start();
+    
+    function createFlywire(params){
+
+      const option = {
+        points: [],
+        divisions: 1000,   // 路径对应的分段数
+        startColor: '#ffffff',
+        endColor: '#ff0000',
+        pointSize: 10,
+        maxOpacity: 1,
+        speed: 1,
+        cycle: 3,   // 一个周期是 divisions / cycle
+      }
+
+      Object.assign(option, params);
+      
+      let vec3Points = option.points.map(item => new THREE.Vector3().copy(item));
+
+      let curve = new THREE.CatmullRomCurve3(vec3Points);
+
+      let pointsArr = curve.getPoints(option.divisions)
+
+      let attrCnumber = [];
+      
+      for (let i = 0; i < pointsArr.length; i++) {
+
+        attrCnumber.push(i);
+    
+      }
+    
+      const geometry = new THREE.BufferGeometry().setFromPoints(pointsArr);
+      geometry.setAttribute('current', new THREE.Float32BufferAttribute(attrCnumber, 1));
+
+      const mat = new THREE.ShaderMaterial({
+        transparent: true,
+        uniforms: {
+          uCycle: {
+            value: option.divisions / option.cycle
+          },
+          uSize: {
+            value: option.pointSize,
+          },
+          uTime: {
+            value: 0
+          },
+          uLength: {
+            value: pointsArr.length
+          },
+          maxOpacity: {
+            value: option.maxOpacity
+          },
+          startColor: {
+            value: new THREE.Color(option.startColor)
+          },
+          endColor: {
+            value: new THREE.Color(option.endColor)
+          },
+        },
+        vertexShader: `
+          attribute float current;
+          uniform float uCycle;
+          uniform float uSize;
+          uniform float uTime;
+          varying float percent;
+          varying float vCurrent;
+          void main(){
+            vCurrent = current;
+            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+            gl_Position = projectionMatrix * mvPosition;
+            percent = mod(current+uTime, uCycle) / uCycle;
+            gl_PointSize = percent * uSize;
+          }
+          
+        `,
+        fragmentShader: `
+          varying float percent;
+          uniform float uLength;
+          varying float vCurrent;
+          uniform vec3 startColor;
+          uniform vec3 endColor;
+          uniform float maxOpacity;
+          void main(){
+            float d = vCurrent / uLength;
+            gl_FragColor = vec4(mix(startColor, endColor, d), percent * maxOpacity);
+          }
+        `
+      })
+    
+      const points = new THREE.Points(geometry, mat)
+    
+      let obj = {
+        points,
+        isStarted: false,
+        stop() {
+          this.isStarted = false;
+        },
+        start() {
+          this.isStarted = true;
+          render();
+        }
+      }
+      
+      let clock = new THREE.Clock();
+      let d = option.divisions / 10;
+      function render() {
+        obj.isStarted && requestAnimationFrame(render);
+        mat.uniforms.uTime.value -= (clock.getDelta() * d * option.speed);
+      }
+      render();
+    
+      return obj;
+    }
+
+    function render() {
+      
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera)
+
+    }
+    render();
   }
   new_fence(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -3986,6 +4127,7 @@ void main() {
     let c1 = "#A4958E";
     let c2 = "#111D3E";
     let array = gradientColors(c1, c2, 100);
+    console.log(array);
 
     // 1、加载gltf文件1719.1682731434032
     const loader = new GLTFLoader();
@@ -4013,7 +4155,6 @@ void main() {
             let i = Math.floor(param.delta);
 
             let color = array[i];
-            // console.log(color.replace('#', ''));
 
             scene.fog = new THREE.FogExp2(color, 0.01);
           },
@@ -4224,7 +4365,7 @@ void main() {
     controls.update();
 
     let obj = this.createWater();
-    // scene.add(obj.plane);
+    scene.add(obj.plane);
 
     scene.add(obj.group);
 
@@ -4291,8 +4432,6 @@ void main() {
     material.onBeforeCompile = (shader) => {
       _shader = shader;
 
-      console.log(shader);
-
       shader.uniforms.time = {
         value: 0,
       };
@@ -4350,10 +4489,11 @@ void main() {
         this.isStarted = false;
       },
     };
+    let clock = new THREE.Clock();
     function render() {
       obj.isStarted && requestAnimationFrame(render);
 
-      if (_shader) _shader.uniforms.time.value -= option.speed;
+      if (_shader) _shader.uniforms.time.value -= clock.getDelta();
     }
     return obj;
   }
