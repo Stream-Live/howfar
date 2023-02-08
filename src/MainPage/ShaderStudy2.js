@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-07 15:28:57
+ * @LastEditTime: 2023-02-08 17:26:56
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -159,7 +159,22 @@ export default class ShaderStudy extends React.Component {
 
     // this.add_flywire(renderer)  // 添加飞线
 
+    this.add_measure(renderer)
   }
+
+  add_measure(renderer){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    function render() {
+      
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera)
+
+    }
+    render();
+  }
+  
 
   add_flywire(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -2343,8 +2358,8 @@ void main() {
     let animation = this.create_path_animation({
       points,
       mesh: boxMesh,
-      isClosed: false,
-      isRepeat: false,
+      isClosed: true,
+      isRepeat: true,
       speed: 0.3
     })
     animation.start();
@@ -2452,12 +2467,13 @@ void main() {
     Object.assign(option, params || {});
 
     let curvePath = this.getCurvePathByPoints(option.points, option.radius, option.isClosed)
-
+  
     const line = new THREE.Line(
-      new THREE.BufferGeometry().setFromPoints(curvePath.getPoints(50)),
-      new THREE.LineBasicMaterial({ color: 0xffff00 })
+      new THREE.BufferGeometry(),
+      new THREE.LineBasicMaterial({ color: 0xffff00, transparent: true })
     );
-
+    let positionArray = [];
+    
     const obj = {
       line,
       isStarted: false,
@@ -2471,6 +2487,7 @@ void main() {
     }
     let clock = new THREE.Clock();
     let percent = 0;
+    let isDrawLine = true;
     function render() {
       obj.isStarted && option.mesh && requestAnimationFrame(render);
 
@@ -2491,6 +2508,15 @@ void main() {
       let targetPosition = curvePath.getPointAt(prePercent);
       option.mesh.lookAt(targetPosition.x, targetPosition.y, targetPosition.z);
 
+      // 只允许写一圈线的点坐标
+      if(isDrawLine){
+        positionArray.push(pos.x);
+        positionArray.push(pos.y);
+        positionArray.push(pos.z);
+        line.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(positionArray), 3));
+      }
+      
+      if(percent == 1) isDrawLine = false;
     }
 
     return obj
@@ -2633,6 +2659,7 @@ void main() {
     });
     mat.onBeforeCompile = (shader) => {
       console.log(shader);
+      
     };
     let mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), mat);
     scene.add(mesh);
