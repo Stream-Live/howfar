@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-07-26 09:30:34
  * @LastEditors: Wjh
- * @LastEditTime: 2022-09-26 13:13:34
+ * @LastEditTime: 2023-02-20 08:40:17
  * @FilePath: \howfar\src\App.js
  * @Description: 
  * 
@@ -13,6 +13,7 @@ import MainPage from './MainPage/MainPage';
 import EditPage from './MainPage/EditPage';
 import ShaderStudy from './MainPage/ShaderStudy';
 import ShaderStudy2 from './MainPage/ShaderStudy2';
+import WebGLStudy from './MainPage/WebGLStudy';
 
 function App() {
   
@@ -24,6 +25,7 @@ function App() {
         <Route exact path="/EditPage" component={EditPage}/>
         <Route exact path="/ShaderStudy" component={ShaderStudy}/>
         <Route exact path="/ShaderStudy2" component={ShaderStudy2}/>
+        <Route exact path="/WebGLStudy" component={WebGLStudy}/>
       </Switch>
     </Router>
   );

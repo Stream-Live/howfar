@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-08 17:26:56
+ * @LastEditTime: 2023-02-20 09:26:11
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -157,24 +157,9 @@ export default class ShaderStudy extends React.Component {
 
     // this.new_fence(renderer)  // 新的围栏
 
-    // this.add_flywire(renderer)  // 添加飞线
+    this.add_flywire(renderer)  // 添加飞线
 
-    this.add_measure(renderer)
   }
-
-  add_measure(renderer){
-    let { scene, camera, controls } = this.loadBasic(renderer);
-
-    function render() {
-      
-      requestAnimationFrame(render);
-
-      renderer.render(scene, camera)
-
-    }
-    render();
-  }
-  
 
   add_flywire(renderer){
     let { scene, camera, controls } = this.loadBasic(renderer);
@@ -258,20 +243,19 @@ export default class ShaderStudy extends React.Component {
           },
         },
         vertexShader: `
-          attribute float current;
-          uniform float uCycle;
-          uniform float uSize;
-          uniform float uTime;
-          varying float percent;
-          varying float vCurrent;
-          void main(){
-            vCurrent = current;
-            vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
-            gl_Position = projectionMatrix * mvPosition;
-            percent = mod(current+uTime, uCycle) / uCycle;
-            gl_PointSize = percent * uSize;
-          }
-          
+        attribute float current;
+        uniform float uCycle;
+        uniform float uSize;
+        uniform float uTime;
+        varying float percent;
+        varying float vCurrent;
+        void main(){
+          vCurrent = current;
+          vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+          gl_Position = projectionMatrix * mvPosition;
+          percent = mod(current+uTime, uCycle) / uCycle;
+          gl_PointSize = percent * uSize;
+        }
         `,
         fragmentShader: `
           varying float percent;
