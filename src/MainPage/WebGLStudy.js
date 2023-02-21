@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-20 17:08:10
+ * @LastEditTime: 2023-02-21 17:28:49
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -22,17 +22,338 @@ import vertex_1 from '../shaders/vertex-1'
 import fragment_1 from '../shaders/fragment-1'
 import vertex_2 from '../shaders/vertex-2'
 import fragment_2 from '../shaders/fragment-2'
+import vertex_3 from '../shaders/vertex-3'
+import fragment_3 from '../shaders/fragment-3'
+import vertex_4 from '../shaders/vertex-4'
+import fragment_4 from '../shaders/fragment-4'
 import  {m3} from '../webgl-libs/m3'
 import  {webglLessonsUI} from '../webgl-libs/webgl-lessons-ui'
+import * as THREE from 'three';
+window.THREE = THREE;
 
 export default class WebGLStudy extends React.Component {
   componentDidMount() {
     this.draw();
   }
   draw() {
-    // this.first();
-    this.second();
+    // this.first();    // Webgl基础概念
+    // this.second();   // Webgl工作原理
+    this.third();       // Webgl图像处理
+    // this.fourth();      // webgl二维平移
     
+  }
+  fourth(){
+    let {canvas, gl, program} = this.loadbasic(vertex_2, fragment_2);
+
+    let translation = [0,0],
+        width = 100,
+        height = 30,
+        color = [Math.random(), Math.random(), Math.random(), 1];
+    
+    function drawScene(){
+      
+    }
+  }
+
+  third(){
+    let {canvas, gl, program} = this.loadbasic(vertex_3, fragment_3);
+
+    let image = new Image();
+    image.crossOrigin ="anonymous"; // 解决图片跨域问题
+    image.src = 'https://webglfundamentals.org/webgl/resources/leaves.jpg';
+    image.onload = () => {
+      console.log('加载完成');
+      var positionLocation = gl.getAttribLocation(program, "a_position");
+      var texcoordLocation = gl.getAttribLocation(program, "a_texCoord");
+      let positionBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+  
+      setRectangle(gl, 0, 0, image.width, image.height);
+
+      // 给矩形提供纹理坐标
+      let texcoordBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        0.0, 0.0,
+        1.0, 0.0,
+        1.0, 1.0,
+        0.0, 0.0,
+        1.0, 1.0,
+        0.0, 1.0,
+      ]), gl.STATIC_DRAW);
+
+      // 创建纹理
+      {
+        // let texture = gl.createTexture();
+        // gl.bindTexture(gl.TEXTURE_2D, texture);
+  
+        // // 设置参数，让我们可以绘制任何尺寸的图像
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        // gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  
+        // gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      }
+
+      let originalImageTexture = createAndSetupTexture(gl);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+      
+      let textures = [];
+      let framebuffers = [];
+      for(let i=0;i<2;i++){
+
+        let texture = createAndSetupTexture(gl);
+        textures.push(texture);
+
+        // 设置纹理大小和图像大小一致
+        gl.texImage2D(
+          gl.TEXTURE_2D, 0, gl.RGBA, image.width, image.height, 0,
+          gl.RGBA, gl.UNSIGNED_BYTE, null
+        );
+
+        // 创建一个帧缓冲
+        let fbo = gl.createFramebuffer();
+        framebuffers.push(fbo);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+
+        // 绑定纹理到帧缓冲
+        gl.framebufferTexture2D(
+          gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+      }
+
+      let resolutionLocation = gl.getUniformLocation(program, 'u_resolution');
+      let textureSizeLocation = gl.getUniformLocation(program, 'u_textureSize');
+      let kernelLocation = gl.getUniformLocation(program, "u_kernel[0]");
+      let kernelWeightLocation = gl.getUniformLocation(program, "u_kernelWeight");
+      var flipYLocation = gl.getUniformLocation(program, "u_flipY");
+
+      // 定义几个卷积核
+      var kernels = {
+        normal: [
+          0, 0, 0,
+          0, 1, 0,
+          0, 0, 0
+        ],
+        gaussianBlur: [
+          0.045, 0.122, 0.045,
+          0.122, 0.332, 0.122,
+          0.045, 0.122, 0.045
+        ],
+        gaussianBlur2: [
+          1, 2, 1,
+          2, 4, 2,
+          1, 2, 1
+        ],
+        gaussianBlur3: [
+          0, 1, 0,
+          1, 1, 1,
+          0, 1, 0
+        ],
+        unsharpen: [
+          -1, -1, -1,
+          -1,  9, -1,
+          -1, -1, -1
+        ],
+        sharpness: [
+           0,-1, 0,
+          -1, 5,-1,
+           0,-1, 0
+        ],
+        sharpen: [
+           -1, -1, -1,
+           -1, 16, -1,
+           -1, -1, -1
+        ],
+        edgeDetect: [
+           -0.125, -0.125, -0.125,
+           -0.125,  1,     -0.125,
+           -0.125, -0.125, -0.125
+        ],
+        edgeDetect2: [
+           -1, -1, -1,
+           -1,  8, -1,
+           -1, -1, -1
+        ],
+        edgeDetect3: [
+           -5, 0, 0,
+            0, 0, 0,
+            0, 0, 5
+        ],
+        edgeDetect4: [
+           -1, -1, -1,
+            0,  0,  0,
+            1,  1,  1
+        ],
+        edgeDetect5: [
+           -1, -1, -1,
+            2,  2,  2,
+           -1, -1, -1
+        ],
+        edgeDetect6: [
+           -5, -5, -5,
+           -5, 39, -5,
+           -5, -5, -5
+        ],
+        sobelHorizontal: [
+            1,  2,  1,
+            0,  0,  0,
+           -1, -2, -1
+        ],
+        sobelVertical: [
+            1,  0, -1,
+            2,  0, -2,
+            1,  0, -1
+        ],
+        previtHorizontal: [
+            1,  1,  1,
+            0,  0,  0,
+           -1, -1, -1
+        ],
+        previtVertical: [
+            1,  0, -1,
+            1,  0, -1,
+            1,  0, -1
+        ],
+        boxBlur: [
+            0.111, 0.111, 0.111,
+            0.111, 0.111, 0.111,
+            0.111, 0.111, 0.111
+        ],
+        triangleBlur: [
+            0.0625, 0.125, 0.0625,
+            0.125,  0.25,  0.125,
+            0.0625, 0.125, 0.0625
+        ],
+        emboss: [
+           -2, -1,  0,
+           -1,  1,  1,
+            0,  1,  2
+        ]
+      };
+      var initialSelection = 'gaussianBlur';
+      let edgeDetectKernel = kernels[initialSelection];
+      gl.uniform1fv(kernelLocation, edgeDetectKernel);
+      gl.uniform1f(kernelWeightLocation, computeKernelWeight(edgeDetectKernel));
+
+      let div_effects = document.querySelector('#effects');
+      for(let key in kernels){
+        let item = kernels[key];
+        let div_item = document.createElement('div');
+        let div_input = document.createElement('input');
+        div_input.value = key;
+        div_input.type = 'checkbox';
+        
+        div_input.onchange = drawEffects;
+        div_item.appendChild(div_input);
+        div_item.appendChild(document.createTextNode('= ' + key))
+        div_effects.appendChild(div_item);
+      }
+      drawEffects();
+      
+
+      var primitiveType = gl.TRIANGLES;
+      var offset = 0;
+      var count = 6;
+      gl.drawArrays(primitiveType, offset, count);
+    }
+    function drawEffects(){
+      gl.enableVertexAttribArray(positionLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      var size = 2;          // 2 components per iteration
+      var type = gl.FLOAT;   // the data is 32bit floats
+      var normalize = false; // don't normalize the data
+      var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+      var offset = 0;        // start at the beginning of the buffer
+      gl.vertexAttribPointer(
+          positionLocation, size, type, normalize, stride, offset);
+      
+      gl.enableVertexAttribArray(texcoordLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+      var size = 2;          // 2 components per iteration
+      var type = gl.FLOAT;   // the data is 32bit floats
+      var normalize = false; // don't normalize the data
+      var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+      var offset = 0;        // start at the beginning of the buffer
+      gl.vertexAttribPointer(
+          texcoordLocation, size, type, normalize, stride, offset);
+      
+      gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+
+      gl.uniform2f(textureSizeLocation, image.width, image.height);
+
+      gl.bindTexture(gl.TEXTURE_2D, originalImageTexture);
+
+      // don't y flip images while drawing to the textures
+      gl.uniform1f(flipYLocation, 1);
+
+      // loop through each effect we want to apply.
+      var count = 0;
+      for (var ii = 0; ii < tbody.rows.length; ++ii) {
+        var checkbox = tbody.rows[ii].firstChild.firstChild;
+        if (checkbox.checked) {
+          // Setup to draw into one of the framebuffers.
+          setFramebuffer(framebuffers[count % 2], image.width, image.height);
+
+          drawWithKernel(checkbox.value);
+
+          // for the next draw, use the texture we just rendered to.
+          gl.bindTexture(gl.TEXTURE_2D, textures[count % 2]);
+
+          // increment count so we use the other texture next time.
+          ++count;
+        }
+      }
+
+      // finally draw the result to the canvas.
+      gl.uniform1f(flipYLocation, -1);  // need to y flip for canvas
+      setFramebuffer(null, gl.canvas.width, gl.canvas.height);
+      drawWithKernel("normal");
+    }
+    function setFramebuffer(fbo, width, height) {
+      // make this the framebuffer we are rendering to.
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+  
+      // Tell the shader the resolution of the framebuffer.
+      gl.uniform2f(resolutionLocation, width, height);
+  
+      // Tell webgl the viewport setting needed for framebuffer.
+      gl.viewport(0, 0, width, height);
+    }
+
+    function createAndSetupTexture(gl){
+      // 创建纹理
+      let texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+
+      // 设置参数，让我们可以绘制任何尺寸的图像
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+      return texture;
+    }
+
+    function computeKernelWeight(kernel){
+      let weight = kernel.reduce((prev, cur) => prev + cur);
+      return weight <= 0 ? 1 : weight;
+    }
+    
+    function setRectangle(gl, x, y, width, height){
+
+      let x2 = x + width,
+          y2 = y + height;
+      
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        x, y,
+        x2, y,
+        x2, y2,
+        x, y,
+        x2, y2,
+        x, y2
+      ]), gl.STATIC_DRAW);
+    }
   }
   second(){
     let {canvas, gl, program} = this.loadbasic(vertex_2, fragment_2);
@@ -320,14 +641,17 @@ export default class WebGLStudy extends React.Component {
       <div>
         <canvas id="box" style={{ width: "100%", height: "100%" }} />
         <div id="uiContainer">
-        <div id="ui">
-          <div id="x"></div>
-          <div id="y"></div>
-          <div id="angle"></div>
-          <div id="scaleX"></div>
-          <div id="scaleY"></div>
+          <div id="ui">
+            <div id="x"></div>
+            <div id="y"></div>
+            <div id="angle"></div>
+            <div id="scaleX"></div>
+            <div id="scaleY"></div>
+          </div>
         </div>
-      </div>
+        <div id="effects" style={{position: 'absolute', top: 0, right: 0, width: '200px', height: '300px'}}>
+
+        </div>
       </div>
     );
   }
