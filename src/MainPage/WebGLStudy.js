@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-21 17:28:49
+ * @LastEditTime: 2023-02-22 15:23:43
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -26,6 +26,8 @@ import vertex_3 from '../shaders/vertex-3'
 import fragment_3 from '../shaders/fragment-3'
 import vertex_4 from '../shaders/vertex-4'
 import fragment_4 from '../shaders/fragment-4'
+import vertex_5 from '../shaders/vertex-5'
+import fragment_5 from '../shaders/fragment-5'
 import  {m3} from '../webgl-libs/m3'
 import  {webglLessonsUI} from '../webgl-libs/webgl-lessons-ui'
 import * as THREE from 'three';
@@ -38,20 +40,146 @@ export default class WebGLStudy extends React.Component {
   draw() {
     // this.first();    // Webgl基础概念
     // this.second();   // Webgl工作原理
-    this.third();       // Webgl图像处理
-    // this.fourth();      // webgl二维平移
+    // this.third();       // Webgl图像处理  帧缓冲有点懵懵的呢
+    this.fourth();      // webgl二维平移、旋转、缩放
+    // this.fifth();
     
   }
+  fifth(){
+    let {canvas, gl, program} = this.loadbasic(vertex_5, fragment_5);
+
+  }
   fourth(){
-    let {canvas, gl, program} = this.loadbasic(vertex_2, fragment_2);
+    let {canvas, gl, program} = this.loadbasic(vertex_4, fragment_4);
+
+    var positionLocation = gl.getAttribLocation(program, "a_position");
+
+    // lookup uniforms
+    var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+    var colorLocation = gl.getUniformLocation(program, "u_color");
+    var translationLocation = gl.getUniformLocation(program, 'u_translation');
+    var rotationLocation = gl.getUniformLocation(program, 'u_rotation');
+    var scaleLocation = gl.getUniformLocation(program, 'u_scale');
+
+    var positionBuffer = gl.createBuffer();
+    // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    
+    // 上传几何体然后在着色器中进行平移
+    setGeometry(gl);
 
     let translation = [0,0],
+        rotation = [0, 1],
+        scale = [1, 1],
         width = 100,
         height = 30,
         color = [Math.random(), Math.random(), Math.random(), 1];
     
+    // 设置分辨率
+    gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+
+    // 设置颜色
+    gl.uniform4fv(colorLocation, color);
+
+    drawScene();
+
+    // Setup a ui.
+    webglLessonsUI.setupSlider("#x", {value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
+    webglLessonsUI.setupSlider("#y", {value: translation[1], slide: updatePosition(1), max: gl.canvas.height});
+    webglLessonsUI.setupSlider("#angle", {slide: updateAngle, max: 360});
+    webglLessonsUI.setupSlider("#scaleX", {value: scale[0], slide: updateScale(0), min: -5, max: 5, step: 0.01, precision: 2});
+    webglLessonsUI.setupSlider("#scaleY", {value: scale[1], slide: updateScale(1), min: -5, max: 5, step: 0.01, precision: 2});
+
+
+    function updatePosition(index){
+      return (event, ui) => {
+        translation[index] = ui.value;
+        drawScene();
+      }
+    }
+    function updateScale(index){
+      return (event, ui) => {
+        scale[index] = ui.value;
+        drawScene();
+      }
+    }
+    function updateAngle(event, ui) {
+      var angleInDegrees = 360 - ui.value;
+      var angleInRadians = angleInDegrees * Math.PI / 180;
+      rotation[0] = Math.sin(angleInRadians);
+      rotation[1] = Math.cos(angleInRadians);
+      drawScene();
+    }
+    
     function drawScene(){
+      // 启用属性
+      gl.enableVertexAttribArray(positionLocation);
+  
+      // 绑定位置缓冲
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+      // 设置矩形参数
+      // setRectangle(gl, translation[0], translation[1], width, height);
+  
+      // 告诉属性怎么从positionBuffer中读取数据 (ARRAY_BUFFER)
+      var size = 2;          // 每次迭代运行提取两个单位数据
+      var type = gl.FLOAT;   // 每个单位的数据类型是32位浮点型
+      var normalize = false; // 不需要归一化数据
+      var stride = 0;        // 0 = 移动单位数量 * 每个单位占用内存（sizeof(type)）
+      var offset = 0;        // 从缓冲起始位置开始读取
+      gl.vertexAttribPointer(
+          positionLocation, size, type, normalize, stride, offset)
       
+      gl.uniform2fv(translationLocation, translation);
+      gl.uniform2fv(rotationLocation, rotation);
+      gl.uniform2fv(scaleLocation, scale);
+
+      // 绘制矩形
+      var primitiveType = gl.TRIANGLES;
+      var offset = 0;
+      var count = 18;
+      gl.drawArrays(primitiveType, offset, count);
+    }
+    function setGeometry(gl){
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        // 左竖
+        0, 0,
+        30, 0,
+        0, 150,
+        0, 150,
+        30, 0,
+        30, 150,
+
+        // 上横
+        30, 0,
+        100, 0,
+        30, 30,
+        30, 30,
+        100, 0,
+        100, 30,
+
+        // 中横
+        30, 60,
+        67, 60,
+        30, 90,
+        30, 90,
+        67, 60,
+        67, 90,
+      ]), gl.STATIC_DRAW)
+    }
+    function setRectangle(gl, x, y, width, height){
+
+      let x2 = x + width,
+          y2 = y + height;
+      
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        x, y,
+        x2, y,
+        x2, y2,
+        x, y,
+        x2, y2,
+        x, y2
+      ]), gl.STATIC_DRAW);
     }
   }
 
@@ -237,6 +365,7 @@ export default class WebGLStudy extends React.Component {
       gl.uniform1f(kernelWeightLocation, computeKernelWeight(edgeDetectKernel));
 
       let div_effects = document.querySelector('#effects');
+      div_effects.style.display = 'block';
       for(let key in kernels){
         let item = kernels[key];
         let div_item = document.createElement('div');
@@ -256,69 +385,81 @@ export default class WebGLStudy extends React.Component {
       var offset = 0;
       var count = 6;
       gl.drawArrays(primitiveType, offset, count);
-    }
-    function drawEffects(){
-      gl.enableVertexAttribArray(positionLocation);
-      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-      var size = 2;          // 2 components per iteration
-      var type = gl.FLOAT;   // the data is 32bit floats
-      var normalize = false; // don't normalize the data
-      var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
-      var offset = 0;        // start at the beginning of the buffer
-      gl.vertexAttribPointer(
-          positionLocation, size, type, normalize, stride, offset);
+
       
-      gl.enableVertexAttribArray(texcoordLocation);
-      gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
-      var size = 2;          // 2 components per iteration
-      var type = gl.FLOAT;   // the data is 32bit floats
-      var normalize = false; // don't normalize the data
-      var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
-      var offset = 0;        // start at the beginning of the buffer
-      gl.vertexAttribPointer(
-          texcoordLocation, size, type, normalize, stride, offset);
-      
-      gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+      function drawEffects(){
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.useProgram(program);
+        
+        gl.enableVertexAttribArray(positionLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        var size = 2;          // 2 components per iteration
+        var type = gl.FLOAT;   // the data is 32bit floats
+        var normalize = false; // don't normalize the data
+        var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+        var offset = 0;        // start at the beginning of the buffer
+        gl.vertexAttribPointer(
+            positionLocation, size, type, normalize, stride, offset);
+        
+        gl.enableVertexAttribArray(texcoordLocation);
+        gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+        var size = 2;          // 2 components per iteration
+        var type = gl.FLOAT;   // the data is 32bit floats
+        var normalize = false; // don't normalize the data
+        var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+        var offset = 0;        // start at the beginning of the buffer
+        gl.vertexAttribPointer(
+            texcoordLocation, size, type, normalize, stride, offset);
+        
 
-      gl.uniform2f(textureSizeLocation, image.width, image.height);
+        gl.uniform2f(textureSizeLocation, image.width, image.height);
 
-      gl.bindTexture(gl.TEXTURE_2D, originalImageTexture);
+        gl.bindTexture(gl.TEXTURE_2D, originalImageTexture);
 
-      // don't y flip images while drawing to the textures
-      gl.uniform1f(flipYLocation, 1);
+        // 在渲染效果时不翻转y轴
+        gl.uniform1f(flipYLocation, 1);
 
-      // loop through each effect we want to apply.
-      var count = 0;
-      for (var ii = 0; ii < tbody.rows.length; ++ii) {
-        var checkbox = tbody.rows[ii].firstChild.firstChild;
-        if (checkbox.checked) {
-          // Setup to draw into one of the framebuffers.
-          setFramebuffer(framebuffers[count % 2], image.width, image.height);
+        let div_effects = document.querySelector('#effects');
+        let count = 0;
+        for(let item of div_effects.children){
+          let div_input = item.getElementsByTagName('input')[0];
+          if(div_input.checked){
+            setFramebuffer(framebuffers[count % 2], image.width, image.height);
 
-          drawWithKernel(checkbox.value);
+            drawWithKernel(div_input.value);
+            gl.bindTexture(gl.TEXTURE_2D, textures[count % 2]);
 
-          // for the next draw, use the texture we just rendered to.
-          gl.bindTexture(gl.TEXTURE_2D, textures[count % 2]);
-
-          // increment count so we use the other texture next time.
-          ++count;
+            ++count;
+          }
         }
-      }
 
-      // finally draw the result to the canvas.
-      gl.uniform1f(flipYLocation, -1);  // need to y flip for canvas
-      setFramebuffer(null, gl.canvas.width, gl.canvas.height);
-      drawWithKernel("normal");
-    }
-    function setFramebuffer(fbo, width, height) {
-      // make this the framebuffer we are rendering to.
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-  
-      // Tell the shader the resolution of the framebuffer.
-      gl.uniform2f(resolutionLocation, width, height);
-  
-      // Tell webgl the viewport setting needed for framebuffer.
-      gl.viewport(0, 0, width, height);
+        // 最后将结果绘制到画布
+        gl.uniform1f(flipYLocation, -1);
+        // 调用 gl.bindFramebuffer 设置为 null是告诉WebGL 你想在画布上绘制，而不是在帧缓冲上
+        setFramebuffer(null, gl.canvas.width, gl.canvas.height);
+        drawWithKernel('normal');
+        
+      }
+      function setFramebuffer(fbo, width, height){
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+
+        gl.uniform2f(resolutionLocation, width, height);
+
+        gl.viewport(0, 0, width, height);
+      }
+      function drawWithKernel(name){
+
+        gl.uniform1fv(kernelLocation, kernels[name]);
+        gl.uniform1f(kernelWeightLocation, computeKernelWeight(kernels[name]));
+
+        var primitiveType = gl.TRIANGLES;
+        var offset = 0;
+        var count = 6;
+        gl.drawArrays(primitiveType, offset, count);
+      }
     }
 
     function createAndSetupTexture(gl){
@@ -649,7 +790,7 @@ export default class WebGLStudy extends React.Component {
             <div id="scaleY"></div>
           </div>
         </div>
-        <div id="effects" style={{position: 'absolute', top: 0, right: 0, width: '200px', height: '300px'}}>
+        <div id="effects" style={{position: 'absolute', top: 0, right: 0, width: '200px', height: '300px', display: 'none'}}>
 
         </div>
       </div>
