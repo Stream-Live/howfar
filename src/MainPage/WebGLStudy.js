@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-22 15:23:43
+ * @LastEditTime: 2023-02-23 11:23:44
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -31,7 +31,9 @@ import fragment_5 from '../shaders/fragment-5'
 import  {m3} from '../webgl-libs/m3'
 import  {webglLessonsUI} from '../webgl-libs/webgl-lessons-ui'
 import * as THREE from 'three';
+import { transition } from "d3";
 window.THREE = THREE;
+window.m3 = m3
 
 export default class WebGLStudy extends React.Component {
   componentDidMount() {
@@ -41,13 +43,196 @@ export default class WebGLStudy extends React.Component {
     // this.first();    // Webgl基础概念
     // this.second();   // Webgl工作原理
     // this.third();       // Webgl图像处理  帧缓冲有点懵懵的呢
-    this.fourth();      // webgl二维平移、旋转、缩放
-    // this.fifth();
+    // this.fourth();      // webgl二维平移、旋转、缩放
+    this.fifth();
     
   }
   fifth(){
     let {canvas, gl, program} = this.loadbasic(vertex_5, fragment_5);
 
+    var positionLocation = gl.getAttribLocation(program, "a_position");
+
+    // lookup uniforms
+    var resolutionLocation = gl.getUniformLocation(program, "u_resolution");
+    var colorLocation = gl.getUniformLocation(program, "u_color");
+    var matrixLocation = gl.getUniformLocation(program, 'u_matrix');
+
+    var positionBuffer = gl.createBuffer();
+    // Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    
+    // 上传几何体然后在着色器中进行平移
+    setGeometry(gl);
+
+    let translation = [0,0],
+        scale = [1, 1],
+        angleInRadians = 0,
+        color = [Math.random(), Math.random(), Math.random(), 1],
+        u_matrix = [
+          1, 0, 0,
+          0, 1, 0,
+          0, 0, 1
+        ];
+
+    // 设置分辨率
+    gl.uniform2f(resolutionLocation, gl.canvas.width, gl.canvas.height);
+
+    // 设置颜色
+    gl.uniform4fv(colorLocation, color);
+
+    gl.uniformMatrix3fv(matrixLocation, false, u_matrix);
+
+    let matrixMap = {
+      translation: function(tx, ty) {
+        return [
+          1, 0, 0,
+          0, 1, 0,
+          tx, ty, 1,
+        ];
+      },
+     
+      rotation: function(angleInRadians) {
+        var c = Math.cos(angleInRadians);
+        var s = Math.sin(angleInRadians);
+        return [
+          c,-s, 0,
+          s, c, 0,
+          0, 0, 1,
+        ];
+      },
+     
+      scaling: function(sx, sy) {
+        return [
+          sx, 0, 0,
+          0, sy, 0,
+          0, 0, 1,
+        ];
+      },
+    };
+
+    drawScene();
+
+    webglLessonsUI.setupSlider("#x", {value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
+    webglLessonsUI.setupSlider("#y", {value: translation[1], slide: updatePosition(1), max: gl.canvas.height});
+    webglLessonsUI.setupSlider("#angle", {slide: updateAngle, max: 360});
+    webglLessonsUI.setupSlider("#scaleX", {value: scale[0], slide: updateScale(0), min: -5, max: 5, step: 0.01, precision: 2});
+    webglLessonsUI.setupSlider("#scaleY", {value: scale[1], slide: updateScale(1), min: -5, max: 5, step: 0.01, precision: 2});
+
+    function updatePosition(index){
+      return (event, ui) => {
+        translation[index] = ui.value;
+        drawScene();
+      }
+    }
+    function updateScale(index){
+      return (event, ui) => {
+        scale[index] = ui.value;
+        drawScene();
+      }
+    }
+    function updateAngle(event, ui) {
+      var angleInDegrees = 360 - ui.value;
+      angleInRadians = angleInDegrees * Math.PI / 180;
+      drawScene();
+    }
+
+    function drawScene(){
+
+      gl.enableVertexAttribArray(positionLocation);
+      gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      // 告诉属性怎么从positionBuffer中读取数据 (ARRAY_BUFFER)
+      var size = 2;          // 每次迭代运行提取两个单位数据
+      var type = gl.FLOAT;   // 每个单位的数据类型是32位浮点型
+      var normalize = false; // 不需要归一化数据
+      var stride = 0;        // 0 = 移动单位数量 * 每个单位占用内存（sizeof(type)）
+      var offset = 0;        // 从缓冲起始位置开始读取
+      gl.vertexAttribPointer(
+          positionLocation, size, type, normalize, stride, offset);
+      
+      
+      let translationMatrix = matrixMap.translation(translation[0], translation[1]);
+      let rotationMatrix = matrixMap.rotation(angleInRadians);
+      let scaleMatrix = matrixMap.scaling(scale[0], scale[1]);
+      
+      // 1、画一个F
+      {
+        // 计算矩阵
+        let projectionMatrix = m3.projection(gl.canvas.width, gl.canvas.height);
+
+        // 创建一个矩阵，可以将原点移动到 'F' 的中心, 改变旋转的中心
+        let moveOriginMatrix = m3.translation(-50, -75);
+        // u_matrix = m3.multiply(projectionMatrix, translationMatrix);
+        // u_matrix = m3.multiply(u_matrix, rotationMatrix);
+        // u_matrix = m3.multiply(u_matrix, scaleMatrix);
+        // u_matrix = m3.multiply(u_matrix, moveOriginMatrix);
+        
+        // 推荐这种写法
+        u_matrix = m3.translate(projectionMatrix, translation[0], translation[1])
+        u_matrix = m3.rotate(u_matrix, angleInRadians);
+        u_matrix = m3.scale(u_matrix, scale[0], scale[1]);
+        u_matrix = m3.translate(u_matrix, -50, -75);
+
+  
+        gl.uniformMatrix3fv(matrixLocation, false, u_matrix);
+  
+        // 绘制矩形
+        var primitiveType = gl.TRIANGLES;
+        var offset = 0;
+        var count = 18;
+        gl.drawArrays(primitiveType, offset, count);
+
+      }
+
+      // 2、画五个F, 并且每个 'F' 都以前一个的矩阵为基础, 越后面的F变换效果越明显
+      // {
+      //   u_matrix = m3.identity();
+  
+      //   for (var i = 0; i < 5; ++i) {
+      //   // Multiply the matrices.
+      //     u_matrix = m3.multiply(u_matrix, translationMatrix);
+      //     u_matrix = m3.multiply(u_matrix, rotationMatrix);
+      //     u_matrix = m3.multiply(u_matrix, scaleMatrix);
+  
+      //     // Set the matrix.
+      //     gl.uniformMatrix3fv(matrixLocation, false, u_matrix);
+  
+      //     // Draw the geometry.
+      //     var primitiveType = gl.TRIANGLES;
+      //     var offset = 0;
+      //     var count = 18;  // 6 triangles in the 'F', 3 points per triangle
+      //     gl.drawArrays(primitiveType, offset, count);
+      //   }
+
+      // }
+    }
+
+    function setGeometry(gl){
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+        // 左竖
+        0, 0,
+        30, 0,
+        0, 150,
+        0, 150,
+        30, 0,
+        30, 150,
+
+        // 上横
+        30, 0,
+        100, 0,
+        30, 30,
+        30, 30,
+        100, 0,
+        100, 30,
+
+        // 中横
+        30, 60,
+        67, 60,
+        30, 90,
+        30, 90,
+        67, 60,
+        67, 90,
+      ]), gl.STATIC_DRAW)
+    }
   }
   fourth(){
     let {canvas, gl, program} = this.loadbasic(vertex_4, fragment_4);

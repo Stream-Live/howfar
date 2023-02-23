@@ -2,16 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-21 16:03:12
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-22 15:14:45
- * @FilePath: \howfar\src\shaders\vertex-4.js
- * @Description: 
- * 
- */
-/*
- * @Author: Wjh
- * @Date: 2023-02-21 16:03:12
- * @LastEditors: Wjh
- * @LastEditTime: 2023-02-22 13:51:07
+ * @LastEditTime: 2023-02-23 09:26:38
  * @FilePath: \howfar\src\shaders\vertex-4.js
  * @Description: 
  * 
