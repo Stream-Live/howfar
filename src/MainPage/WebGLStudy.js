@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-01 17:22:50
+ * @LastEditTime: 2023-03-01 17:26:09
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description:
  *
@@ -48,7 +48,7 @@ export default class WebGLStudy extends React.Component {
     // this.third();       // Webgl图像处理  帧缓冲有点懵懵的呢
     // this.fourth(); // webgl二维平移、旋转、缩放
     // this.fifth(); // 二维矩阵
-    this.sixth(); // 三维正交、透视投影
+    this.sixth(); // 三维正交、透视投影、三维相机
   }
   sixth() {
     let { canvas, gl, program } = this.loadbasic(vertex_6, fragment_6);
@@ -153,7 +153,7 @@ export default class WebGLStudy extends React.Component {
       cameraMatrix = m4.translate(cameraMatrix, 0, 0, radius * 1.5);
       
       let fPosition = [radius, 0, 0];
-      
+
       let cameraPosition = [
         cameraMatrix[12],
         cameraMatrix[13],
