@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-28 00:21:45
+ * @LastEditTime: 2023-03-01 17:22:50
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description:
  *
@@ -58,11 +58,13 @@ export default class WebGLStudy extends React.Component {
     let colorLocation = gl.getUniformLocation(program, "u_color");
     let fudgeLocation = gl.getUniformLocation(program, 'u_fudgeFactor');
 
-    let translation = [45, 150, 0],
-        rotation = [degToRad(40), degToRad(25), degToRad(325)],
+    let translation = [-150, 0, -360],
+        rotation = [degToRad(190), degToRad(40), degToRad(320)],
         scale = [1, 1, 1],
         color = [Math.random(), Math.random(), Math.random(), 1],
-        fudgeFactor = 1;
+        fudgeFactor = 1,
+        fieldOfViewRadians = degToRad(60),
+        cameraAngleRadians = degToRad(0);
     
     gl.uniform4fv(colorLocation, color);
 
@@ -76,16 +78,18 @@ export default class WebGLStudy extends React.Component {
 
     drawScene();
 
-    webglLessonsUI.setupSlider("#fudgeFactor", {value: fudgeFactor, slide: updateFudgeFactor, max: 2, step: 0.001, precision: 3 });
-    webglLessonsUI.setupSlider("#x", {value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
-    webglLessonsUI.setupSlider("#y", {value: translation[1], slide: updatePosition(1), max: gl.canvas.height});
-    webglLessonsUI.setupSlider("#z", {value: translation[2], slide: updatePosition(2), max: gl.canvas.height});
-    webglLessonsUI.setupSlider("#angleX", {value: radToDeg(rotation[0]), slide: updateRotation(0), max: 360});
-    webglLessonsUI.setupSlider("#angleY", {value: radToDeg(rotation[1]), slide: updateRotation(1), max: 360});
-    webglLessonsUI.setupSlider("#angleZ", {value: radToDeg(rotation[2]), slide: updateRotation(2), max: 360});
-    webglLessonsUI.setupSlider("#scaleX", {value: scale[0], slide: updateScale(0), min: -5, max: 5, step: 0.01, precision: 2});
-    webglLessonsUI.setupSlider("#scaleY", {value: scale[1], slide: updateScale(1), min: -5, max: 5, step: 0.01, precision: 2});
-    webglLessonsUI.setupSlider("#scaleZ", {value: scale[2], slide: updateScale(2), min: -5, max: 5, step: 0.01, precision: 2});
+    webglLessonsUI.setupSlider("#cameraAngle", {value: radToDeg(cameraAngleRadians), slide: updateCameraAngle, min: -360, max: 360});
+    // webglLessonsUI.setupSlider("#fudgeFactor", {value: fudgeFactor, slide: updateFudgeFactor, max: 2, step: 0.001, precision: 3 });
+    // webglLessonsUI.setupSlider("#fieldOfViewRadians", {value: fieldOfViewRadians, slide: updateFieldOfView, min: 1, max: 179 });
+    // webglLessonsUI.setupSlider("#x", {value: translation[0], slide: updatePosition(0), max: gl.canvas.width });
+    // webglLessonsUI.setupSlider("#y", {value: translation[1], slide: updatePosition(1), max: gl.canvas.height});
+    // webglLessonsUI.setupSlider("#z", {value: translation[2], slide: updatePosition(2), max: gl.canvas.height, min: -gl.canvas.height});
+    // webglLessonsUI.setupSlider("#angleX", {value: radToDeg(rotation[0]), slide: updateRotation(0), max: 360});
+    // webglLessonsUI.setupSlider("#angleY", {value: radToDeg(rotation[1]), slide: updateRotation(1), max: 360});
+    // webglLessonsUI.setupSlider("#angleZ", {value: radToDeg(rotation[2]), slide: updateRotation(2), max: 360});
+    // webglLessonsUI.setupSlider("#scaleX", {value: scale[0], slide: updateScale(0), min: -5, max: 5, step: 0.01, precision: 2});
+    // webglLessonsUI.setupSlider("#scaleY", {value: scale[1], slide: updateScale(1), min: -5, max: 5, step: 0.01, precision: 2});
+    // webglLessonsUI.setupSlider("#scaleZ", {value: scale[2], slide: updateScale(2), min: -5, max: 5, step: 0.01, precision: 2});
 
     function drawScene() {
 
@@ -124,6 +128,9 @@ export default class WebGLStudy extends React.Component {
       gl.vertexAttribPointer(
           colorAttributeLocation, size, type1, normalize1, stride, offset)
 
+      let numFs = 5,
+          radius = 200;
+      
       // let matrix = m4.projection(gl.canvas.clientWidth, gl.canvas.clientHeight, 400);
       
       // 在大多数三维数学库中没有负责像素空间与裁剪空间转换的 projection 方法。 代替的是叫做 ortho 或 orthographic 的方法
@@ -133,22 +140,79 @@ export default class WebGLStudy extends React.Component {
       var top = 0;
       var near = 400;
       var far = -400;
-      let matrix = m4.orthographic(left, right, bottom, top, near, far);
 
-      matrix = m4.translate(matrix, translation[0], translation[1], translation[2]);
-      matrix = m4.xRotate(matrix, rotation[0]);
-      matrix = m4.yRotate(matrix, rotation[1]);
-      matrix = m4.zRotate(matrix, rotation[2]);
-      matrix = m4.scale(matrix, scale[0], scale[1], scale[2]);
+      // let matrix = m4.multiply(makeZToWMatrix(fudgeFactor), m4.orthographic(left, right, bottom, top, near, far)) 
+      // let matrix = m4.orthographic(left, right, bottom, top, near, far);
 
-      gl.uniformMatrix4fv(matrixLocation, false, matrix);
+      var aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+      var zNear = 1;
+      var zFar = 2000;
+      let matrix = m4.perspective(fieldOfViewRadians, aspect, zNear, zFar);
+
+      let cameraMatrix = m4.yRotation(cameraAngleRadians);
+      cameraMatrix = m4.translate(cameraMatrix, 0, 0, radius * 1.5);
+      
+      let fPosition = [radius, 0, 0];
+      
+      let cameraPosition = [
+        cameraMatrix[12],
+        cameraMatrix[13],
+        cameraMatrix[14],
+      ];
+  
+      let up = [0, 1, 0];
+
+      cameraMatrix = m4.lookAt(cameraPosition, fPosition, up);
+      
+      let viewMatrix = m4.inverse(cameraMatrix);
+      let viewProjectionMatrix = m4.multiply(matrix, viewMatrix);
+
+      for(let i=0; i< numFs; ++i){
+
+        let angle = i * Math.PI * 2 / numFs;
+        let x = Math.cos(angle) * radius;
+        let y = Math.sin(angle) * radius;
+
+        let matrix = m4.translate(viewProjectionMatrix, x, 0, y);
+
+        gl.uniformMatrix4fv(matrixLocation, false, matrix);
+
+        var primitiveType = gl.TRIANGLES;
+        var count = 16 * 6;
+        gl.drawArrays(primitiveType, offset, count);
+
+      }
+
+      // matrix = m4.translate(matrix, translation[0], translation[1], translation[2]);
+      // matrix = m4.xRotate(matrix, rotation[0]);
+      // matrix = m4.yRotate(matrix, rotation[1]);
+      // matrix = m4.zRotate(matrix, rotation[2]);
+      // matrix = m4.scale(matrix, scale[0], scale[1], scale[2]);
+
+      // gl.uniformMatrix4fv(matrixLocation, false, matrix);
 
       // gl.uniform1f(fudgeLocation, fudgeFactor)
 
       // 绘制
-      var primitiveType = gl.TRIANGLES;
-      var count = 16 * 6;
-      gl.drawArrays(primitiveType, offset, count);
+      // var primitiveType = gl.TRIANGLES;
+      // var count = 16 * 6;
+      // gl.drawArrays(primitiveType, offset, count);
+    }
+    function makeZToWMatrix(fudgeFactor) {
+      return [
+        1, 0, 0, 0,
+        0, 1, 0, 0,
+        0, 0, 1, fudgeFactor,
+        0, 0, 0, 1,
+      ];
+    }
+    function updateFieldOfView(event, ui) {
+      fieldOfViewRadians = degToRad(ui.value);
+      drawScene();
+    }
+    function updateCameraAngle(event, ui) {
+      cameraAngleRadians = degToRad(ui.value);
+      drawScene();
     }
     function updateFudgeFactor(event, ui) {
       fudgeFactor = ui.value;
@@ -186,9 +250,7 @@ export default class WebGLStudy extends React.Component {
     // 填充当前 ARRAY_BUFFER 缓冲
     // 使用组成 'F' 的数据填充缓冲.
     function setGeometry(gl) {
-      gl.bufferData(
-          gl.ARRAY_BUFFER,
-          new Float32Array([
+      var positions = new Float32Array([
               // left column front
               0,   0,  0,
               0, 150,  0,
@@ -315,8 +377,26 @@ export default class WebGLStudy extends React.Component {
               0, 150,  30,
               0,   0,   0,
               0, 150,  30,
-              0, 150,   0]),
-          gl.STATIC_DRAW);
+              0, 150,   0]);
+    
+      // Center the F around the origin and Flip it around. We do this because
+      // we're in 3D now with and +Y is up where as before when we started with 2D
+      // we had +Y as down.
+    
+      // We could do by changing all the values above but I'm lazy.
+      // We could also do it with a matrix at draw time but you should
+      // never do stuff at draw time if you can do it at init time.
+      var matrix = m4.xRotation(Math.PI);
+      matrix = m4.translate(matrix, -50, -75, -15);
+    
+      for (var ii = 0; ii < positions.length; ii += 3) {
+        var vector = m4.vectorMultiply([positions[ii + 0], positions[ii + 1], positions[ii + 2], 1], matrix);
+        positions[ii + 0] = vector[0];
+        positions[ii + 1] = vector[1];
+        positions[ii + 2] = vector[2];
+      }
+    
+      gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
     }
     
     // Fill the buffer with colors for the 'F'.
@@ -1390,11 +1470,18 @@ export default class WebGLStudy extends React.Component {
         <canvas id="box" style={{ width: "100%", height: "100%" }} />
         <div id="uiContainer">
           <div id="ui">
+            <div id="cameraAngle"></div>
+            <div id="fudgeFactor"></div>
+            <div id="fieldOfViewRadians"></div>
             <div id="x"></div>
             <div id="y"></div>
-            <div id="angle"></div>
+            <div id="z"></div>
+            <div id="angleX"></div>
+            <div id="angleY"></div>
+            <div id="angleZ"></div>
             <div id="scaleX"></div>
             <div id="scaleY"></div>
+            <div id="scaleZ"></div>
           </div>
         </div>
         <div

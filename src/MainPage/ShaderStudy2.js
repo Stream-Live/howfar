@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-02-20 09:26:11
+ * @LastEditTime: 2023-03-01 15:08:55
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -68,6 +68,8 @@ import { LightningStrike } from 'three/examples/jsm/geometries/LightningStrike.j
 import { LightningStorm } from 'three/examples/jsm/objects/LightningStorm.js';
 import TWEEN, { Easing, Tween } from '@tweenjs/tween.js';
 import {FenceGeometry} from '../fence-libs/FenceGeometry'
+import * as PIXI from 'pixi.js'
+import * as BABYLON from 'babylonjs';
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -157,8 +159,87 @@ export default class ShaderStudy extends React.Component {
 
     // this.new_fence(renderer)  // 新的围栏
 
-    this.add_flywire(renderer)  // 添加飞线
+    // this.add_flywire(renderer)  // 添加飞线
 
+    this.dynamic_sky(renderer)    // 动态天空
+
+    // this.babylon_test(renderer)   // babylonjs
+
+  }
+  babylon_test(renderer){
+    
+  }
+
+  async dynamic_sky(renderer){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    camera.position.set(-134, 479, 536)
+    controls.update();
+
+    // const loader = new GLTFLoader();
+    // const dracoLoader = new DRACOLoader();
+    // dracoLoader.setDecoderPath("/draco/");
+    // loader.setDRACOLoader(dracoLoader);
+
+    // let gltf = await loader.loadAsync('/animation.glb')
+    // scene.add(gltf.scene)
+    // let mixer = new THREE.AnimationMixer(gltf.scene)
+    // const pressureAnimation = mixer.clipAction(gltf.animations[0])
+    // pressureAnimation.loop = THREE.LoopOnce // 不循环播放
+    // pressureAnimation.clampWhenFinished = true; //暂停在最后一帧播放的状态
+    // pressureAnimation.play();
+    
+    let url = '4.jpg'
+    let img = new Image();
+    img.src = url;
+    let app;
+    img.onload = () => {
+      
+      app = new PIXI.Application({
+        width: img.width/10, 
+        height: img.height/10
+      });
+      app.view.style.position = 'absolute';
+      app.view.style.top = '0'
+
+      //Add the canvas that Pixi automatically created for you to the HTML document
+      document.body.appendChild(app.view);
+      console.log(app.view);
+
+      const texture = PIXI.Texture.from(url);
+
+      const tilingSprite = new PIXI.TilingSprite(
+          texture,
+          app.screen.width,
+          app.screen.height,
+      );
+      app.stage.addChild(tilingSprite);
+      tilingSprite.tileScale.x = 0.1;
+      tilingSprite.tileScale.y = 0.1;
+      
+      let clock = new THREE.Clock();
+      app.ticker.add(() => {
+
+          tilingSprite.tilePosition.x += clock.getDelta() * 10;
+      });
+    }
+    
+    let clock = new THREE.Clock();
+    function render() {
+
+      // mixer.update(clock.getDelta());
+      
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera)
+
+      if(app){
+        const sky = new THREE.CanvasTexture(app.view);
+        sky.mapping = THREE.EquirectangularReflectionMapping;
+        scene.background = sky;
+      }
+    }
+    render();
   }
 
   add_flywire(renderer){
