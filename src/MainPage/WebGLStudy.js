@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-02 13:07:47
+ * @LastEditTime: 2023-03-08 14:27:41
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -56,6 +56,12 @@ export default class WebGLStudy extends React.Component {
     let worldInverseTransposeLocation = gl.getUniformLocation(program, "u_worldInverseTranspose");
     let worldLocation = gl.getUniformLocation(program, "u_world");
     let lightWorldPositionLocation = gl.getUniformLocation(program, "u_lightWorldPosition");
+    let viewWorldPositionLocation = gl.getUniformLocation(program, 'u_viewWorldPosition');
+    let shininessLocation = gl.getUniformLocation(program, 'u_shininess');
+    let lightColorLocation = gl.getUniformLocation(program, 'u_lightColor');
+    let specularColorLocation = gl.getUniformLocation(program, 'u_specularColor');
+    var lightDirectionLocation = gl.getUniformLocation(program, "u_lightDirection");
+    var limitLocation = gl.getUniformLocation(program, "u_limit");
 
     let positionBuffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
@@ -72,10 +78,39 @@ export default class WebGLStudy extends React.Component {
     gl.uniform3fv(lightWorldPositionLocation, [20, 30, 50]);
     gl.uniform4fv(colorLocation, [0.2, 1, 0.2, 1]);
     gl.uniform3fv(reverseLightDirectionLocation, m4.normalize([0.5, 0.7, 1]))
+    gl.uniform3fv(lightColorLocation, m4.normalize([1, 0.6, 0.6]))
+    gl.uniform3fv(specularColorLocation, m4.normalize([1, 0.6, 0.6]))
 
     let fRotationRadians = 0;
     let fieldOfViewRadians = degToRad(60);
+    let shininess = 150;
+    var lightDirection = [0, 0, 1];
+    var limit = degToRad(20);
+
+    gl.uniform3fv(lightDirectionLocation, lightDirection);
+    
     webglLessonsUI.setupSlider("#fRotationRadians", {value: radToDeg(fRotationRadians), slide: updateFRotationRadians, min: -360, max: 360});
+    webglLessonsUI.setupSlider("#shininess", {value: shininess, slide: updateShininess, min: 1, max: 150});
+    webglLessonsUI.setupSlider("#limit", {value: radToDeg(limit), slide: updateLimit, min: 0, max: 180});
+
+    function updateLimit(event, ui){
+      limit = degToRad(ui.value);
+      gl.uniform1f(limitLocation, Math.cos(limit));
+      // 绘制
+      var primitiveType = gl.TRIANGLES;
+      var count = 16 * 6;
+      gl.drawArrays(primitiveType, 0, count);
+    }
+
+    function updateShininess(event, ui){
+      shininess = ui.value;
+      gl.uniform1f(shininessLocation, shininess);
+      // 绘制
+      var primitiveType = gl.TRIANGLES;
+      var count = 16 * 6;
+      gl.drawArrays(primitiveType, 0, count);
+
+    }
 
     function updateRotation(event, ui) {
       fRotationRadians = degToRad(ui.value);
@@ -129,6 +164,8 @@ export default class WebGLStudy extends React.Component {
       var target = [0, 35, 0];
       var up = [0, 1, 0];
       var cameraMatrix = m4.lookAt(camera, target, up);
+
+      gl.uniform3fv(viewWorldPositionLocation, camera);
   
       // Make a view matrix from the camera matrix.
       var viewMatrix = m4.inverse(cameraMatrix);
@@ -147,6 +184,8 @@ export default class WebGLStudy extends React.Component {
       gl.uniformMatrix4fv(worldLocation, false, worldMatrix);
       gl.uniformMatrix4fv(worldViewProjectionLocation, false, worldViewProjectionMatrix);
       gl.uniformMatrix4fv(worldInverseTransposeLocation, false, worldInverseTransposeMatrix);
+
+      gl.uniform1f(shininessLocation, shininess);
 
       // 绘制
       var primitiveType = gl.TRIANGLES;
@@ -1865,6 +1904,8 @@ export default class WebGLStudy extends React.Component {
         <canvas id="box" style={{ width: "100%", height: "100%" }} />
         <div id="uiContainer">
           <div id="ui">
+            <div id="limit"></div>
+            <div id="shininess"></div>
             <div id="fRotationRadians"></div>
             <div id="cameraAngle"></div>
             <div id="fudgeFactor"></div>

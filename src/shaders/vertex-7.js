@@ -6,11 +6,15 @@ attribute vec3 a_normal;
 varying vec3 v_normal;
 
 uniform vec3 u_lightWorldPosition;
+uniform vec3 u_viewWorldPosition;
+
 uniform mat4 u_world;
 varying vec3 v_surfaceToLight;
 
 uniform mat4 u_worldViewProjection;
 uniform mat4 u_worldInverseTranspose;
+
+varying vec3 v_surfaceToView;
 
 void main(){
 
@@ -24,7 +28,11 @@ void main(){
 
   vec3 surfaceWorldPosition = (u_world * a_position).xyz;
 
+  // 表面到光的方向
   v_surfaceToLight = u_lightWorldPosition - surfaceWorldPosition;
+
+  // 表面到相机的方向
+  v_surfaceToView = u_viewWorldPosition - surfaceWorldPosition;
 }
 `;
 export default vertexShader;

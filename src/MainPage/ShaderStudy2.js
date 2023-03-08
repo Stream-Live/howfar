@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-03 09:19:38
+ * @LastEditTime: 2023-03-08 13:59:48
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -155,7 +155,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.snow(renderer) // 下雪
 
-    // this.new_path_animation(renderer) // 新的运动路径
+    this.new_path_animation(renderer) // 新的运动路径
 
     // this.new_virtual_tree(renderer) // 发光虚化树
 
@@ -163,7 +163,7 @@ export default class ShaderStudy extends React.Component {
 
     // this.add_flywire(renderer)  // 添加飞线
 
-    this.dynamic_sky(renderer)    // 动态天空
+    // this.dynamic_sky(renderer)    // 动态天空
 
     // this.babylon_test(renderer)   // babylonjs
 
@@ -2672,18 +2672,22 @@ void main() {
     );
     let positionArray = [];
     
+    let clock = new THREE.Clock();
     const obj = {
       line,
       isStarted: false,
       start(){
         this.isStarted = true;
+        clock.start();
         render();
       },
       stop(){
+        clock.stop();
         this.isStarted = false;
       },
     }
-    let clock = new THREE.Clock();
+    window.obj = obj;
+
     let percent = 0;
     let isDrawLine = true;
     function render() {
@@ -2692,6 +2696,7 @@ void main() {
       let delta = clock.getDelta() * option.speed;
 
       percent = (percent + delta) % 1;
+      // console.log(percent);
 
       // 0.99就够了，剩下的0.01留给看向前方的点
       if(!option.isRepeat && percent >= 0.99){
