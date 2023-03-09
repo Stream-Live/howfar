@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-08 14:27:41
+ * @LastEditTime: 2023-03-09 09:18:06
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -75,31 +75,43 @@ export default class WebGLStudy extends React.Component {
     gl.bindBuffer(gl.ARRAY_BUFFER, normalBuffer);
     setNormals(gl);
 
-    gl.uniform3fv(lightWorldPositionLocation, [20, 30, 50]);
+    gl.uniform3fv(lightWorldPositionLocation, [40, 60, 120]);
     gl.uniform4fv(colorLocation, [0.2, 1, 0.2, 1]);
     gl.uniform3fv(reverseLightDirectionLocation, m4.normalize([0.5, 0.7, 1]))
     gl.uniform3fv(lightColorLocation, m4.normalize([1, 0.6, 0.6]))
     gl.uniform3fv(specularColorLocation, m4.normalize([1, 0.6, 0.6]))
 
-    let fRotationRadians = 0;
-    let fieldOfViewRadians = degToRad(60);
-    let shininess = 150;
-    var lightDirection = [0, 0, 1];
-    var limit = degToRad(20);
-
-    gl.uniform3fv(lightDirectionLocation, lightDirection);
+    var fieldOfViewRadians = degToRad(60);
+    var fRotationRadians = 0;
+    var shininess = 150;
+    var lightRotationX = 0;
+    var lightRotationY = 0;
+    var lightDirection = [0, 0, 1];  // this is computed in updateScene
+    var limit = degToRad(10);
     
-    webglLessonsUI.setupSlider("#fRotationRadians", {value: radToDeg(fRotationRadians), slide: updateFRotationRadians, min: -360, max: 360});
-    webglLessonsUI.setupSlider("#shininess", {value: shininess, slide: updateShininess, min: 1, max: 150});
+    webglLessonsUI.setupSlider("#fRotation", {value: radToDeg(fRotationRadians), slide: updateRotation, min: -360, max: 360});
+    webglLessonsUI.setupSlider("#lightRotationX", {value: lightRotationX, slide: updatelightRotationX, min: -2, max: 2, precision: 2, step: 0.001});
+    webglLessonsUI.setupSlider("#lightRotationY", {value: lightRotationY, slide: updatelightRotationY, min: -2, max: 2, precision: 2, step: 0.001});
     webglLessonsUI.setupSlider("#limit", {value: radToDeg(limit), slide: updateLimit, min: 0, max: 180});
 
-    function updateLimit(event, ui){
+    function updateRotation(event, ui) {
+      fRotationRadians = degToRad(ui.value);
+      drawScene();
+    }
+  
+    function updatelightRotationX(event, ui) {
+      lightRotationX = ui.value;
+      drawScene();
+    }
+  
+    function updatelightRotationY(event, ui) {
+      lightRotationY = ui.value;
+      drawScene();
+    }
+  
+    function updateLimit(event, ui) {
       limit = degToRad(ui.value);
-      gl.uniform1f(limitLocation, Math.cos(limit));
-      // 绘制
-      var primitiveType = gl.TRIANGLES;
-      var count = 16 * 6;
-      gl.drawArrays(primitiveType, 0, count);
+      drawScene();
     }
 
     function updateShininess(event, ui){
@@ -186,6 +198,19 @@ export default class WebGLStudy extends React.Component {
       gl.uniformMatrix4fv(worldInverseTransposeLocation, false, worldInverseTransposeMatrix);
 
       gl.uniform1f(shininessLocation, shininess);
+
+      const lightPosition = [40, 60, 120];
+      gl.uniform3fv(lightWorldPositionLocation, lightPosition);
+      {
+        var lmat = m4.lookAt(lightPosition, target, up);
+        lmat = m4.multiply(m4.xRotation(lightRotationX), lmat);
+        lmat = m4.multiply(m4.yRotation(lightRotationY), lmat);
+        // get the zAxis from the matrix
+        // negate it because lookAt looks down the -Z axis
+        lightDirection = [-lmat[8], -lmat[9],-lmat[10]];
+      }
+      gl.uniform3fv(lightDirectionLocation, lightDirection);
+      gl.uniform1f(limitLocation, Math.cos(limit));
 
       // 绘制
       var primitiveType = gl.TRIANGLES;
@@ -1904,6 +1929,9 @@ export default class WebGLStudy extends React.Component {
         <canvas id="box" style={{ width: "100%", height: "100%" }} />
         <div id="uiContainer">
           <div id="ui">
+            <div id="fRotation"></div>
+            <div id="lightRotationX"></div>
+            <div id="lightRotationY"></div>
             <div id="limit"></div>
             <div id="shininess"></div>
             <div id="fRotationRadians"></div>

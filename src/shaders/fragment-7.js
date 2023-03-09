@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-03-02 09:14:52
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-08 17:16:21
+ * @LastEditTime: 2023-03-09 17:16:36
  * @FilePath: \howfar\src\shaders\fragment-7.js
  * @Description: 
  * 
@@ -47,14 +47,18 @@ void main() {
   float light = 0.0;
   float specular = 0.0;
 
-  float dotFromDirection = dot(surfaceToLightDirection, u_lightDirection);
+  float dotFromDirection = dot(surfaceToLightDirection, -u_lightDirection);
 
-  if(dotFromDirection >= u_limit){
-    light = dot(n, surfaceToLightDirection);
-    if(light > 0.0){
-      specular = pow(dot(n, halfVector), u_shininess);
-    }
-  }
+  // if(dotFromDirection >= u_limit){
+  //   light = dot(n, surfaceToLightDirection);
+  //   if(light > 0.0){
+  //     specular = pow(dot(n, halfVector), u_shininess);
+  //   }
+  // }
+
+  float inLight = step(u_limit, dotFromDirection);
+  light = inLight * dot(n, surfaceToLightDirection);
+  specular = inLight * pow(dot(n, halfVector), u_shininess);
 
   gl_FragColor = u_color;
 
