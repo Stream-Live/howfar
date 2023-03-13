@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-09 09:18:06
+ * @LastEditTime: 2023-03-13 17:32:45
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -22,6 +22,8 @@ import vertex_6 from "../shaders/vertex-6";
 import fragment_6 from "../shaders/fragment-6";
 import vertex_7 from "../shaders/vertex-7";
 import fragment_7 from "../shaders/fragment-7";
+import vertex_8 from "../shaders/vertex-8";
+import fragment_8 from "../shaders/fragment-8";
 import { m3 } from "../webgl-libs/m3";
 import { m4 } from "../webgl-libs/m4";
 import { webglLessonsUI } from "../webgl-libs/webgl-lessons-ui";
@@ -41,7 +43,12 @@ export default class WebGLStudy extends React.Component {
     // this.fourth(); // webgl二维平移、旋转、缩放
     // this.fifth(); // 二维矩阵
     // this.sixth(); // 三维正交、透视投影、三维相机
-    this.seventh();   // 三维方向光、点光源
+    // this.seventh();   // 三维方向光、点光源、聚光灯
+    this.eighth();    // 码少趣多
+  }
+  eighth(){
+    let { canvas, gl, program } = this.loadbasic(vertex_8, fragment_8);
+    
   }
   seventh(){
     
