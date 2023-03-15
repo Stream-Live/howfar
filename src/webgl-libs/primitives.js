@@ -35,18 +35,18 @@
  * @module primitives
  */
 (function(root, factory) {  // eslint-disable-line
-  if (typeof define === 'function' && define.amd) {
-    // AMD. Register as an anonymous module.
-    define(['./webgl-utils', './3d-math'], factory);
-  } else {
+  // if (typeof define === 'function' && define.amd) {
+  //   // AMD. Register as an anonymous module.
+  //   define(['./webgl-utils', './3d-math'], factory);
+  // } else {
     // Browser globals
     root.primitives = factory.call(root);
-  }
+  // }
 }(this, function(webglUtils, m4) {
   'use strict';
 
   webglUtils = webglUtils || this.webglUtils;
-  m4 = m4 || this.m4 || math3d;
+  m4 = m4 || this.m4 ;
 
   function allButIndices(name) {
     return name !== 'indices';

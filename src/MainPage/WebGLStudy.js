@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-13 17:32:45
+ * @LastEditTime: 2023-03-15 15:53:13
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -29,6 +29,8 @@ import { m4 } from "../webgl-libs/m4";
 import { webglLessonsUI } from "../webgl-libs/webgl-lessons-ui";
 import * as THREE from "three";
 import { transition } from "d3";
+import {primitives} from '../webgl-libs/primitives'
+import {webglUtils} from '../webgl-libs/webgl-utils'
 window.THREE = THREE;
 window.m3 = m3;
 
@@ -47,8 +49,10 @@ export default class WebGLStudy extends React.Component {
     this.eighth();    // 码少趣多
   }
   eighth(){
-    let { canvas, gl, program } = this.loadbasic(vertex_8, fragment_8);
+    // let { canvas, gl, program } = this.loadbasic(vertex_8, fragment_8);
+    console.log(primitives);
     
+    // let buffers = primitives.createSphereBuffer(gl)
   }
   seventh(){
     
