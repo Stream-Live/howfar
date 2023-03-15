@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-15 15:53:13
+ * @LastEditTime: 2023-03-15 17:28:46
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -49,10 +49,24 @@ export default class WebGLStudy extends React.Component {
     this.eighth();    // 码少趣多
   }
   eighth(){
-    // let { canvas, gl, program } = this.loadbasic(vertex_8, fragment_8);
+    let { canvas, gl, program } = this.loadbasic(vertex_8, fragment_8);
     console.log(primitives);
     
-    // let buffers = primitives.createSphereBuffer(gl)
+    let buffers = primitives.createSphereBuffer(gl, 10, 48, 24);
+
+    let uniformSetters = webglUtils.createUniformSetters(gl, program);
+    let attribSetters = webglUtils.createAttributeSetters(gl, program);
+
+    let attribs = {
+      a_position: {buffer: buffers.position, numComponents: 3,},
+      a_normal: {buffer: buffers.normal, numComponents: 3,},
+      a_texcoord: {buffer: buffers.texcoord, numComponents: 2,}
+    }
+
+    function drawScene(){
+
+      
+    }
   }
   seventh(){
     
