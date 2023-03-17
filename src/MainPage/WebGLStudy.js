@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-02-20 08:38:40
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-15 17:28:46
+ * @LastEditTime: 2023-03-17 10:36:17
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -62,10 +62,42 @@ export default class WebGLStudy extends React.Component {
       a_normal: {buffer: buffers.normal, numComponents: 3,},
       a_texcoord: {buffer: buffers.texcoord, numComponents: 2,}
     }
+    var uniformsThatAreTheSameForAllObjects = {
+      u_lightWorldPos:         [-50, 30, 100],
+      u_viewInverse:           m4.identity(),
+      u_lightColor:            [1, 1, 1, 1],
+    };
+
+    drawScene();
 
     function drawScene(){
 
-      
+      // Compute the projection matrix
+      // var aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+      // var projectionMatrix =
+      //     // m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+      // // Compute the camera's matrix using look at.
+      // var cameraPosition = [0, 0, 100];
+      // var target = [0, 0, 0];
+      // var up = [0, 1, 0];
+      // var cameraMatrix = m4.lookAt(cameraPosition, target, up, uniformsThatAreTheSameForAllObjects.u_viewInverse);
+
+      // // Make a view matrix from the camera matrix.
+      // var viewMatrix = m4.inverse(cameraMatrix);
+
+      // var viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+
+      // gl.useProgram(program);
+
+      // webglUtils.setAttributes(attribSetters, attribs);
+
+      // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+
+      // webglUtils.setUniforms(uniformSetters, uniformsThatAreTheSameForAllObjects);
+
+      // gl.drawElements(gl.TRIANGLES, buffers.numElements, gl.UNSIGNED_SHORT, 0);
+
     }
   }
   seventh(){
