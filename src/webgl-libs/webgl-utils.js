@@ -37,7 +37,7 @@
   //   });
   // } else {
     // Browser globals
-    root.webglUtils = factory.call(root);
+    window.webglUtils = root.webglUtils = factory.call(root);
   // }
 }(this, function() {
   'use strict';

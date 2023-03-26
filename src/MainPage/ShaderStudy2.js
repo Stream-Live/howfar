@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-17 16:18:53
+ * @LastEditTime: 2023-03-23 15:47:57
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -187,10 +187,22 @@ export default class ShaderStudy extends React.Component {
     let plane = new THREE.PlaneGeometry(20, 20);
     let mat = new THREE.MeshLambertMaterial({ map: texture});
     let mesh = new THREE.Mesh(plane, mat);
-    scene.add(mesh);
+    // scene.add(mesh);
 
     mesh.rotateY(Math.PI * 0.5);
     mesh.position.x += 10;
+
+    
+    const gui = new GUI();
+
+    let u_minZ = { value: 0 },
+        u_minY = { value: 0, },
+        u_maxZ = { value: 10, },
+        u_maxY = { value: 10 };
+
+    gui.add(u_minZ, "value").onChange(function () {
+      // mesh.rotation.z = guiNode.lerpPosition;
+    });
 
     scene.getObjectByName("主楼2").traverse((mesh) => {
       if (mesh?.material) {
@@ -199,19 +211,21 @@ export default class ShaderStudy extends React.Component {
         mesh.material.onBeforeCompile = (shader) => {
           const uniforms = {
             u_texture: { value: texture },
-            u_minX: {value: -25},
-            u_maxX: {value: -5},
-            u_minY: {value: 10},
-            u_maxY: {value: 40},
+            u_minZ,
+            u_maxZ,
+            u_minY,
+            u_maxY,
           };
           Object.assign(shader.uniforms, uniforms);
+
+          console.log(shader);
 
           const vertex = `
             
             varying vec2 vUv2;
             varying vec4 vPosition;
-            uniform float u_minX;
-            uniform float u_maxX;
+            uniform float u_minZ;
+            uniform float u_maxZ;
             uniform float u_minY;
             uniform float u_maxY;
             void main(){
@@ -219,13 +233,14 @@ export default class ShaderStudy extends React.Component {
           const vertexColor = `
               vUv2 = uv;
               // vPosition = modelViewMatrix * vec4(position, 1.0);
-              vPosition = projectionMatrix * vec4(position, 1.0);
+              vPosition = vec4(position, 1.0);
               // gl_Position = projectionMatrix * mvPosition;
 
-              float l = u_maxX - u_minX;
+              float l = u_maxZ - u_minZ;
               float lY = u_maxY - u_minY;
 
-              vUv2 = vec2( abs(vPosition.x - u_minX) / l,  abs(vPosition.y - u_minY) / lY);
+              vUv2 = vec2( abs(vPosition.x - u_minZ) / l,  abs(vPosition.y - u_minY) / lY);
+            
             }
           `;
           shader.vertexShader = shader.vertexShader.replace(
@@ -239,16 +254,20 @@ export default class ShaderStudy extends React.Component {
             uniform sampler2D u_texture;
             varying vec2 vUv2;
             varying vec4 vPosition;
-            uniform float u_minX;
-            uniform float u_maxX;
+            uniform float u_minZ;
+            uniform float u_maxZ;
             uniform float u_minY;
             uniform float u_maxY;
             void main(){
           `;
           const fragmentColor = `
               
-              if(vPosition.x > u_minX && vPosition.y > u_minY && vPosition.x < u_maxX && vPosition.y < u_maxY){
+              if(vPosition.z > u_minZ && vPosition.y > u_minY && vPosition.z < u_maxZ && vPosition.y < u_maxY){
                 gl_FragColor = texture2D(u_texture, vUv2);
+              }
+
+              if(vPosition.z > u_minZ){
+                gl_FragColor = vec4(1., 1., 0., 1.);
               }
 
             }

@@ -1,14 +1,4 @@
-/*
- * @Author: Wjh
- * @Date: 2023-03-13 10:58:35
- * @LastEditors: Wjh
- * @LastEditTime: 2023-03-17 09:42:46
- * @FilePath: \howfar\src\shaders\vertex-8.js
- * @Description: 
- * 
- */
-const shader =  /*glsl*/ `
-
+const shader = /* glsl */ `
 uniform mat4 u_worldViewProjection;
 uniform vec3 u_lightWorldPos;
 uniform mat4 u_world;
@@ -34,4 +24,4 @@ void main() {
   gl_Position = v_position;
 }
 `
-export default shader
+export default shader;

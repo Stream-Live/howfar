@@ -1,8 +1,17 @@
 /*
  * @Author: Wjh
- * @Date: 2023-02-20 08:38:40
+ * @Date: 2023-03-22 21:09:11
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-17 10:36:17
+ * @LastEditTime: 2023-03-26 17:02:28
+ * @FilePath: \howfar\src\MainPage\WebGLStudy.js
+ * @Description: 
+ * 
+ */
+/*
+ * @Author: Wjh
+ * @Date: 2023-03-22 21:09:11
+ * @LastEditors: Wjh
+ * @LastEditTime: 2023-03-25 18:33:39
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -24,13 +33,20 @@ import vertex_7 from "../shaders/vertex-7";
 import fragment_7 from "../shaders/fragment-7";
 import vertex_8 from "../shaders/vertex-8";
 import fragment_8 from "../shaders/fragment-8";
+import vertex_9 from "../shaders/vertex-9";
+import fragment_9 from "../shaders/fragment-9";
+import vertex_10 from "../shaders/vertex-10";
+import fragment_10 from "../shaders/fragment-10";
 import { m3 } from "../webgl-libs/m3";
-import { m4 } from "../webgl-libs/m4";
 import { webglLessonsUI } from "../webgl-libs/webgl-lessons-ui";
 import * as THREE from "three";
 import { transition } from "d3";
-import {primitives} from '../webgl-libs/primitives'
-import {webglUtils} from '../webgl-libs/webgl-utils'
+
+import { m4 } from "../webgl-libs/m4";
+import * as twgl from 'twgl.js'
+import {primitives} from 'twgl.js'
+import {textureUtils} from '../webgl-libs/texture-utils'
+import chroma from '../webgl-libs/chroma.min.js'
 window.THREE = THREE;
 window.m3 = m3;
 
@@ -46,58 +62,375 @@ export default class WebGLStudy extends React.Component {
     // this.fifth(); // 二维矩阵
     // this.sixth(); // 三维正交、透视投影、三维相机
     // this.seventh();   // 三维方向光、点光源、聚光灯
-    this.eighth();    // 码少趣多
+    // this.eighth();    // 码少趣多
+    // this.ninth();     // 绘制多个物体
+    this.primitives_test();
+  }
+  primitives_test(){
+    twgl.setDefaults({attribPrefix: "a_"});
+    const m4 = twgl.m4;
+    const gl = document.querySelector("#box").getContext("webgl");
+    const programInfo = twgl.createProgramInfo(gl, [vertex_10, fragment_10]);
+
+    const shapes = [
+      twgl.primitives.createCubeBufferInfo(gl, 2),
+      twgl.primitives.createSphereBufferInfo(gl, 1, 24, 12),
+      twgl.primitives.createPlaneBufferInfo(gl, 2, 2),
+      twgl.primitives.createTruncatedConeBufferInfo(gl, 1, 0, 2, 24, 1),
+      twgl.primitives.createCresentBufferInfo(gl, 1, 1, 0.5, 0.1, 24),
+      twgl.primitives.createCylinderBufferInfo(gl, 1, 2, 24, 2),
+      twgl.primitives.createDiscBufferInfo(gl, 1, 24),
+      twgl.primitives.createTorusBufferInfo(gl, 1, 0.4, 24, 12),
+    ];
+
+    function rand(min, max) {
+      return min + Math.random() * (max - min);
+    }
+
+    // Shared values
+    const lightWorldPosition = [1, 8, -10];
+    const lightColor = [1, 1, 1, 1];
+    const camera = m4.identity();
+    const view = m4.identity();
+    const viewProjection = m4.identity();
+
+    const tex = twgl.createTexture(gl, {
+      min: gl.NEAREST,
+      mag: gl.NEAREST,
+      src: [
+        255, 255, 255, 255,
+        192, 192, 192, 255,
+        192, 192, 192, 255,
+        255, 255, 255, 255,
+      ],
+    });
+
+    const objects = [];
+    const drawObjects = [];
+    const numObjects = 100;
+    const baseHue = rand(0, 360);
+    for (let ii = 0; ii < numObjects; ++ii) {
+      const uniforms = {
+        u_lightWorldPos: lightWorldPosition,
+        u_lightColor: lightColor,
+        u_diffuseMult: chroma.hsv((baseHue + rand(0, 60)) % 360, 0.4, 0.8).gl(),
+        u_specular: [1, 1, 1, 1],
+        u_shininess: 50,
+        u_specularFactor: 1,
+        u_diffuse: tex,
+        u_viewInverse: camera,
+        u_world: m4.identity(),
+        u_worldInverseTranspose: m4.identity(),
+        u_worldViewProjection: m4.identity(),
+      };
+      drawObjects.push({
+        programInfo: programInfo,
+        bufferInfo: shapes[ii % shapes.length],
+        uniforms: uniforms,
+      });
+      objects.push({
+        translation: [rand(-10, 10), rand(-10, 10), rand(-10, 10)],
+        ySpeed: rand(0.1, 0.3),
+        zSpeed: rand(0.1, 0.3),
+        uniforms: uniforms,
+      });
+    }
+
+    function render(time) {
+      time *= 0.001;
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+      gl.enable(gl.DEPTH_TEST);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      const projection = m4.perspective(30 * Math.PI / 180, gl.canvas.clientWidth / gl.canvas.clientHeight, 0.5, 100);
+      const eye = [1, 4, -20];
+      const target = [0, 0, 0];
+      const up = [0, 1, 0];
+
+      m4.lookAt(eye, target, up, camera);
+      m4.inverse(camera, view);
+      m4.multiply(projection, view, viewProjection);
+
+      objects.forEach(function(obj) {
+        const uni = obj.uniforms;
+        const world = uni.u_world;
+        m4.identity(world);
+        m4.rotateY(world, time * obj.ySpeed, world);
+        m4.rotateZ(world, time * obj.zSpeed, world);
+        m4.translate(world, obj.translation, world);
+        m4.rotateX(world, time, world);
+        m4.transpose(m4.inverse(world, uni.u_worldInverseTranspose), uni.u_worldInverseTranspose);
+        m4.multiply(viewProjection, uni.u_world, uni.u_worldViewProjection);
+      });
+
+      twgl.drawObjectList(gl, drawObjects);
+
+      requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
+  }
+  ninth(){
+
+    // let { canvas, gl, program } = this.loadbasic(vertex_9, fragment_9);
+
+    var canvas = document.querySelector("#box");
+    var gl = canvas.getContext("webgl");
+    if (!gl) {
+      return;
+    }
+
+    let programInfo = twgl.createProgramInfo(gl, [vertex_9, fragment_9]);
+
+    const sphereBufferInfo = primitives.createSphereBufferInfo(gl, 10, 12, 6);
+    const cubeBufferInfo = primitives.createCubeBufferInfo(gl, 20);
+    const coneBufferInfo = primitives.createTruncatedConeBufferInfo(gl, 10, 0, 20, 12, 1, true, false)
+
+    function degToRad(d){
+      return d * Math.PI / 180;
+    }
+    let fieldOfViewRadians = degToRad(60);
+
+    let sphereUniforms = {
+      u_colorMult: [0.5, 1, 0.5, 1],
+      u_matrix: m4.identity(),
+    }
+    let cubeUniforms = {
+      u_colorMult: [1, 0.5, 0.5, 1],
+      u_matrix: m4.identity(),
+    }
+    let coneUniforms = {
+      u_colorMult: [0.5, 0.5, 1, 1],
+      u_matrix: m4.identity(),
+    }
+
+    var sphereTranslation = [  0, 0, 0];
+    var cubeTranslation   = [-40, 0, 0];
+    var coneTranslation   = [ 40, 0, 0];
+
+    function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation){
+
+      let matrix = m4.translate(viewProjectionMatrix,
+        translation[0],
+        translation[1],
+        translation[2]);
+      matrix = m4.xRotate(matrix, xRotation);
+      return m4.yRotate(matrix, yRotation);
+    }
+
+    requestAnimationFrame(drawScene);
+
+    function drawScene(time){
+
+      time *= 0.0005;
+
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
+
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+      let projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+      let cameraPosition = [0, 0, 100];
+      let target = [0,0,0];
+      let up = [0, 1, 0];
+      let cameraMatrix = m4.lookAt(cameraPosition, target, up);
+
+      let viewMatrix = m4.inverse(cameraMatrix);
+
+      let viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+
+      var sphereXRotation =  time;
+      var sphereYRotation =  time;
+      var cubeXRotation   = -time;
+      var cubeYRotation   =  time;
+      var coneXRotation   =  time;
+      var coneYRotation   = -time;
+
+      // ------ Draw the sphere --------
+
+      gl.useProgram(programInfo.program);
+
+      twgl.setBuffersAndAttributes(gl, programInfo, sphereBufferInfo);
+
+      sphereUniforms.u_matrix = computeMatrix(viewProjectionMatrix, sphereTranslation, sphereXRotation, sphereYRotation);
+
+      twgl.setUniforms(programInfo, sphereUniforms);
+
+      gl.drawArrays(gl.TRIANGLES, 0, sphereBufferInfo.numElements);
+
+      // ------ Draw the cube --------
+
+      twgl.setBuffersAndAttributes(gl, programInfo, cubeBufferInfo);
+
+      cubeUniforms.u_matrix = computeMatrix(viewProjectionMatrix, cubeTranslation, cubeXRotation, cubeYRotation);
+
+      twgl.setUniforms(programInfo.program, cubeUniforms);
+
+      gl.drawArrays(gl.TRIANGLES, 0, cubeBufferInfo.numElements);
+
+      // ------ Draw the cone --------
+
+      twgl.setBuffersAndAttributes(gl, programInfo, coneBufferInfo);
+
+      coneUniforms.u_matrix = computeMatrix(viewProjectionMatrix, coneTranslation, coneXRotation, coneYRotation);
+
+      twgl.setUniforms(programInfo, coneUniforms);
+
+      gl.drawArrays(gl.TRIANGLES, 0, coneBufferInfo.numElements);
+
+      requestAnimationFrame(drawScene);
+
+    }
+
+  
+
   }
   eighth(){
     let { canvas, gl, program } = this.loadbasic(vertex_8, fragment_8);
-    console.log(primitives);
-    
-    let buffers = primitives.createSphereBuffer(gl, 10, 48, 24);
+    console.log(twgl);
 
-    let uniformSetters = webglUtils.createUniformSetters(gl, program);
-    let attribSetters = webglUtils.createAttributeSetters(gl, program);
+    var buffers = primitives.createSphereBuffers(gl, 10, 48, 24);
 
-    let attribs = {
-      a_position: {buffer: buffers.position, numComponents: 3,},
-      a_normal: {buffer: buffers.normal, numComponents: 3,},
-      a_texcoord: {buffer: buffers.texcoord, numComponents: 2,}
+    var uniformSetters = twgl.createUniformSetters(gl, program);
+    var attribSetters  = twgl.createAttributeSetters(gl, program);
+
+    var attribs = {
+      a_position: { buffer: buffers.position, numComponents: 3, },
+      a_normal:   { buffer: buffers.normal,   numComponents: 3, },
+      a_texcoord: { buffer: buffers.texcoord, numComponents: 2, },
+    };
+
+    function degToRad(d) {
+      return d * Math.PI / 180;
     }
+
+    var cameraAngleRadians = degToRad(0);
+    var fieldOfViewRadians = degToRad(60);
+    var cameraHeight = 50;
+
     var uniformsThatAreTheSameForAllObjects = {
       u_lightWorldPos:         [-50, 30, 100],
       u_viewInverse:           m4.identity(),
       u_lightColor:            [1, 1, 1, 1],
     };
 
-    drawScene();
+    var uniformsThatAreComputedForEachObject = {
+      u_worldViewProjection:   m4.identity(),
+      u_world:                 m4.identity(),
+      u_worldInverseTranspose: m4.identity(),
+    };
 
-    function drawScene(){
+    var rand = function(min, max) {
+      if (max === undefined) {
+        max = min;
+        min = 0;
+      }
+      return min + Math.random() * (max - min);
+    };
+
+    var randInt = function(range) {
+      return Math.floor(Math.random() * range);
+    };
+
+    var textures = [
+      textureUtils.makeStripeTexture(gl, { color1: "#FFF", color2: "#CCC", }),
+      textureUtils.makeCheckerTexture(gl, { color1: "#FFF", color2: "#CCC", }),
+      textureUtils.makeCircleTexture(gl, { color1: "#FFF", color2: "#CCC", }),
+    ];
+
+    var objects = [];
+    var numObjects = 300;
+    var baseColor = rand(240);
+    for (var ii = 0; ii < numObjects; ++ii) {
+      objects.push({
+        radius: rand(150),
+        xRotation: rand(Math.PI * 2),
+        yRotation: rand(Math.PI),
+        materialUniforms: {
+          u_colorMult:             chroma.hsv(rand(baseColor, baseColor + 120), 0.5, 1).gl(),
+          u_diffuse:               textures[randInt(textures.length)],
+          u_specular:              [1, 1, 1, 1],
+          u_shininess:             rand(500),
+          u_specularFactor:        rand(1),
+        },
+      });
+    }
+
+    requestAnimationFrame(drawScene);
+
+    // Draw the scene.
+    function drawScene(time) {
+      time = time * 0.0001 + 5;
+
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+
+      // Tell WebGL how to convert from clip space to pixels
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+      // Clear the canvas AND the depth buffer.
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
 
       // Compute the projection matrix
-      // var aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
-      // var projectionMatrix =
-      //     // m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+      var aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+      var projectionMatrix =
+          m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
 
-      // // Compute the camera's matrix using look at.
-      // var cameraPosition = [0, 0, 100];
-      // var target = [0, 0, 0];
-      // var up = [0, 1, 0];
-      // var cameraMatrix = m4.lookAt(cameraPosition, target, up, uniformsThatAreTheSameForAllObjects.u_viewInverse);
+      // Compute the camera's matrix using look at.
+      var cameraPosition = [0, 0, 100];
+      var target = [0, 0, 0];
+      var up = [0, 1, 0];
+      var cameraMatrix = m4.lookAt(cameraPosition, target, up, uniformsThatAreTheSameForAllObjects.u_viewInverse);
 
-      // // Make a view matrix from the camera matrix.
-      // var viewMatrix = m4.inverse(cameraMatrix);
+      // Make a view matrix from the camera matrix.
+      var viewMatrix = m4.inverse(cameraMatrix);
 
-      // var viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+      var viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
 
-      // gl.useProgram(program);
+      gl.useProgram(program);
 
-      // webglUtils.setAttributes(attribSetters, attribs);
+      // Setup all the needed attributes.
+      twgl.setAttributes(attribSetters, attribs);
 
-      // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
+      // Bind the indices.
+      gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffers.indices);
 
-      // webglUtils.setUniforms(uniformSetters, uniformsThatAreTheSameForAllObjects);
+      // Set the uniforms that are the same for all objects.
+      twgl.setUniforms(uniformSetters, uniformsThatAreTheSameForAllObjects);
 
-      // gl.drawElements(gl.TRIANGLES, buffers.numElements, gl.UNSIGNED_SHORT, 0);
+      // Draw objects
+      objects.forEach(function(object) {
 
+        // Compute a position for this object based on the time.
+        var worldMatrix = m4.xRotation(object.xRotation * time);
+        worldMatrix = m4.yRotate(worldMatrix, object.yRotation * time);
+        worldMatrix = m4.translate(worldMatrix, 0, 0, object.radius);
+        uniformsThatAreComputedForEachObject.u_world = worldMatrix;
+
+        // Multiply the matrices.
+        m4.multiply(viewProjectionMatrix, worldMatrix, uniformsThatAreComputedForEachObject.u_worldViewProjection);
+        m4.transpose(m4.inverse(worldMatrix), uniformsThatAreComputedForEachObject.u_worldInverseTranspose);
+
+        // Set the uniforms we just computed
+        twgl.setUniforms(uniformSetters, uniformsThatAreComputedForEachObject);
+
+        // Set the uniforms that are specific to the this object.
+        twgl.setUniforms(uniformSetters, object.materialUniforms);
+
+        // Draw the geometry.
+        gl.drawElements(gl.TRIANGLES, buffers.numElements, gl.UNSIGNED_SHORT, 0);
+      });
+
+      requestAnimationFrame(drawScene);
     }
   }
   seventh(){

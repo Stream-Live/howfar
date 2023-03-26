@@ -31,13 +31,25 @@
 
 "use strict";
 
-(function() {
+// (function() {
 
 var ctx = document.createElement("canvas").getContext("2d");
 
 var setCanvasSize = function(width, height) {
   ctx.canvas.width  = width;
   ctx.canvas.height = height;
+};
+
+var rand = function(min, max) {
+  if (max === undefined) {
+    max = min;
+    min = 0;
+  }
+  return min + Math.random() * (max - min);
+};
+
+var randInt = function(range) {
+  return Math.floor(Math.random() * range);
 };
 
 var makeTexture = function(gl) {
@@ -136,7 +148,7 @@ var makeRandomTexture = function(gl, options) {
   return texture;
 };
 
-var textureUtils = {
+export var textureUtils = {
   makeStripeTexture: makeStripeTexture,
   makeCheckerTexture: makeCheckerTexture,
   makeCircleTexture: makeCircleTexture,
@@ -145,10 +157,10 @@ var textureUtils = {
 
 var isAMD = window.define && typeof window.define === "function";
 
-if (isAMD) {
-  define([], function() { return textureUtils; });
-} else {
-  window.textureUtils = textureUtils;
-}
+// if (isAMD) {
+//   define([], function() { return textureUtils; });
+// } else {
+  // window.textureUtils = textureUtils;
+// }
 
-}());
+// }());
