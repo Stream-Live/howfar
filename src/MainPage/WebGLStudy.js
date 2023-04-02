@@ -2,16 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-03-22 21:09:11
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-26 17:02:28
- * @FilePath: \howfar\src\MainPage\WebGLStudy.js
- * @Description: 
- * 
- */
-/*
- * @Author: Wjh
- * @Date: 2023-03-22 21:09:11
- * @LastEditors: Wjh
- * @LastEditTime: 2023-03-25 18:33:39
+ * @LastEditTime: 2023-04-02 20:44:31
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -37,6 +28,8 @@ import vertex_9 from "../shaders/vertex-9";
 import fragment_9 from "../shaders/fragment-9";
 import vertex_10 from "../shaders/vertex-10";
 import fragment_10 from "../shaders/fragment-10";
+import vertex_11 from "../shaders/vertex-11";
+import fragment_11 from "../shaders/fragment-11";
 import { m3 } from "../webgl-libs/m3";
 import { webglLessonsUI } from "../webgl-libs/webgl-lessons-ui";
 import * as THREE from "three";
@@ -64,7 +57,407 @@ export default class WebGLStudy extends React.Component {
     // this.seventh();   // 三维方向光、点光源、聚光灯
     // this.eighth();    // 码少趣多
     // this.ninth();     // 绘制多个物体
-    this.primitives_test();
+    // this.primitives_test();
+    this.tenth();   // WebGL三维纹理、码少趣多
+  }
+  async tenth(){
+
+    let gl = document.querySelector('#box').getContext('webgl');
+
+    let programInfo = twgl.createProgramInfo(gl, [vertex_11, fragment_11]);
+    let {program, uniformSetters, attribSetters} = programInfo;
+
+    // let uniformSetters = twgl.createUniformSetters(gl, program);
+    // let attribSetters = twgl.createAttributeSetters(gl, program);
+
+    // let attribs = {
+    //   a_position: { buffer: setGeometry(gl), numComponents: 3 },
+    //   a_texcoord: { buffer: setTexcoords(gl), numComponents: 2 },
+    // }
+
+    // twgl.setAttributes(attribSetters, attribs);
+
+    let arrays = {
+      a_position: { data: setGeometry(gl), numComponents: 3 },
+      a_texcoord: { data: setTexcoords(gl), numComponents: 2 },
+    }
+    let bufferInfo = twgl.createBufferInfoFromArrays(gl, arrays);
+
+    let texture = gl.createTexture();
+
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+      new Uint8Array([0, 0, 255, 255]));
+    let image = new Image();
+    image.crossOrigin = "anonymous";
+    image.src='https://webglfundamentals.org/webgl/resources/f-texture.png';
+    image.onload = () => {
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+      gl.generateMipmap(gl.TEXTURE_2D);
+
+    }
+
+    function degToRad(d){
+      return d * Math.PI / 180;
+    }
+
+    var fieldOfViewRadians = degToRad(60);
+    var modelXRotationRadians = degToRad(0);
+    var modelYRotationRadians = degToRad(0);
+
+    let then = 0;
+
+    requestAnimationFrame(drawScene);
+
+    function drawScene(now){
+
+      now *= 0.001;
+
+      let deltaTime = now - then;
+      then = now;
+
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
+
+      modelXRotationRadians += 1.2 * deltaTime;
+      modelYRotationRadians += 0.7 * deltaTime;
+
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      gl.useProgram(program);
+
+      // twgl.setAttributes(attribSetters, attribs);
+      twgl.setBuffersAndAttributes(gl, attribSetters, bufferInfo);
+
+      let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+      let projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+      let cameraPosition = [0,0, 200];
+      let up = [0,1,0];
+      let target = [0,0,0];
+
+      let cameraMatrix = m4.lookAt(cameraPosition, target, up);
+
+      let viewMatrix = m4.inverse(cameraMatrix);
+
+      let viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+
+      let matrix = m4.xRotate(viewProjectionMatrix, modelXRotationRadians);
+      matrix = m4.yRotate(matrix, modelYRotationRadians);
+
+      let uniforms = {
+        u_matrix: matrix,
+        u_texture: texture
+      }
+      twgl.setUniforms(uniformSetters, uniforms);
+
+      gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.numElements);
+
+      requestAnimationFrame(drawScene);
+    }
+
+    function setGeometry(gl) {
+      
+      // let positionBuffer = gl.createBuffer();
+      // gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+      var positions = new Float32Array([
+              // left column front
+              0,   0,  0,
+              0, 150,  0,
+              30,   0,  0,
+              0, 150,  0,
+              30, 150,  0,
+              30,   0,  0,
+    
+              // top rung front
+              30,   0,  0,
+              30,  30,  0,
+              100,   0,  0,
+              30,  30,  0,
+              100,  30,  0,
+              100,   0,  0,
+    
+              // middle rung front
+              30,  60,  0,
+              30,  90,  0,
+              67,  60,  0,
+              30,  90,  0,
+              67,  90,  0,
+              67,  60,  0,
+    
+              // left column back
+                0,   0,  30,
+               30,   0,  30,
+                0, 150,  30,
+                0, 150,  30,
+               30,   0,  30,
+               30, 150,  30,
+    
+              // top rung back
+               30,   0,  30,
+              100,   0,  30,
+               30,  30,  30,
+               30,  30,  30,
+              100,   0,  30,
+              100,  30,  30,
+    
+              // middle rung back
+               30,  60,  30,
+               67,  60,  30,
+               30,  90,  30,
+               30,  90,  30,
+               67,  60,  30,
+               67,  90,  30,
+    
+              // top
+                0,   0,   0,
+              100,   0,   0,
+              100,   0,  30,
+                0,   0,   0,
+              100,   0,  30,
+                0,   0,  30,
+    
+              // top rung right
+              100,   0,   0,
+              100,  30,   0,
+              100,  30,  30,
+              100,   0,   0,
+              100,  30,  30,
+              100,   0,  30,
+    
+              // under top rung
+              30,   30,   0,
+              30,   30,  30,
+              100,  30,  30,
+              30,   30,   0,
+              100,  30,  30,
+              100,  30,   0,
+    
+              // between top rung and middle
+              30,   30,   0,
+              30,   60,  30,
+              30,   30,  30,
+              30,   30,   0,
+              30,   60,   0,
+              30,   60,  30,
+    
+              // top of middle rung
+              30,   60,   0,
+              67,   60,  30,
+              30,   60,  30,
+              30,   60,   0,
+              67,   60,   0,
+              67,   60,  30,
+    
+              // right of middle rung
+              67,   60,   0,
+              67,   90,  30,
+              67,   60,  30,
+              67,   60,   0,
+              67,   90,   0,
+              67,   90,  30,
+    
+              // bottom of middle rung.
+              30,   90,   0,
+              30,   90,  30,
+              67,   90,  30,
+              30,   90,   0,
+              67,   90,  30,
+              67,   90,   0,
+    
+              // right of bottom
+              30,   90,   0,
+              30,  150,  30,
+              30,   90,  30,
+              30,   90,   0,
+              30,  150,   0,
+              30,  150,  30,
+    
+              // bottom
+              0,   150,   0,
+              0,   150,  30,
+              30,  150,  30,
+              0,   150,   0,
+              30,  150,  30,
+              30,  150,   0,
+    
+              // left side
+              0,   0,   0,
+              0,   0,  30,
+              0, 150,  30,
+              0,   0,   0,
+              0, 150,  30,
+              0, 150,   0]);
+    
+      // Center the F around the origin and Flip it around. We do this because
+      // we're in 3D now with and +Y is up where as before when we started with 2D
+      // we had +Y as down.
+    
+      // We could do by changing all the values above but I'm lazy.
+      // We could also do it with a matrix at draw time but you should
+      // never do stuff at draw time if you can do it at init time.
+      var matrix = m4.identity();// m4.xRotation(Math.PI);
+      matrix = m4.translate(matrix, -50, -75, -15);
+    
+      for (var ii = 0; ii < positions.length; ii += 3) {
+        var vector = m4.transformVector(matrix, [positions[ii + 0], positions[ii + 1], positions[ii + 2], 1]);
+        positions[ii + 0] = vector[0];
+        positions[ii + 1] = vector[1];
+        positions[ii + 2] = vector[2];
+      }
+    
+      // gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+      return positions;
+    }
+    
+    // Fill the buffer with texture coordinates the F.
+    function setTexcoords(gl) {
+      
+      // let texcoordBuffer = gl.createBuffer();
+      // gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+
+      let texcoords = new Float32Array([
+        // left column front
+         38 / 255,  44 / 255,
+         38 / 255, 223 / 255,
+        113 / 255,  44 / 255,
+         38 / 255, 223 / 255,
+        113 / 255, 223 / 255,
+        113 / 255,  44 / 255,
+
+        // top rung front
+        113 / 255, 44 / 255,
+        113 / 255, 85 / 255,
+        218 / 255, 44 / 255,
+        113 / 255, 85 / 255,
+        218 / 255, 85 / 255,
+        218 / 255, 44 / 255,
+
+        // middle rung front
+        113 / 255, 112 / 255,
+        113 / 255, 151 / 255,
+        203 / 255, 112 / 255,
+        113 / 255, 151 / 255,
+        203 / 255, 151 / 255,
+        203 / 255, 112 / 255,
+
+        // left column back
+         38 / 255,  44 / 255,
+        113 / 255,  44 / 255,
+         38 / 255, 223 / 255,
+         38 / 255, 223 / 255,
+        113 / 255,  44 / 255,
+        113 / 255, 223 / 255,
+
+        // top rung back
+        113 / 255, 44 / 255,
+        218 / 255, 44 / 255,
+        113 / 255, 85 / 255,
+        113 / 255, 85 / 255,
+        218 / 255, 44 / 255,
+        218 / 255, 85 / 255,
+
+        // middle rung back
+        113 / 255, 112 / 255,
+        203 / 255, 112 / 255,
+        113 / 255, 151 / 255,
+        113 / 255, 151 / 255,
+        203 / 255, 112 / 255,
+        203 / 255, 151 / 255,
+
+        // top
+        0, 0,
+        1, 0,
+        1, 1,
+        0, 0,
+        1, 1,
+        0, 1,
+
+        // top rung right
+        0, 0,
+        1, 0,
+        1, 1,
+        0, 0,
+        1, 1,
+        0, 1,
+
+        // under top rung
+        0, 0,
+        0, 1,
+        1, 1,
+        0, 0,
+        1, 1,
+        1, 0,
+
+        // between top rung and middle
+        0, 0,
+        1, 1,
+        0, 1,
+        0, 0,
+        1, 0,
+        1, 1,
+
+        // top of middle rung
+        0, 0,
+        1, 1,
+        0, 1,
+        0, 0,
+        1, 0,
+        1, 1,
+
+        // right of middle rung
+        0, 0,
+        1, 1,
+        0, 1,
+        0, 0,
+        1, 0,
+        1, 1,
+
+        // bottom of middle rung.
+        0, 0,
+        0, 1,
+        1, 1,
+        0, 0,
+        1, 1,
+        1, 0,
+
+        // right of bottom
+        0, 0,
+        1, 1,
+        0, 1,
+        0, 0,
+        1, 0,
+        1, 1,
+
+        // bottom
+        0, 0,
+        0, 1,
+        1, 1,
+        0, 0,
+        1, 1,
+        1, 0,
+
+        // left side
+        0, 0,
+        0, 1,
+        1, 1,
+        0, 0,
+        1, 1,
+        1, 0,
+      ]);
+      // gl.bufferData(
+      //     gl.ARRAY_BUFFER,
+      //     texcoords,
+      //     gl.STATIC_DRAW);
+      
+      return texcoords;
+    }
+
   }
   primitives_test(){
     twgl.setDefaults({attribPrefix: "a_"});
