@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-03-22 21:09:11
  * @LastEditors: Wjh
- * @LastEditTime: 2023-04-02 20:44:31
+ * @LastEditTime: 2023-04-05 23:29:01
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -30,6 +30,8 @@ import vertex_10 from "../shaders/vertex-10";
 import fragment_10 from "../shaders/fragment-10";
 import vertex_11 from "../shaders/vertex-11";
 import fragment_11 from "../shaders/fragment-11";
+import vertex_12 from "../shaders/vertex-12";
+import fragment_12 from "../shaders/fragment-12";
 import { m3 } from "../webgl-libs/m3";
 import { webglLessonsUI } from "../webgl-libs/webgl-lessons-ui";
 import * as THREE from "three";
@@ -58,7 +60,106 @@ export default class WebGLStudy extends React.Component {
     // this.eighth();    // 码少趣多
     // this.ninth();     // 绘制多个物体
     // this.primitives_test();
-    this.tenth();   // WebGL三维纹理、码少趣多
+    // this.tenth();   // WebGL三维纹理、码少趣多
+    this.eleventh();  // WebGL多视图、多画布
+    // this.twelfth();   // WebGL可视化相机
+  }
+  twelfth(){
+    let gl = document.querySelector('#box').getContext('webgl');
+
+  }
+  eleventh(){
+    let gl = document.querySelector('#box').getContext('webgl');
+    const programInfo = twgl.createProgramInfo(gl, [vertex_12, fragment_12]);
+
+    const bufferInfo = primitives.create3DFBufferInfo(gl);
+
+    function degToRad(d){
+      return d * Math.PI / 180;
+    }
+
+    const settings = {
+      rotation: 150
+    }
+    webglLessonsUI.setupUI(document.querySelector('#ui'), settings, [
+      { type: 'slider',   key: 'rotation',   min: 0, max: 360, change: render, precision: 2, step: 0.001, },
+    ]);
+    const fieldOfViewRadians = degToRad(120);
+
+    render();
+
+    function drawScene(projectionMatrix, cameraMatrix, worldMatrix){
+      // 清楚画布和深度缓冲区
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      const viewMatrix = m4.inverse(cameraMatrix);
+
+      let mat = m4.multiply(projectionMatrix, viewMatrix);
+      mat = m4.multiply(mat, worldMatrix);
+
+      gl.useProgram(programInfo.program);
+
+      twgl.setBuffersAndAttributes(gl, programInfo.attribSetters, bufferInfo);
+
+      twgl.setUniforms(programInfo, {
+        u_matrix: mat,
+      });
+
+      twgl.drawBufferInfo(gl, bufferInfo);
+    }
+
+    function render(){
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+
+      // gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.SCISSOR_TEST);
+      
+      // const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+      const effectiveWidth = gl.canvas.clientWidth / 2;
+      const aspect = effectiveWidth / gl.canvas.clientHeight;
+      
+      const near = 1;
+      const far = 2000;
+      const perspectiveProjectionMatrix = m4.perspective(fieldOfViewRadians, aspect, near, far);
+
+      // 计算正射投影矩阵
+      const halfHeightUnits = 120;
+      const orthographicProjectionMatrix = m4.orthographic(
+        -halfHeightUnits * aspect,  // 左边
+        halfHeightUnits * aspect,  // 正确的
+        -halfHeightUnits,           // 底部
+        halfHeightUnits,           // 顶部
+        -75,                       // 靠近
+        2000);                     // 远的
+
+      const cameraPosition = [0, 0, -75];
+      const target = [0,0,0];
+      const up = [0,1,0];
+      const cameraMatrix = m4.lookAt(cameraPosition, target, up);
+
+      let worldMatrix = m4.yRotation(degToRad(settings.rotation));
+      worldMatrix = m4.xRotate(worldMatrix, degToRad(settings.rotation));
+      worldMatrix = m4.translate(worldMatrix, -35, -75, -5);
+
+      const {width, height} = gl.canvas;
+      const leftWidth = width / 2 | 0;
+      // 使用正交相机在左侧绘制
+      gl.viewport(0,0,leftWidth, height);
+      gl.scissor(0,0, leftWidth, height);
+      gl.clearColor(1,0,0,1);
+      drawScene(orthographicProjectionMatrix, cameraMatrix, worldMatrix);
+
+      // 用透视相机在右侧绘制
+      const rightWidth = width - leftWidth;
+      gl.viewport(leftWidth, 0, rightWidth, height);
+      gl.scissor(leftWidth, 0, rightWidth, height);
+      gl.clearColor(0,0,1,1);
+      drawScene(perspectiveProjectionMatrix, cameraMatrix, worldMatrix);
+    }
+    
   }
   async tenth(){
 
@@ -156,8 +257,9 @@ export default class WebGLStudy extends React.Component {
       }
       twgl.setUniforms(uniformSetters, uniforms);
 
-      gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.numElements);
+      // gl.drawArrays(gl.TRIANGLES, 0, bufferInfo.numElements);
 
+      twgl.drawBufferInfo(gl, bufferInfo);
       requestAnimationFrame(drawScene);
     }
 
