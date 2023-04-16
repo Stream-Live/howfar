@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-04-16 23:03:02
+ * @LastEditTime: 2023-04-17 00:02:09
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -213,28 +213,30 @@ export default class ShaderStudy extends React.Component {
     };
     
     const gui = new GUI();
-    gui.add(settings, 'posX');
+    gui.add(settings, 'posX').onChange(change);
 
-    let textureWorldMatrix = m4.lookAt(
-      [settings.posX, settings.posY, settings.posZ],          // position
-      [settings.targetX, settings.targetY, settings.targetZ], // target
-      [0, 1, 0],                                              // up
-    );
-    textureWorldMatrix = m4.scale(
-        textureWorldMatrix,
-        settings.projWidth, settings.projHeight, 1,
-    );
-    const textureMatrix = m4.inverse(textureWorldMatrix);
-
+    const u_textureMatrix = {value: m4.identity()}
+    function change(){
+      let textureWorldMatrix = m4.lookAt(
+        [settings.posX, settings.posY, settings.posZ],          // position
+        [settings.targetX, settings.targetY, settings.targetZ], // target
+        [0, 1, 0],                                              // up
+      );
+      textureWorldMatrix = m4.scale(
+          textureWorldMatrix,
+          settings.projWidth, settings.projHeight, 1,
+      );
+      u_textureMatrix.value = m4.inverse(textureWorldMatrix);
+    }
+    change();
+    
     const sphereGeo = new THREE.SphereGeometry(10, 20, 20);
     const sphereMat = new ShaderMaterial({
       uniforms: {
         u_world: {
           value: m4.translation(0, 0, 0)
         },
-        u_textureMatrix: {
-          value: textureMatrix
-        },
+        u_textureMatrix,
         u_video: {
           value: texture
         } 
@@ -243,10 +245,8 @@ export default class ShaderStudy extends React.Component {
         varying vec4 v_projectedTexcoord;
         uniform mat4 u_world;
         uniform mat4 u_textureMatrix;
-        varying vec2 v_uv;
         
         void main(){
-          v_uv = uv;
           vec4 worldPosition = u_world * vec4(position, 1.0);
           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
           v_projectedTexcoord = u_textureMatrix * worldPosition;
@@ -255,7 +255,6 @@ export default class ShaderStudy extends React.Component {
       fragmentShader: `
         varying vec4 v_projectedTexcoord;
         uniform sampler2D u_video;
-        varying vec2 v_uv;
         void main(){
           vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
 
@@ -286,17 +285,15 @@ export default class ShaderStudy extends React.Component {
     //       Object.assign(shader.uniforms, uniforms);
 
     //       const vertex = `
-    //         varying vec4 v_projectedTexcoord;
-            // uniform mat4 u_world;
-            // uniform mat4 u_textureMatrix;
+    //       varying vec4 v_projectedTexcoord;
+    //       uniform mat4 u_world;
+    //       uniform mat4 u_textureMatrix;
     //         void main(){
     //       `;
     //       const vertexColor = `
-    //           vec4 worldPosition = u_world * vec4(position, 1.0);
-
-    //           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-            
-    //           v_projectedTexcoord = u_textureMatrix * worldPosition;
+    //       vec4 worldPosition = u_world * vec4(position, 1.0);
+    //       gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    //       v_projectedTexcoord = u_textureMatrix * worldPosition;
     //         }
     //       `;
     //       shader.vertexShader = shader.vertexShader.replace(
@@ -307,23 +304,23 @@ export default class ShaderStudy extends React.Component {
     //       shader.vertexShader = shader.vertexShader.replace("}", vertexColor);
           
     //       const fragment = `
-    //         varying vec4 v_projectedTexcoord;
-    //         uniform sampler2D u_texture;
+    //       varying vec4 v_projectedTexcoord;
+    //       uniform sampler2D u_video;
     //         void main(){
     //       `;
     //       const fragmentColor = `
-              // vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
+    //           vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
 
-              // bool inRange = 
-              //     projectedTexcoord.x >= 0.0 &&
-              //     projectedTexcoord.x <= 1.0 &&
-              //     projectedTexcoord.y >= 0.0 &&
-              //     projectedTexcoord.y <= 1.0;
-              // float projectedAmount = inRange ? 1.0 : 0.0;
+    //           bool inRange = 
+    //               projectedTexcoord.x >= 0.0 &&
+    //               projectedTexcoord.x <= 1.0 &&
+    //               projectedTexcoord.y >= 0.0 &&
+    //               projectedTexcoord.y <= 1.0;
+    //           float projectedAmount = inRange ? 1.0 : 0.0;
 
-              // vec4 texColor = vec4(1., 1., 0., 1.);
-              // vec4 projectedTexColor = vec4(1., 0., 0., 1.);
-              // gl_FragColor = mix(texColor, projectedTexColor, projectedAmount);
+    //           vec4 texColor = vec4(1., 1., 0., 1.);
+    //           vec4 projectedTexColor = vec4(1., 0., 0., 1.);
+    //           gl_FragColor = mix(texColor, projectedTexColor, projectedAmount);
     //         }
     //       `;
     //       shader.fragmentShader = shader.fragmentShader.replace(
