@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-03-23 15:47:57
+ * @LastEditTime: 2023-04-16 23:03:02
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -73,6 +73,13 @@ import * as BABYLON from "babylonjs";
 import { MySphereGeometry } from "../sphere-libs/MySphereGeometry";
 import sky2_shader from "../sky-shaders/sky1";
 import video from '../assets/motor-repeat.webm'
+import vertex_14 from "../shaders/vertex-14";
+import fragment_14 from "../shaders/fragment-14";
+import vertex_14_color from "../shaders/vertex-14-color";
+import fragment_14_color from "../shaders/fragment-14-color";
+import { m4 } from "../webgl-libs/m4";
+import * as twgl from 'twgl.js'
+import {primitives} from 'twgl.js'
 
 export default class ShaderStudy extends React.Component {
   componentDidMount() {
@@ -166,7 +173,180 @@ export default class ShaderStudy extends React.Component {
 
     // this.dynamic_sky(renderer)    // 动态天空
 
-    this.video_test(renderer); // 视频融合
+    // this.video_test(renderer); // 视频融合
+
+    this.video_test2(renderer); // 视频融合2
+  }
+
+  async video_test2(renderer){
+    let { scene, camera, controls } = this.loadBasic(renderer);
+
+    const loader = new GLTFLoader();
+    const dracoLoader = new DRACOLoader();
+    dracoLoader.setDecoderPath("/draco/");
+    loader.setDRACOLoader(dracoLoader);
+
+    let gltf1 = await loader.loadAsync("/shaxi-main.glb");
+    scene.add(gltf1.scene);
+
+    const video = document.getElementById( 'motor_repeat' );
+    video.play();
+    const texture = new THREE.VideoTexture( video );
+
+    let plane = new THREE.PlaneGeometry(20, 20);
+    let mat = new THREE.MeshLambertMaterial({ map: texture});
+    let mesh = new THREE.Mesh(plane, mat);
+    // scene.add(mesh);
+
+    mesh.rotateY(Math.PI * 0.5);
+    mesh.position.x += 10;
+
+    const settings = {
+      posX: 20,
+      posY: 20,
+      posZ: 5,
+      targetX: 0,
+      targetY: 0,
+      targetZ: 0,
+      projWidth: 5,
+      projHeight: 5,
+    };
+    
+    const gui = new GUI();
+    gui.add(settings, 'posX');
+
+    let textureWorldMatrix = m4.lookAt(
+      [settings.posX, settings.posY, settings.posZ],          // position
+      [settings.targetX, settings.targetY, settings.targetZ], // target
+      [0, 1, 0],                                              // up
+    );
+    textureWorldMatrix = m4.scale(
+        textureWorldMatrix,
+        settings.projWidth, settings.projHeight, 1,
+    );
+    const textureMatrix = m4.inverse(textureWorldMatrix);
+
+    const sphereGeo = new THREE.SphereGeometry(10, 20, 20);
+    const sphereMat = new ShaderMaterial({
+      uniforms: {
+        u_world: {
+          value: m4.translation(0, 0, 0)
+        },
+        u_textureMatrix: {
+          value: textureMatrix
+        },
+        u_video: {
+          value: texture
+        } 
+      },
+      vertexShader: `
+        varying vec4 v_projectedTexcoord;
+        uniform mat4 u_world;
+        uniform mat4 u_textureMatrix;
+        varying vec2 v_uv;
+        
+        void main(){
+          v_uv = uv;
+          vec4 worldPosition = u_world * vec4(position, 1.0);
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          v_projectedTexcoord = u_textureMatrix * worldPosition;
+        }
+      `,
+      fragmentShader: `
+        varying vec4 v_projectedTexcoord;
+        uniform sampler2D u_video;
+        varying vec2 v_uv;
+        void main(){
+          vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
+
+          bool inRange = 
+              projectedTexcoord.x >= 0.0 &&
+              projectedTexcoord.x <= 1.0 &&
+              projectedTexcoord.y >= 0.0 &&
+              projectedTexcoord.y <= 1.0;
+          float projectedAmount = inRange ? 1.0 : 0.0;
+
+          vec4 texColor = vec4(1., 1., 0., 1.);
+          vec4 projectedTexColor = texture2D(u_video, projectedTexcoord.xy);
+          gl_FragColor = mix(texColor, projectedTexColor, projectedAmount);
+        }
+      `
+    })
+    const sphere = new THREE.Mesh(sphereGeo, sphereMat);
+    scene.add(sphere);
+
+    // scene.getObjectByName("主楼2").traverse((mesh) => {
+    //   if (mesh?.material) {
+    //     mesh.material = mesh.material.clone();
+    //     // mesh.material.transparent = true;
+    //     mesh.material.onBeforeCompile = (shader) => {
+    //       const uniforms = {
+    //         u_texture: { value: texture },
+    //       };
+    //       Object.assign(shader.uniforms, uniforms);
+
+    //       const vertex = `
+    //         varying vec4 v_projectedTexcoord;
+            // uniform mat4 u_world;
+            // uniform mat4 u_textureMatrix;
+    //         void main(){
+    //       `;
+    //       const vertexColor = `
+    //           vec4 worldPosition = u_world * vec4(position, 1.0);
+
+    //           gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            
+    //           v_projectedTexcoord = u_textureMatrix * worldPosition;
+    //         }
+    //       `;
+    //       shader.vertexShader = shader.vertexShader.replace(
+    //         "void main() {",
+    //         vertex
+    //       );
+
+    //       shader.vertexShader = shader.vertexShader.replace("}", vertexColor);
+          
+    //       const fragment = `
+    //         varying vec4 v_projectedTexcoord;
+    //         uniform sampler2D u_texture;
+    //         void main(){
+    //       `;
+    //       const fragmentColor = `
+              // vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
+
+              // bool inRange = 
+              //     projectedTexcoord.x >= 0.0 &&
+              //     projectedTexcoord.x <= 1.0 &&
+              //     projectedTexcoord.y >= 0.0 &&
+              //     projectedTexcoord.y <= 1.0;
+              // float projectedAmount = inRange ? 1.0 : 0.0;
+
+              // vec4 texColor = vec4(1., 1., 0., 1.);
+              // vec4 projectedTexColor = vec4(1., 0., 0., 1.);
+              // gl_FragColor = mix(texColor, projectedTexColor, projectedAmount);
+    //         }
+    //       `;
+    //       shader.fragmentShader = shader.fragmentShader.replace(
+    //         "void main() {",
+    //         fragment
+    //       );
+
+    //       shader.fragmentShader = shader.fragmentShader.replace(
+    //         "}",
+    //         fragmentColor
+    //       );
+    //     };
+    //   }
+    // });
+
+    function render() {
+      requestAnimationFrame(render);
+
+      renderer.render(scene, camera);
+
+      texture.update()
+    }
+    render();
   }
   async video_test(renderer) {
     let { scene, camera, controls } = this.loadBasic(renderer);

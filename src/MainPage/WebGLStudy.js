@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-03-22 21:09:11
  * @LastEditors: Wjh
- * @LastEditTime: 2023-04-05 23:29:01
+ * @LastEditTime: 2023-04-16 13:40:58
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -32,6 +32,14 @@ import vertex_11 from "../shaders/vertex-11";
 import fragment_11 from "../shaders/fragment-11";
 import vertex_12 from "../shaders/vertex-12";
 import fragment_12 from "../shaders/fragment-12";
+import vertex_13 from "../shaders/vertex-13";
+import fragment_13 from "../shaders/fragment-13";
+import vertex_13_color from "../shaders/vertex-13-color";
+import fragment_13_color from "../shaders/fragment-13-color";
+import vertex_14 from "../shaders/vertex-14";
+import fragment_14 from "../shaders/fragment-14";
+import vertex_14_color from "../shaders/vertex-14-color";
+import fragment_14_color from "../shaders/fragment-14-color";
 import { m3 } from "../webgl-libs/m3";
 import { webglLessonsUI } from "../webgl-libs/webgl-lessons-ui";
 import * as THREE from "three";
@@ -42,6 +50,7 @@ import * as twgl from 'twgl.js'
 import {primitives} from 'twgl.js'
 import {textureUtils} from '../webgl-libs/texture-utils'
 import chroma from '../webgl-libs/chroma.min.js'
+import ftexture from '../assets/f-texture.png'
 window.THREE = THREE;
 window.m3 = m3;
 
@@ -61,12 +70,551 @@ export default class WebGLStudy extends React.Component {
     // this.ninth();     // 绘制多个物体
     // this.primitives_test();
     // this.tenth();   // WebGL三维纹理、码少趣多
-    this.eleventh();  // WebGL多视图、多画布
+    // this.eleventh();  // WebGL多视图、多画布
     // this.twelfth();   // WebGL可视化相机
+    this.thirteen();    // WebGL平面的和透视的投影映射
+  }
+  thirteen(){
+    let gl = document.querySelector('#box').getContext('webgl');
+
+    const textureProgramInfo = twgl.createProgramInfo(gl, [vertex_14, fragment_14]);
+    const colorProgramInfo = twgl.createProgramInfo(gl, [vertex_14_color, fragment_14_color]);
+
+    const sphereBufferInfo = primitives.createSphereBufferInfo(
+      gl,
+      1,  // radius
+      12, // subdivisions around
+      6,  // subdivisions down
+    );
+    const planeBufferInfo = primitives.createPlaneBufferInfo(
+        gl,
+        20,  // width
+        20,  // height
+        1,   // subdivisions across
+        1,   // subdivisions down
+    );
+    const cubeLinesBufferInfo = twgl.createBufferInfoFromArrays(gl, {
+      position: [
+        -1, -1, -1,
+        1, -1, -1,
+        -1,  1, -1,
+        1,  1, -1,
+        -1, -1,  1,
+        1, -1,  1,
+        -1,  1,  1,
+        1,  1,  1,
+      ],
+      indices: [
+        0, 1,
+        1, 3,
+        3, 2,
+        2, 0,
+
+        4, 5,
+        5, 7,
+        7, 6,
+        6, 4,
+
+        0, 4,
+        1, 5,
+        3, 7,
+        2, 6,
+      ],
+    });
+
+    // make a 8x8 checkerboard texture
+    const checkerboardTexture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, checkerboardTexture);
+    gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,                // mip level
+        gl.LUMINANCE,     // internal format
+        8,                // width
+        8,                // height
+        0,                // border
+        gl.LUMINANCE,     // format
+        gl.UNSIGNED_BYTE, // type
+        new Uint8Array([  // data
+          0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC,
+          0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF,
+          0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC,
+          0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF,
+          0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC,
+          0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF,
+          0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC,
+          0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF, 0xCC, 0xFF,
+        ]));
+    gl.generateMipmap(gl.TEXTURE_2D);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+
+    function loadImageTexture(url) {
+      // Create a texture.
+      const texture = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      // Fill the texture with a 1x1 blue pixel.
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE,
+                    new Uint8Array([0, 0, 255, 255]));
+      // Asynchronously load an image
+      const image = new Image();
+      image.src = url;
+      image.crossOrigin = 'anonymous';
+      image.addEventListener('load', function() {
+        // Now that the image has loaded make copy it to the texture.
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,gl.UNSIGNED_BYTE, image);
+        // assumes this texture is a power of 2
+        gl.generateMipmap(gl.TEXTURE_2D);
+        render();
+      });
+      return texture;
+    }
+
+    const imageTexture = loadImageTexture('https://webglfundamentals.org/webgl/resources/f-texture.png');  
+
+    function degToRad(d) {
+      return d * Math.PI / 180;
+    }
+
+    const settings = {
+      cameraX: 2.75,
+      cameraY: 5,
+      posX: 2.5,
+      posY: 4.8,
+      posZ: 4.3,
+      targetX: 2.5,
+      targetY: 0,
+      targetZ: 3.5,
+      projWidth: 1,
+      projHeight: 1,
+      perspective: true,
+      fieldOfView: 45,
+    };
+    webglLessonsUI.setupUI(document.querySelector('#ui'), settings, [
+      { type: 'slider',   key: 'cameraX',    min: -10, max: 10, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'cameraY',    min:   1, max: 20, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'posX',       min: -10, max: 10, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'posY',       min:   1, max: 20, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'posZ',       min:   1, max: 20, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'targetX',    min: -10, max: 10, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'targetY',    min:   0, max: 20, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'targetZ',    min: -10, max: 20, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'projWidth',  min:   0, max:  2, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'projHeight', min:   0, max:  2, change: render, precision: 2, step: 0.001, },
+      { type: 'checkbox', key: 'perspective', change: render, },
+      { type: 'slider',   key: 'fieldOfView', min:  1, max: 179, change: render, },
+    ]);
+
+    const fieldOfViewRadians = degToRad(60);
+
+    // Uniforms for each object.
+    const planeUniforms = {
+      u_colorMult: [0.5, 0.5, 1, 1],  // lightblue
+      u_texture: checkerboardTexture,
+      u_world: m4.translation(0, 0, 0),
+    };
+    const sphereUniforms = {
+      u_colorMult: [1, 0.5, 0.5, 1],  // pink
+      u_texture: checkerboardTexture,
+      u_world: m4.translation(2, 3, 4),
+    };
+
+    function drawScene(projectionMatrix, cameraMatrix) {
+      // Make a view matrix from the camera matrix.
+      const viewMatrix = m4.inverse(cameraMatrix);
+
+      const textureWorldMatrix = m4.lookAt(
+          [settings.posX, settings.posY, settings.posZ],          // position
+          [settings.targetX, settings.targetY, settings.targetZ], // target
+          [0, 1, 0],                                              // up
+      );
+      const textureProjectionMatrix = settings.perspective
+          ? m4.perspective(
+              degToRad(settings.fieldOfView),
+              settings.projWidth / settings.projHeight,
+              0.1,  // near
+              200)  // far
+          : m4.orthographic(
+              -settings.projWidth / 2,   // left
+              settings.projWidth / 2,   // right
+              -settings.projHeight / 2,  // bottom
+              settings.projHeight / 2,  // top
+              0.1,                      // near
+              200);                     // far
+
+      let textureMatrix = m4.identity();
+      textureMatrix = m4.translate(textureMatrix, 0.5, 0.5, 0.5);
+      textureMatrix = m4.scale(textureMatrix, 0.5, 0.5, 0.5);
+      textureMatrix = m4.multiply(textureMatrix, textureProjectionMatrix);
+      // use the inverse of this world matrix to make
+      // a matrix that will transform other positions
+      // to be relative this world space.
+      textureMatrix = m4.multiply(
+          textureMatrix,
+          m4.inverse(textureWorldMatrix));
+
+      gl.useProgram(textureProgramInfo.program);
+
+      // set uniforms that are the same for both the sphere and plane
+      twgl.setUniforms(textureProgramInfo, {
+        u_view: viewMatrix,
+        u_projection: projectionMatrix,
+        u_textureMatrix: textureMatrix,
+        u_projectedTexture: imageTexture,
+      });
+
+      // ------ Draw the sphere --------
+
+      // Setup all the needed attributes.
+      twgl.setBuffersAndAttributes(gl, textureProgramInfo, sphereBufferInfo);
+
+      // Set the uniforms unique to the sphere
+      twgl.setUniforms(textureProgramInfo, sphereUniforms);
+
+      // calls gl.drawArrays or gl.drawElements
+      twgl.drawBufferInfo(gl, sphereBufferInfo);
+
+      // ------ Draw the plane --------
+
+      // Setup all the needed attributes.
+      twgl.setBuffersAndAttributes(gl, textureProgramInfo, planeBufferInfo);
+
+      // Set the uniforms we just computed
+      twgl.setUniforms(textureProgramInfo, planeUniforms);
+
+      // calls gl.drawArrays or gl.drawElements
+      twgl.drawBufferInfo(gl, planeBufferInfo);
+
+      // ------ Draw the cube ------
+
+      gl.useProgram(colorProgramInfo.program);
+
+      // Setup all the needed attributes.
+      twgl.setBuffersAndAttributes(gl, colorProgramInfo, cubeLinesBufferInfo);
+
+      // scale the cube in Z so it's really long
+      // to represent the texture is being projected to
+      // infinity
+      const mat = m4.multiply(
+          textureWorldMatrix, m4.inverse(textureProjectionMatrix));
+
+      // Set the uniforms we just computed
+      twgl.setUniforms(colorProgramInfo, {
+        u_color: [0, 0, 0, 1],
+        u_view: viewMatrix,
+        u_projection: projectionMatrix,
+        u_world: mat,
+      });
+
+      // calls gl.drawArrays or gl.drawElements
+      twgl.drawBufferInfo(gl, cubeLinesBufferInfo, gl.LINES);
+    }
+
+    // Draw the scene.
+    function render() {
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+
+      // Tell WebGL how to convert from clip space to pixels
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
+
+      // Clear the canvas AND the depth buffer.
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // Compute the projection matrix
+      const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+      const projectionMatrix =
+          m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+      // Compute the camera's matrix using look at.
+      const cameraPosition = [settings.cameraX, settings.cameraY, 7];
+      const target = [0, 0, 0];
+      const up = [0, 1, 0];
+      const cameraMatrix = m4.lookAt(cameraPosition, target, up);
+
+      drawScene(projectionMatrix, cameraMatrix);
+    }
+    render();
+    
   }
   twelfth(){
     let gl = document.querySelector('#box').getContext('webgl');
 
+    const vertexColorProgramInfo = twgl.createProgramInfo(gl, [vertex_13, fragment_13]);
+    const solidColorProgramInfo = twgl.createProgramInfo(gl, [vertex_13_color, fragment_13_color]);
+
+    const fBufferInfo = primitives.create3DFBufferInfo(gl);
+
+    function createClipspaceCubeBufferInfo(gl) {
+      // 首先，让我们添加一个立方体。它的范围是 1 到 3，
+      // 因为相机看向的是 -Z 方向，所以我们想要相机在 Z = 0 处开始。
+      // 我们会把一个圆锥放到该立方体的前面，
+      // 且该圆锥的开口方向朝 -Z 方向。
+      const positions = [
+        -1, -1, -1,  // 立方体的顶点
+         1, -1, -1,
+        -1,  1, -1,
+         1,  1, -1,
+        -1, -1,  1,
+         1, -1,  1,
+        -1,  1,  1,
+         1,  1,  1,
+      ];
+      const indices = [
+        0, 1, 1, 3, 3, 2, 2, 0, // 立方体的索引
+        4, 5, 5, 7, 7, 6, 6, 4,
+        0, 4, 1, 5, 3, 7, 2, 6,
+      ];
+      return twgl.createBufferInfoFromArrays(gl, {
+        position: positions,
+        indices,
+      });
+    }
+
+    // create geometry for a camera
+    function createCameraBufferInfo(gl, scale = 1) {
+      // first let's add a cube. It goes from 1 to 3
+      // because cameras look down -Z so we want
+      // the camera to start at Z = 0. We'll put a
+      // a cone in front of this cube opening
+      // toward -Z
+      const positions = [
+        -1, -1,  1,  // cube vertices
+        1, -1,  1,
+        -1,  1,  1,
+        1,  1,  1,
+        -1, -1,  3,
+        1, -1,  3,
+        -1,  1,  3,
+        1,  1,  3,
+        0,  0,  1,  // cone tip
+      ];
+      const indices = [
+        0, 1, 1, 3, 3, 2, 2, 0, // cube indices
+        4, 5, 5, 7, 7, 6, 6, 4,
+        0, 4, 1, 5, 3, 7, 2, 6,
+      ];
+      // add cone segments
+      const numSegments = 6;
+      const coneBaseIndex = positions.length / 3;
+      const coneTipIndex =  coneBaseIndex - 1;
+      for (let i = 0; i < numSegments; ++i) {
+        const u = i / numSegments;
+        const angle = u * Math.PI * 2;
+        const x = Math.cos(angle);
+        const y = Math.sin(angle);
+        positions.push(x, y, 0);
+        // line from tip to edge
+        indices.push(coneTipIndex, coneBaseIndex + i);
+        // line from point on edge to next point on edge
+        indices.push(coneBaseIndex + i, coneBaseIndex + (i + 1) % numSegments);
+      }
+      positions.forEach((v, ndx) => {
+        positions[ndx] *= scale;
+      });
+      return twgl.createBufferInfoFromArrays(gl, {
+        position: positions,
+        indices,
+      });
+    }
+
+    const cameraScale = 20;
+    const cameraBufferInfo = createCameraBufferInfo(gl, cameraScale);
+
+    const clipspaceCubeBufferInfo = createClipspaceCubeBufferInfo(gl);
+
+    function degToRad(d) {
+      return d * Math.PI / 180;
+    }
+
+    const settings = {
+      rotation: 150,  // in degrees
+      cam1FieldOfView: 60,  // in degrees
+      cam1PosX: 0,
+      cam1PosY: 0,
+      cam1PosZ: -200,
+      cam1Near: 30,
+      cam1Far: 500,
+    };
+    webglLessonsUI.setupUI(document.querySelector('#ui'), settings, [
+      { type: 'slider',   key: 'rotation',     min: 0, max: 360, change: render, precision: 2, step: 0.001, },
+      { type: 'slider',   key: 'cam1FieldOfView',  min: 1, max: 170, change: render, },
+      { type: 'slider',   key: 'cam1PosX',     min: -200, max: 200, change: render, },
+      { type: 'slider',   key: 'cam1PosY',     min: -200, max: 200, change: render, },
+      { type: 'slider',   key: 'cam1PosZ',     min: -200, max: 200, change: render, },
+    ]);
+
+    function drawScene(projectionMatrix, cameraMatrix, worldMatrix) {
+      // Clear the canvas AND the depth buffer.
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      // Make a view matrix from the camera matrix.
+      const viewMatrix = m4.inverse(cameraMatrix);
+
+      let mat = m4.multiply(projectionMatrix, viewMatrix);
+      mat = m4.multiply(mat, worldMatrix);
+
+      gl.useProgram(vertexColorProgramInfo.program);
+
+      // ------ Draw the F --------
+
+      // Setup all the needed attributes.
+      twgl.setBuffersAndAttributes(gl, vertexColorProgramInfo, fBufferInfo);
+
+      // Set the uniforms
+      twgl.setUniforms(vertexColorProgramInfo, {
+        u_matrix: mat,
+      });
+
+      twgl.drawBufferInfo(gl, fBufferInfo);
+    }
+
+    function render() {
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
+      gl.enable(gl.SCISSOR_TEST);
+
+      // we're going to split the view in 2
+      const effectiveWidth = gl.canvas.clientWidth / 2;
+      const aspect = effectiveWidth / gl.canvas.clientHeight;
+      const near = 1;
+      const far = 2000;
+
+      // Compute a perspective projection matrix
+      const perspectiveProjectionMatrix =
+          m4.perspective(degToRad(settings.cam1FieldOfView), aspect, settings.cam1Near, settings.cam1Far);
+
+      // Compute the camera's matrix using look at.
+      const cameraPosition = [
+          settings.cam1PosX,
+          settings.cam1PosY,
+          settings.cam1PosZ,
+      ];
+      const target = [0, 0, 0];
+      const up = [0, 1, 0];
+      const cameraMatrix = m4.lookAt(cameraPosition, target, up);
+
+      let worldMatrix = m4.yRotation(degToRad(settings.rotation));
+      worldMatrix = m4.xRotate(worldMatrix, degToRad(settings.rotation));
+      // center the 'F' around its origin
+      worldMatrix = m4.translate(worldMatrix, -35, -75, -5);
+
+      const {width, height} = gl.canvas;
+      const leftWidth = width / 2 | 0;
+
+      // draw on the left with orthographic camera
+      gl.viewport(0, 0, leftWidth, height);
+      gl.scissor(0, 0, leftWidth, height);
+      gl.clearColor(1, 0.8, 0.8, 1);
+
+      drawScene(perspectiveProjectionMatrix, cameraMatrix, worldMatrix);
+
+      // draw on right with perspective camera
+      const rightWidth = width - leftWidth;
+      gl.viewport(leftWidth, 0, rightWidth, height);
+      gl.scissor(leftWidth, 0, rightWidth, height);
+      gl.clearColor(0.8, 0.8, 1, 1);
+
+      // compute a second projection matrix and a second camera
+      const perspectiveProjectionMatrix2 =
+          m4.perspective(degToRad(60), aspect, near, far);
+
+      // Compute the camera's matrix using look at.
+      const cameraPosition2 = [-600, 400, -400];
+      const target2 = [0, 0, 0];
+      const cameraMatrix2 = m4.lookAt(cameraPosition2, target2, up);
+
+      drawScene(perspectiveProjectionMatrix2, cameraMatrix2, worldMatrix);
+
+      // draw object to represent first camera
+      {
+        // Make a view matrix from the 2nd camera matrix.
+        const viewMatrix = m4.inverse(cameraMatrix2);
+
+        let mat = m4.multiply(perspectiveProjectionMatrix2, viewMatrix);
+        // use the first's camera's matrix as the matrix to position
+        // the camera's representative in the scene
+        mat = m4.multiply(mat, cameraMatrix);
+
+        gl.useProgram(solidColorProgramInfo.program);
+
+        // ------ Draw the Camera Representation --------
+
+        // Setup all the needed attributes.
+        twgl.setBuffersAndAttributes(gl, solidColorProgramInfo, cameraBufferInfo);
+
+        // Set the uniforms
+        twgl.setUniforms(solidColorProgramInfo, {
+          u_matrix: mat,
+          u_color: [0, 0, 0, 1],
+        });
+
+        twgl.drawBufferInfo(gl, cameraBufferInfo, gl.LINES);
+
+        // 绘制视椎体
+        mat = m4.multiply(mat, m4.inverse(perspectiveProjectionMatrix));
+
+        twgl.setBuffersAndAttributes(gl, solidColorProgramInfo, clipspaceCubeBufferInfo);
+
+        twgl.setUniforms(solidColorProgramInfo, {
+          u_matrix: mat,
+          u_color: [0,0,0,1],
+        });
+
+        twgl.drawBufferInfo(gl, clipspaceCubeBufferInfo, gl.LINES);
+      }
+    }
+    render();
+
+    // 为一个相机创建几何
+    function createCameraBufferInfo(gl, scale = 1) {
+      // first let's add a cube. It goes from 1 to 3
+      // because cameras look down -Z so we want
+      // the camera to start at Z = 0. We'll put a
+      // a cone in front of this cube opening
+      // toward -Z
+      const positions = [
+        -1, -1,  1,  // cube vertices
+         1, -1,  1,
+        -1,  1,  1,
+         1,  1,  1,
+        -1, -1,  3,
+         1, -1,  3,
+        -1,  1,  3,
+         1,  1,  3,
+         0,  0,  1,  // cone tip
+      ];
+      const indices = [
+        0, 1, 1, 3, 3, 2, 2, 0, // cube indices
+        4, 5, 5, 7, 7, 6, 6, 4,
+        0, 4, 1, 5, 3, 7, 2, 6,
+      ];
+      // add cone segments
+      const numSegments = 6;
+      const coneBaseIndex = positions.length / 3;
+      const coneTipIndex =  coneBaseIndex - 1;
+      for (let i = 0; i < numSegments; ++i) {
+        const u = i / numSegments;
+        const angle = u * Math.PI * 2;
+        const x = Math.cos(angle);
+        const y = Math.sin(angle);
+        positions.push(x, y, 0);
+        // line from tip to edge
+        indices.push(coneTipIndex, coneBaseIndex + i);
+        // line from point on edge to next point on edge
+        indices.push(coneBaseIndex + i, coneBaseIndex + (i + 1) % numSegments);
+      }
+      positions.forEach((v, ndx) => {
+        positions[ndx] *= scale;
+      });
+      return twgl.createBufferInfoFromArrays(gl, {
+        position: positions,
+        indices,
+      });
+    }
   }
   eleventh(){
     let gl = document.querySelector('#box').getContext('webgl');
@@ -2814,6 +3362,13 @@ export default class WebGLStudy extends React.Component {
         <canvas id="box" style={{ width: "100%", height: "100%" }} />
         <div id="uiContainer">
           <div id="ui">
+            <div id="cameraX"></div>
+            <div id="cameraY"></div>
+            <div id="rotation"></div>
+            <div id="cam1FieldOfView"></div>
+            <div id="cam1PosX"></div>
+            <div id="cam1PosY"></div>
+            <div id="cam1PosZ"></div>
             <div id="fRotation"></div>
             <div id="lightRotationX"></div>
             <div id="lightRotationY"></div>
