@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2022-09-26 13:03:36
  * @LastEditors: Wjh
- * @LastEditTime: 2023-04-17 00:02:09
+ * @LastEditTime: 2023-04-17 00:06:35
  * @FilePath: \howfar\src\MainPage\ShaderStudy2.js
  * @Description:
  *
@@ -186,8 +186,8 @@ export default class ShaderStudy extends React.Component {
     dracoLoader.setDecoderPath("/draco/");
     loader.setDRACOLoader(dracoLoader);
 
-    let gltf1 = await loader.loadAsync("/shaxi-main.glb");
-    scene.add(gltf1.scene);
+    // let gltf1 = await loader.loadAsync("/shaxi-main.glb");
+    // scene.add(gltf1.scene);
 
     const video = document.getElementById( 'motor_repeat' );
     video.play();
@@ -213,7 +213,9 @@ export default class ShaderStudy extends React.Component {
     };
     
     const gui = new GUI();
-    gui.add(settings, 'posX').onChange(change);
+    gui.add(settings, 'posX', 0, 50).onChange(change);
+    gui.add(settings, 'posY', 0, 50).onChange(change);
+    gui.add(settings, 'posZ', 0, 50).onChange(change);
 
     const u_textureMatrix = {value: m4.identity()}
     function change(){
