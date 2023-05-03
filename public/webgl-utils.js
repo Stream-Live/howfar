@@ -29,7 +29,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-
+(function(root, factory) {  // eslint-disable-line
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define([], function() {
+      return factory.call(root);
+    });
+  } else {
+    // Browser globals
+    root.webglUtils = factory.call(root);
+  }
+}(this, function() {
+  'use strict';
 
   const topWindow = this;
 
@@ -1335,7 +1346,7 @@
     }(HTMLCanvasElement.prototype.getContext);
   }
 
-  export default {
+  return {
     createAugmentedTypedArray: createAugmentedTypedArray,
     createAttribsFromArrays: createAttribsFromArrays,
     createBuffersFromArrays: createBuffersFromArrays,
@@ -1357,4 +1368,6 @@
     setBuffersAndAttributes: setBuffersAndAttributes,
     setUniforms: setUniforms,
   };
+
+}));
 

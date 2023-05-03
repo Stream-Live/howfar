@@ -2,7 +2,7 @@
  * @Author: Wjh
  * @Date: 2023-03-22 21:09:11
  * @LastEditors: Wjh
- * @LastEditTime: 2023-04-16 13:40:58
+ * @LastEditTime: 2023-05-02 17:27:35
  * @FilePath: \howfar\src\MainPage\WebGLStudy.js
  * @Description: 
  * 
@@ -40,14 +40,17 @@ import vertex_14 from "../shaders/vertex-14";
 import fragment_14 from "../shaders/fragment-14";
 import vertex_14_color from "../shaders/vertex-14-color";
 import fragment_14_color from "../shaders/fragment-14-color";
+import vertex_15 from "../shaders/vertex-15";
+import fragment_15 from "../shaders/fragment-15";
 import { m3 } from "../webgl-libs/m3";
 import { webglLessonsUI } from "../webgl-libs/webgl-lessons-ui";
 import * as THREE from "three";
-import { transition } from "d3";
 
 import { m4 } from "../webgl-libs/m4";
 import * as twgl from 'twgl.js'
+
 import {primitives} from 'twgl.js'
+// import  primitives from '../webgl-libs/primitives'
 import {textureUtils} from '../webgl-libs/texture-utils'
 import chroma from '../webgl-libs/chroma.min.js'
 import ftexture from '../assets/f-texture.png'
@@ -72,7 +75,125 @@ export default class WebGLStudy extends React.Component {
     // this.tenth();   // WebGL三维纹理、码少趣多
     // this.eleventh();  // WebGL多视图、多画布
     // this.twelfth();   // WebGL可视化相机
-    this.thirteen();    // WebGL平面的和透视的投影映射
+    // this.thirteen();    // WebGL平面的和透视的投影映射
+    this.fourteen();    // WebGL绘制多个物体
+  }
+  fourteen(){
+    let gl = document.querySelector('#box').getContext('webgl');
+    const sphereBufferInfo = primitives.createSphereBufferInfo(gl, 10, 12, 6);
+    const cubeBufferInfo = primitives.createCubeBufferInfo(gl, 20);
+    const coneBufferInfo = primitives.createTruncatedConeBufferInfo(gl, 10, 0, 20, 12, 1, true, false);
+
+    console.log(sphereBufferInfo);
+
+    const programInfo = twgl.createProgramInfo(gl, [vertex_15, fragment_15]);
+
+    function degToRad(d){
+      return d * Math.PI / 180;
+    }
+    let fieldOfViewRadians = degToRad(60);
+
+    var sphereUniforms = {
+      u_colorMult: [0.5, 1, 0.5, 1],
+      u_matrix: m4.identity(),
+    };
+    var cubeUniforms = {
+      u_colorMult: [1, 0.5, 0.5, 1],
+      u_matrix: m4.identity(),
+    };
+    var coneUniforms = {
+      u_colorMult: [0.5, 0.5, 1, 1],
+      u_matrix: m4.identity(),
+    };
+    var sphereTranslation = [  0, 0, 0];
+    var cubeTranslation   = [-40, 0, 0];
+    var coneTranslation   = [ 40, 0, 0];
+
+    function computeMatrix(viewProjectionMatrix, translation, xRotation, yRotation){
+      let matrix = m4.translate(viewProjectionMatrix,
+        translation[0],
+        translation[1],
+        translation[2]);
+      matrix = m4.xRotate(matrix, xRotation);
+      return m4.yRotate(matrix, yRotation);
+    }
+    requestAnimationFrame(drawScene);
+
+    function drawScene(time){
+      time *= 0.0005;
+
+      twgl.resizeCanvasToDisplaySize(gl.canvas);
+      gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+      gl.enable(gl.CULL_FACE);
+      gl.enable(gl.DEPTH_TEST);
+
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+      let aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+      let projectionMatrix = m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+      var cameraPosition = [0, 0, 100];
+      var target = [0, 0, 0];
+      var up = [0, 1, 0];
+      let cameraMatrix = m4.lookAt(cameraPosition, target, up);
+
+      let viewMatrix = m4.inverse(cameraMatrix);
+
+      let viewProjectionMatrix = m4.multiply(projectionMatrix, viewMatrix);
+
+      var sphereXRotation =  time;
+      var sphereYRotation =  time;
+      var cubeXRotation   = -time;
+      var cubeYRotation   =  time;
+      var coneXRotation   =  time;
+      var coneYRotation   = -time;
+
+      gl.useProgram(programInfo.program);
+
+      // 绘制球
+
+      twgl.setBuffersAndAttributes(gl, programInfo, sphereBufferInfo);
+      sphereUniforms.u_matrix = computeMatrix(
+        viewProjectionMatrix,
+        sphereTranslation,
+        sphereXRotation,
+        sphereYRotation
+      );
+
+      twgl.setUniforms(programInfo, sphereUniforms);
+      // gl.drawArrays(gl.TRIANGLES, 0, sphereBufferInfo.numElements);
+      twgl.drawBufferInfo(gl, sphereBufferInfo);
+
+      // 绘制正方体
+
+      twgl.setBuffersAndAttributes(gl, programInfo, cubeBufferInfo);
+
+      cubeUniforms.u_matrix = computeMatrix(
+        viewProjectionMatrix,
+        cubeTranslation,
+        cubeXRotation,
+        cubeYRotation
+      );
+      twgl.setUniforms(programInfo, cubeUniforms);
+
+      gl.drawArrays(gl.TRIANGLES, 0, cubeBufferInfo.numElements);
+
+      // 绘制圆锥
+      twgl.setBuffersAndAttributes(gl, programInfo, coneBufferInfo);
+
+      coneUniforms.u_matrix = computeMatrix(
+        viewProjectionMatrix,
+        coneTranslation,
+        coneXRotation,
+        coneYRotation
+      );
+      twgl.setUniforms(programInfo, coneUniforms);
+      gl.drawArrays(gl.TRIANGLES, 0, coneBufferInfo.numElements);
+      
+      requestAnimationFrame(drawScene)
+    }
+
   }
   thirteen(){
     let gl = document.querySelector('#box').getContext('webgl');

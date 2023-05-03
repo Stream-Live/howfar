@@ -29,15 +29,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-import webglUtils from './webgl-utils'
-import { m4 } from "./m4";
-
-console.log(webglUtils);
 /**
  * Various functions to make simple primitives
  *
  * @module primitives
  */
+(function(root, factory) {  // eslint-disable-line
+  if (typeof define === 'function' && define.amd) {
+    // AMD. Register as an anonymous module.
+    define(['./webgl-utils', './3d-math'], factory);
+  } else {
+    // Browser globals
+    root.primitives = factory.call(root);
+  }
+}(this, function(webglUtils, m4) {
+  'use strict';
+
+  webglUtils = webglUtils || this.webglUtils;
+  m4 = m4 || this.m4 || math3d;
 
   function allButIndices(name) {
     return name !== 'indices';
@@ -1106,7 +1115,7 @@ console.log(webglUtils);
 
 
 
-  export default {
+  return {
     create3DFBufferInfo: createBufferInfoFunc(create3DFVertices),
     create3DFBuffer: createBufferFunc(create3DFVertices),
     create3DFVertices,
@@ -1139,3 +1148,5 @@ console.log(webglUtils);
     reorientPositions,
     reorientVertices,
   };
+
+}));
